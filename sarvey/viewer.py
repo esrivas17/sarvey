@@ -477,7 +477,7 @@ class TimeSeriesViewer:
         self.initFigureMap()
         self.initFigureTimeseries()
         self.plotMap(val=None)
-        self.plotGWL()
+        self.plotGWL(val=None)
         self.fig1.canvas.mpl_connect('button_press_event', self.onClick)
         plt.show()
 
