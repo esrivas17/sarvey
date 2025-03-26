@@ -667,7 +667,7 @@ class TimeSeriesViewer:
 
     def plotGWL(self, val):
         self.gwl_sc = self.ax_img.scatter(self.gwl_x, self.gwl_y, s=10, marker='^', c='black', label='GWL')
-        plt.legend()
+        self.ax_img.legend()
         plt.draw()
 
 
