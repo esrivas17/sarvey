@@ -49,6 +49,7 @@ from mintpy.utils.plot import auto_flip_direction
 
 from sarvey.objects import AmplitudeImage, Points, BaseStack
 import sarvey.utils as ut
+from GWL_Network import GWL_Network
 
 
 from matplotlib.lines import Line2D
@@ -424,7 +425,7 @@ class ImageViewer:
 class TimeSeriesViewer:
     """TimeSeriesViewer."""
 
-    def __init__(self, *, point_obj: Points, vel_scale: str = "mm", input_path: str, logger: Logger):
+    def __init__(self, *, point_obj: Points, gwl_h5format: str, vel_scale: str = "mm", input_path: str, logger: Logger):
         """Init."""
         self.sc = None
         self.point_obj = point_obj
@@ -444,6 +445,11 @@ class TimeSeriesViewer:
             self.times = [datetime.date.fromisoformat(date) for date in point_obj.ifg_net_obj.dates]
         else:  # backwards compatible, if ifg_net_obj does not contain dates
             self.times = point_obj.ifg_net_obj.tbase
+
+        if gwl_h5format:
+            self.gwl_data = GWL_Network(gwl_h5format, mode='h5', startdate=self.times[0], enddate=self.times[-1])
+            gwl_xy = self.gwl_data.get_radar_coords(os.path.join(input_path, "geometryRadar.h5"))
+            self.gwl_x, self.gwl_y = [x[0] for x in gwl_xy], [x[1] for x in gwl_xy]
 
         vel, demerr, ref_atmo, coherence, omega, v_hat = ut.estimateParameters(obj=self.point_obj, ifg_space=False)
         self.vel = vel
@@ -656,6 +662,13 @@ class TimeSeriesViewer:
             self.ax_img.set_ylim(ax_img_ylim)
 
         plt.draw()
+
+
+    def plotGWL(self, val):
+        self.gwl_sc = self.ax_img.scatter(self.gwl_x, self.gwl_y, s=10, marker='^', c='black', label='GWL')
+        plt.legend()
+        plt.draw()
+        
 
     def updateButtonStatus(self, val: object):  # val seems to be unused, but its necessary for the function to work.
         """Set to true."""
