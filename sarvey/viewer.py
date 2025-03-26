@@ -693,7 +693,9 @@ class TimeSeriesViewer:
             if event.inaxes == self.ax_img:
                 y, x = int(event.ydata + 0.5), int(event.xdata + 0.5)
                 idx = self.tree.query([y, x])[-1]
-                _, ix_gwl = self.gwl_data.kdtree.query([y, x])
+                ggg, ix_gwl = self.gwl_data.kdtree.query([y, x])
+                print(f'Y: {y}, X: {x}')
+                print(f'ix GWL: {ggg} and {ix_gwl}')
                 gwl_station = self.gwl_data.stations[ix_gwl]
                 print(gwl_station.name)
                 y, x = self.point_obj.coord_xy[idx, :]
