@@ -477,6 +477,7 @@ class TimeSeriesViewer:
         self.initFigureMap()
         self.initFigureTimeseries()
         self.plotMap(val=None)
+        self.plotGWL()
         self.fig1.canvas.mpl_connect('button_press_event', self.onClick)
         plt.show()
 
@@ -668,7 +669,7 @@ class TimeSeriesViewer:
         self.gwl_sc = self.ax_img.scatter(self.gwl_x, self.gwl_y, s=10, marker='^', c='black', label='GWL')
         plt.legend()
         plt.draw()
-        
+
 
     def updateButtonStatus(self, val: object):  # val seems to be unused, but its necessary for the function to work.
         """Set to true."""
