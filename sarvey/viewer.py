@@ -693,6 +693,9 @@ class TimeSeriesViewer:
             if event.inaxes == self.ax_img:
                 y, x = int(event.ydata + 0.5), int(event.xdata + 0.5)
                 idx = self.tree.query([y, x])[-1]
+                _, ix_gwl = self.gwl_data.kdtree.query([y, x])
+                gwl_station = self.gwl_data.stations[ix_gwl]
+                print(gwl_station.name)
                 y, x = self.point_obj.coord_xy[idx, :]
 
                 if self.set_reference_point:  # update reference point
@@ -711,6 +714,8 @@ class TimeSeriesViewer:
                         y, x = self.point_obj.coord_xy[self.ts_point_idx, :]
                     self.ts_point_marker = self.ax_img.scatter(x, y, facecolors='none', edgecolors='k')
                 self.plotPointTimeseries(val=None)
+                gwl_station.scatterts()
+
         return
 
     def updateNeighbourhood(self, val):
@@ -842,6 +847,9 @@ class TimeSeriesViewer:
         # update figure
         self.fig1.canvas.draw()
         self.fig2.canvas.draw()
+
+    def plotGWLTimeSeries(self, val):
+        pass
 
 
 def selectNeighbourhood(searchtree: KDTree, coord_utm: np.ndarray, idx: int, radius: float):
