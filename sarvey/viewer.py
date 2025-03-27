@@ -745,6 +745,9 @@ class TimeSeriesViewer:
         self.demerr = demerr
         self.ref_atmo = ref_atmo
         self.plotMap(val=None)
+        if hasattr(self, 'gwl_data'):
+            self.plotGWL(val=None)
+        
 
     def prepareTimeseries(self, *, point_idx: int):
         """Prepare phase time series for plotting."""
