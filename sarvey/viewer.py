@@ -692,7 +692,7 @@ class TimeSeriesViewer:
         if event.button is MouseButton.RIGHT:
             if event.inaxes == self.ax_img:
                 y, x = int(event.ydata + 0.5), int(event.xdata + 0.5)
-                idx = self.tree.query([y, x])[-1]
+                idx = self.tree.query([x, y])[-1]
                 dists, ixs_gwl = self.gwl_data.kdtree.query([y, x], k=4)
                 for dd, ii in zip(dists, ixs_gwl):
                     if dd <= 20:
