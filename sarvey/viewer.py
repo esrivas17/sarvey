@@ -425,7 +425,7 @@ class ImageViewer:
 class TimeSeriesViewer:
     """TimeSeriesViewer."""
 
-    def __init__(self, *, point_obj: Points, gwl_h5format: str, vel_scale: str = "mm", input_path: str, logger: Logger):
+    def __init__(self, *, point_obj: Points, gwl_h5format: str, vel_scale: str = "mm", refidx: int, input_path: str, logger: Logger):
         """Init."""
         self.sc = None
         self.point_obj = point_obj
@@ -433,7 +433,7 @@ class TimeSeriesViewer:
         self.ts_point_idx = 0  # index of ts_point
         self.ts_refpoint_marker = None  # for reference point marker
         self.logger = logger
-        self.ts_refpoint_idx = None  # index of reference point
+        self.ts_refpoint_idx = refidx  # index of reference point
         self.vel_scale = vel_scale
         scale_dict = {"mm": 1000, "cm": 100, "dm": 10, "m": 1}
         if self.vel_scale not in scale_dict.keys():
@@ -449,8 +449,10 @@ class TimeSeriesViewer:
         if gwl_h5format:
             self.gwl_data = GWL_Network(gwl_h5format, mode='h5', startdate=self.times[0], enddate=self.times[-1])
             gwl_xy = self.gwl_data.get_radar_coords(os.path.join(input_path, "geometryRadar.h5"))
-            self.gwl_x, self.gwl_y = [x[0] for x in gwl_xy], [x[1] for x in gwl_xy]
+            self.gwl_x, self.gwl_y = np.array(gwl_xy).T
 
+        if self.ts_refpoint_idx > 0:
+            self.point_obj.phase -= self.point_obj.phase[self.ts_refpoint_idx, :]
         vel, demerr, ref_atmo, coherence, omega, v_hat = ut.estimateParameters(obj=self.point_obj, ifg_space=False)
         self.vel = vel
         self.demerr = demerr
@@ -460,6 +462,7 @@ class TimeSeriesViewer:
                                                               "background_map.h5"))
         self.bmap_obj.open()
         self.height = readfile.read(os.path.join(input_path, "geometryRadar.h5"), datasetName='height')[0]
+        self.loc_inc = readfile.read(os.path.join(input_path, "geometryRadar.h5"), datasetName='incidenceAngle')[0]
 
         temp_coh_obj = BaseStack(
             file=os.path.join(os.path.dirname(self.point_obj.file_path), "temporal_coherence.h5"),
@@ -667,7 +670,7 @@ class TimeSeriesViewer:
 
     def plotGWL(self, val):
         self.gwl_sc = self.ax_img.scatter(self.gwl_x, self.gwl_y, s=10, marker='^', c='black', label='GWL')
-        self.ax_img.legend()
+        self.ax_img.legend(loc = "upper right")
         plt.draw()
 
 
@@ -693,12 +696,7 @@ class TimeSeriesViewer:
             if event.inaxes == self.ax_img:
                 y, x = int(event.ydata + 0.5), int(event.xdata + 0.5)
                 idx = self.tree.query([y, x])[-1]
-                dists, ixs_gwl = self.gwl_data.kdtree.query([x, y], k=4)
-                for dd, ii in zip(dists, ixs_gwl):
-                    if dd <= 20:
-                        self.gwl_data.stations[ii].scatterts()
-
-                y, x = self.point_obj.coord_xy[idx, :]
+                #y, x = self.point_obj.coord_xy[idx, :]
 
                 if self.set_reference_point:  # update reference point
                     self.ts_refpoint_idx = idx
@@ -715,6 +713,16 @@ class TimeSeriesViewer:
                         self.ts_point_marker.remove()
                         y, x = self.point_obj.coord_xy[self.ts_point_idx, :]
                     self.ts_point_marker = self.ax_img.scatter(x, y, facecolors='none', edgecolors='k')
+                    ###################
+                    dists, ixs_gwl = self.gwl_data.kdtree.query([x, y], k=4)
+                    
+                    for dd, ii in zip(dists, ixs_gwl):
+                        if dd <= 20:
+                            incidence = self.loc_inc[x,y]
+                            mean_ts = self.meanNeighbourhoodTs()
+                            insarts = np.array([mean_ts, self.times]).T
+                            self.gwl_data.stations[ii].insarts(insarts, incidence)
+
                 self.plotPointTimeseries(val=None)
 
         return
@@ -805,6 +813,16 @@ class TimeSeriesViewer:
                 #                     '.', zorder=zorder, **style))
                 pass
 
+    def meanNeighbourhoodTs(self):
+        ts_list = list()
+        for idx in self.neighb_idx:
+            resulting_ts = self.prepareTimeseries(point_idx=idx)[0]
+            ts_list.append(resulting_ts)
+        ts_array = np.vstack(ts_list)
+        mean_ts = np.mean(ts_array, axis=0)
+        return mean_ts
+
+
     def plotPointTimeseries(self, val: object):  # val seems to be unused, but it is necessary for the function to work.
         """Plot_point_timeseries."""
         ts_query_point, line = self.prepareTimeseries(point_idx=self.ts_point_idx)
@@ -852,10 +870,6 @@ class TimeSeriesViewer:
         self.fig1.canvas.draw()
         self.fig2.canvas.draw()
 
-    def plotGWLTimeSeries(self, val):
-        pass
-
-
 def selectNeighbourhood(searchtree: KDTree, coord_utm: np.ndarray, idx: int, radius: float):
     """Select points within a certain radius around a point.
 
@@ -874,6 +888,7 @@ def selectNeighbourhood(searchtree: KDTree, coord_utm: np.ndarray, idx: int, rad
     neighb_idx.remove(idx)  # remove the query point
     neighb_mask = np.array([True if i in neighb_idx else False for i in range(len(coord_utm))])
     return neighb_idx, neighb_mask
+
 
 
 def plotNeighbourhoodMap(ax: plt.Axes, neighb_markers: Optional[PathCollection], neighb_coord_xy: np.ndarray):

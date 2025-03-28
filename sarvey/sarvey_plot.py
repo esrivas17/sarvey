@@ -161,7 +161,7 @@ def plotMap(*, obj_name: str, save_path: str, interactive: bool = False, input_p
         plt.close(plt.gcf())
 
 
-def plotTS(*, obj_name: str, input_path: str, input_gwl: str, logger: Logger):
+def plotTS(*, obj_name: str, input_path: str, input_gwl: str, refidx: int, logger: Logger):
     """Plot the derived displacement time series.
 
     Parameters
@@ -180,7 +180,7 @@ def plotTS(*, obj_name: str, input_path: str, input_gwl: str, logger: Logger):
     if point_obj.phase.shape[1] == point_obj.ifg_net_obj.num_ifgs:
         logger.warning(msg="File contains ifg phase and not phase time series. Cannot display.")
     else:
-        viewer.TimeSeriesViewer(point_obj=point_obj, gwl_h5format=input_gwl, logger=logger, input_path=input_path)
+        viewer.TimeSeriesViewer(point_obj=point_obj, gwl_h5format=input_gwl, logger=logger, refidx=refidx, input_path=input_path)
         plt.show()
 
 
@@ -348,6 +348,8 @@ def createParser():
     
     parser.add_argument('--gwl', dest='gwl_network', type=str, default=None, help='Path to GWL data saved as a h5 file')
 
+    parser.add_argument('--refidx', dest='refidx', type=int, default=-1, help='Set reference point based on index')
+
     return parser
 
 
@@ -410,7 +412,7 @@ def main(iargs=None):
     selected = False
     if args.plotTS:
         # todo: read input_path from config file in same directory as file to be able to load height from geometryRadar
-        plotTS(obj_name=args.input_file, input_path=config.general.input_path, input_gwl=args.gwl_network, logger=logger)
+        plotTS(obj_name=args.input_file, input_path=config.general.input_path, input_gwl=args.gwl_network, refidx=args.refidx, logger=logger)
         selected = True
 
     if args.plotPhase:
