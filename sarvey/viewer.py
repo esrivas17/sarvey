@@ -482,6 +482,7 @@ class TimeSeriesViewer:
         self.initFigureTimeseries()
         self.plotMap(val=None)
         self.plotGWL(val=None)
+        self.plotPointTimeseries(val=None)
         self.fig1.canvas.mpl_connect('button_press_event', self.onClick)
         plt.show()
 
@@ -719,7 +720,7 @@ class TimeSeriesViewer:
                     
                     for dd, ii in zip(dists, ixs_gwl):
                         if dd <= 20:
-                            incidence = self.loc_inc[x,y]
+                            incidence = self.loc_inc[y,x]
                             mean_ts = self.meanNeighbourhoodTs()
                             insarts = np.array([mean_ts, self.times]).T
                             self.gwl_data.stations[ii].insarts(insarts, incidence)
