@@ -452,6 +452,7 @@ class TimeSeriesViewer:
             self.gwl_x, self.gwl_y = np.array(gwl_xy).T
 
         if self.ts_refpoint_idx > 0:
+            self.logger.info(msg="changed reference to ID: {}".format(self.point_obj.point_id[self.ts_refpoint_idx]))
             self.point_obj.phase -= self.point_obj.phase[self.ts_refpoint_idx, :]
         vel, demerr, ref_atmo, coherence, omega, v_hat = ut.estimateParameters(obj=self.point_obj, ifg_space=False)
         self.vel = vel
