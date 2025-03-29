@@ -58,7 +58,7 @@ def main(iargs=None):
         times = point_obj.ifg_net_obj.tbase
 
     # Reference
-    y, x = args.raref
+    x, y = args.raref
     idx = tree.query([y, x])[-1]
     ts_point_idx = idx
     ts_refpoint_idx = idx
