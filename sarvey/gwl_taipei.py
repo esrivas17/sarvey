@@ -62,6 +62,11 @@ def main(iargs=None):
     idx = tree.query([y, x])[-1]
     ts_point_idx = idx
     ts_refpoint_idx = idx
+    
+    vel, demerr, ref_atmo, coherence, omega, v_hat = ut.estimateParameters(obj=point_obj, ifg_space=False)
+
+    # changing reference
+    print("changed reference to ID: {}".format(point_obj.point_id[ts_refpoint_idx]))
     logger.info(msg="changed reference to ID: {}".format(point_obj.point_id[ts_refpoint_idx]))
     point_obj.phase -= point_obj.phase[ts_refpoint_idx, :]
     vel, demerr, ref_atmo, coherence, omega, v_hat = ut.estimateParameters(obj=point_obj, ifg_space=False)
@@ -72,12 +77,15 @@ def main(iargs=None):
     #gwl_xs, gwl_ys = np.array(gwl_xy).T
 
     for station in gwl_data.stations:
+        print(f'Station: {station.name}')
         mean_ts = None
         gwlx, gwly = station.ll2xy(os.path.join(config.general.input_path, "geometryRadar.h5"))
 
         idx = tree.query([gwly, gwlx])[-1]
         gwl_ix = gwl_data.kdtree.query([x, y], k=4)
         neighb_idxs = tree_utm.query_ball_point(point_obj.coord_utm[idx, :], r=args.radius)
+
+        print(f'Num of neighbours: {len(neighb_idxs)}')
 
         # average of every single neighbour
         if len(neighb_idxs) == 1:
@@ -96,7 +104,10 @@ def main(iargs=None):
             mean_ts = np.mean(ts_array, axis=0)
         
         insarts = np.array([mean_ts, times]).T
-        station.insarts(insarts, args.savedir, False)
+        if station.name.lower() == 'sanchong':
+            station.insarts(insarts, args.savedir, True)
+        else:
+            station.insarts(insarts, args.savedir, False)
         
 
     
