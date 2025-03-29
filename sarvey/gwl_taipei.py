@@ -96,7 +96,7 @@ def main(iargs=None):
             mean_ts = np.mean(ts_array, axis=0)
         
         insarts = np.array([mean_ts, times]).T
-        station.insarts(insarts)
+        station.insarts(insarts, args.savedir, False)
         
 
     
@@ -125,6 +125,7 @@ def createParser():
                         help='Range and azimuth reference. X,Y')
     parser.add_argument('--radius', dest='radius', required=True, type=float, help='Radius for each GW well')
     parser.add_argument('--scale', dest='scale', choices=["mm", "dm", "cm", "m"], default="mm", help="displacement scale")
+    parser.add_argument('-s', '--savedir', dest='savedir', required=True, type=str, help='Directory to save figures')
     parser.add_argument('-w', '--workdir', default=None, dest="workdir",
                         help='Working directory (default: current directory).')
     
