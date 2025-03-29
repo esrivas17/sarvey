@@ -68,7 +68,7 @@ def main(iargs=None):
 
     # GWL
     gwl_data = GWL_Network(args.gwl_network, mode='h5', startdate=times[0], enddate=times[-1])
-    #gwl_xy = gwl_data.get_radar_coords(os.path.join(config.general.input_path, "geometryRadar.h5"))
+    gwl_xy = gwl_data.get_radar_coords(os.path.join(config.general.input_path, "geometryRadar.h5"))
     #gwl_xs, gwl_ys = np.array(gwl_xy).T
 
     for station in gwl_data.stations:
@@ -133,4 +133,3 @@ def createParser():
 
 if __name__ == "__main__":
     main()
-    
