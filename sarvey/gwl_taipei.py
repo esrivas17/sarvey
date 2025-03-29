@@ -104,10 +104,7 @@ def main(iargs=None):
             mean_ts = np.mean(ts_array, axis=0)
         
         insarts = np.array([mean_ts, times]).T
-        if station.name.lower() == 'sanchong':
-            station.insarts(insarts, args.savedir, True)
-        else:
-            station.insarts(insarts, args.savedir, False)
+        station.insarts(insarts, args.savedir, False)
         
 
     
