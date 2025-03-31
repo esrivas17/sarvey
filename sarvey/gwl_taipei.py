@@ -105,9 +105,10 @@ def main(iargs=None):
         
         insarts = np.array([mean_ts, times]).T
         #station.insarts(insarts, args.savedir, False)
-        station.gwl_insar_ts_gaussian(insarts, args.savedir)
-        station.gwl_insar_ts_savgol(insarts, args.savedir)
         station.gwl_insar(insarts, args.savedir)
+        #station.gwl_insar_ts_gaussian(insarts, args.savedir)
+        station.gwl_insar_ts_savgol(insarts, args.savedir)
+        
         
 
 def get_timeseries(point_obj, point_idx, vel, demerr, scale, flag_demerr=False):
