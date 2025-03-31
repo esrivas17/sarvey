@@ -91,23 +91,25 @@ def main(iargs=None):
         if len(neighb_idxs) == 1:
             mean_ts = get_timeseries(point_obj, neighb_idxs[0], vel, demerr, args.scale, False)
             mean_inc = point_obj.loc_inc[neighb_idxs[0]]
-            mean_ts = mean_ts*np.cos(np.deg2rad(mean_inc))
+            mean_ts = mean_ts/np.cos(np.deg2rad(mean_inc))
         elif len(neighb_idxs) > 1:
             ts_list = list()
 
             for neighix in neighb_idxs:
                 ts = get_timeseries(point_obj, neighix, vel, demerr, args.scale, False)
                 inc = point_obj.loc_inc[neighix]
-                ts_pseudo = ts*np.cos(np.deg2rad(inc))
+                ts_pseudo = ts/np.cos(np.deg2rad(inc))
                 ts_list.append(ts_pseudo)
             ts_array = np.vstack(ts_list)
             mean_ts = np.mean(ts_array, axis=0)
         
         insarts = np.array([mean_ts, times]).T
-        station.insarts(insarts, args.savedir, False)
+        #station.insarts(insarts, args.savedir, False)
+        station.gwl_insar_ts_gaussian(insarts, args.savedir)
+        station.gwl_insar_ts_savgol(insarts, args.savedir)
+        station.gwl_insar(insarts, args.savedir)
         
 
-    
 def get_timeseries(point_obj, point_idx, vel, demerr, scale, flag_demerr=False):
     """Prepare phase time series for plotting."""
         # transform phase time series into meters
@@ -119,6 +121,7 @@ def get_timeseries(point_obj, point_idx, vel, demerr, scale, flag_demerr=False):
         resulting_ts = resulting_ts - phase_topo
 
     return resulting_ts * scale_dict[scale]
+
 
 def createParser():
     """Create_parser."""
