@@ -149,9 +149,9 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_0_interferogram_network.png"), dpi=300)
         plt.close(fig)
         # at this point just created folder pic and ifg_network.h5
-        msg = "#" * 10
+        msg = "#" * 11
         msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
-        msg += "#" * 10
+        msg += "#" * 11
         log.info(msg=msg)
 
         box_list, num_patches = ut.preparePatches(num_patches=self.config.general.num_patches,
