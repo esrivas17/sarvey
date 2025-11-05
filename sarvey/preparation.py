@@ -200,6 +200,15 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         unit = "Temporal\nCoherence [ ]"
         cmap = "lajolla"
 
+    if selection_method == "adi":
+
+        adi_obj = BaseStack(file=join(path, "amplitude_dispersion.h5"), logger=logger)
+        quality = adi_obj.read(dataset_name="adi")
+        cand_mask = quality >= 0.4
+        grid_min_val = False
+        unit = "ADI"
+        cmap = "lajolla"
+
     if selection_method == "miaplpy":
         raise NotImplementedError("This part is not developed yet. MiaplPy data is read in another way.")
         # pl_coherence = readCoherenceFromMiaplpy(path=join(path, 'inverted', 'phase_series.h5'), box=None,

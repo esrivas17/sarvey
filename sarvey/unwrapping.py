@@ -1045,3 +1045,151 @@ def parameterBasedNoisyPointRemoval(*, net_par_obj: NetworkParameter, point_id: 
     # add spatialRefIdx back to point_id
     point_id = np.sort(np.hstack([spatial_ref_id, point_id]))
     return spatial_ref_id, point_id, net_par_obj
+
+
+def parameterBasedNoisyPointRemoval_Iter(*, net_par_obj: NetworkParameter, point_id: np.ndarray, coord_xy: np.ndarray,
+                                    design_mat: np.ndarray, rmse_thrsh: float = 0.02, num_points_remove: int = 1, niter= 100,
+                                    bmap_obj: AmplitudeImage = None, bool_plot: bool = False,
+                                    logger: Logger):
+    """Remove Points during spatial integration step if residuals at many connected arcs are high.
+
+    The idea is similar to outlier removal in DePSI, but without hypothesis testing.
+    It can be used as a preprocessing step to spatial integration.
+    The points are removed based on the RMSE computed from the residuals of the parameters (DEM error, velocity) per
+    arc. The point with the highest RMSE is removed in each iteration. The process stops when the maximum RMSE is below
+    a threshold.
+
+
+    Parameters
+    ----------
+    net_par_obj: NetworkParameter
+        The spatial NetworkParameter object containing the parameters estimates at each arc.
+    point_id: np.ndarray
+        ID of the points in the network.
+    coord_xy: np.ndarray
+        Radar coordinates of the points in the spatial network.
+    design_mat: np.ndarray
+        Design matrix describing the relation between arcs and points.
+    rmse_thrsh: float
+        Threshold for the RMSE of the residuals per point. Default = 0.02.
+    num_points_remove: int
+        Number of points to remove in each iteration. Default = 1.
+    bmap_obj: AmplitudeImage
+        Basemap object for plotting. Default = None.
+    bool_plot: bool
+        Plot the RMSE per point. Default = False.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    spatial_ref_id: int
+        ID of the spatial reference point.
+    point_id: np.ndarray
+        ID of the points in the network without the removed points.
+    net_par_obj: NetworkParameter
+        The NetworkParameter object without the removed points.
+    """
+    msg = "#" * 10
+    msg += " NOISY POINT REMOVAL BASED ON ARC PARAMETERS "
+    msg += "#" * 10
+    logger.info(msg=msg)
+
+    num_points = point_id.shape[0]
+
+    logger.info(msg="Selection of the reference PSC")
+    # select one of the two pixels which are connected via the arc with the highest quality
+    spatial_ref_idx = np.where(design_mat[np.argmax(net_par_obj.gamma), :] != 0)[0][0]
+    coord_xy = np.delete(arr=coord_xy, obj=spatial_ref_idx, axis=0)
+    spatial_ref_id = point_id[spatial_ref_idx]
+    point_id = np.delete(arr=point_id, obj=spatial_ref_idx, axis=0)
+    num_points -= 1
+
+    # remove reference point from design matrix
+    design_mat = net_par_obj.gamma * np.delete(arr=design_mat, obj=spatial_ref_idx, axis=1)
+
+    logger.info(msg="Spatial integration to detect noisy point")
+    start_time = time.time()
+
+    it_count = 0
+    while True:
+        logger.info(msg="ITERATION: {}".format(it_count))
+        design_mat = csr_matrix(design_mat)
+
+        if structural_rank(design_mat) < design_mat.shape[1]:
+            logger.error(msg="Singular normal matrix. Network is no longer connected!")
+            # point_id = np.sort(np.hstack([spatial_ref_id, point_id]))
+            # return spatial_ref_id, point_id, net_par_obj
+            raise ValueError
+        # demerr
+        obv_vec = net_par_obj.demerr.reshape(-1, )
+        demerr_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
+        r_demerr = obv_vec - np.matmul(design_mat.toarray(), demerr_points)
+
+        # vel
+        obv_vec = net_par_obj.vel.reshape(-1, )
+        vel_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
+        r_vel = obv_vec - np.matmul(design_mat.toarray(), vel_points)
+
+        rmse_demerr = np.zeros((num_points,))
+        rmse_vel = np.zeros((num_points,))
+        for p in range(num_points):
+            r_mask = design_mat[:, p].toarray() != 0
+            rmse_demerr[p] = np.sqrt(np.mean(r_demerr[r_mask.ravel()].ravel() ** 2))
+            rmse_vel[p] = np.sqrt(np.mean(r_vel[r_mask.ravel()].ravel() ** 2))
+
+        rmse = rmse_vel.copy()
+        max_rmse = np.max(rmse.ravel())
+        logger.info(msg="Maximum RMSE DEM correction: {:.2f} m".format(np.max(rmse_demerr.ravel())))
+        logger.info(msg="Maximum RMSE velocity: {:.4f} m / year".format(np.max(rmse_vel.ravel())))
+
+        if bool_plot:
+            # vel
+            ax = bmap_obj.plot(logger=logger)
+            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_vel * 1000, s=3.5,
+                            cmap=cmc.cm.cmaps["lajolla"], vmin=0, vmax=rmse_thrsh * 1000)
+            plt.colorbar(sc, pad=0.03, shrink=0.5)
+            ax.set_title("{}. iteration\nmean velocity - RMSE per point in [mm / year]".format(it_count))
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(dirname(net_par_obj.file_path), "pic", f"step_1_rmse_vel_{it_count}th_iter.png"),
+                        dpi=300)
+            plt.close(fig)
+
+            # demerr
+            ax = bmap_obj.plot(logger=logger)
+            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_demerr, s=3.5,
+                            cmap=cmc.cm.cmaps["lajolla"])
+            plt.colorbar(sc, pad=0.03, shrink=0.5)
+            ax.set_title("{}. iteration\nDEM correction - RMSE per point in [m]".format(it_count))
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(dirname(net_par_obj.file_path), "pic",
+                             f"step_1_rmse_dem_correction_{it_count}th_iter.png"),
+                        dpi=300)
+            plt.close(fig)
+
+        if max_rmse <= rmse_thrsh:
+            logger.info(msg="No noisy pixels detected.")
+            break
+
+        # remove point with highest rmse
+        p_mask = np.ones((num_points,), dtype=np.bool_)
+        p_mask[np.argsort(rmse)[::-1][:num_points_remove]] = False  # see description of function removeArcsByPointMask
+        net_par_obj, point_id, coord_xy, design_mat = removeArcsByPointMask(net_obj=net_par_obj, point_id=point_id,
+                                                                            coord_xy=coord_xy, p_mask=p_mask,
+                                                                            design_mat=design_mat.toarray(),
+                                                                            logger=logger)
+        num_points -= num_points_remove
+        if it_count > niter:
+            logger.info(msg=f"Maximum number of iterations reached ({niter}). Break")
+            break
+        it_count += 1
+
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+
+    # add spatialRefIdx back to point_id
+    point_id = np.sort(np.hstack([spatial_ref_id, point_id]))
+    return spatial_ref_id, point_id, net_par_obj

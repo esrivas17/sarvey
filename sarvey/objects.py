@@ -131,7 +131,7 @@ class AmplitudeImage:
         if ax is None:
             fig = plt.figure(figsize=(15, 5))
             ax = fig.add_subplot()
-        ax.imshow(self.background_map, cmap=cm.grayC)
+        ax.imshow(self.background_map, cmap=cm.grayC, aspect="auto")
         meta = {"ORBIT_DIRECTION": self.orbit_direction}
         auto_flip_direction(meta, ax=ax, print_msg=False)
 

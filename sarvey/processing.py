@@ -45,7 +45,8 @@ from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, Sma
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
 from sarvey.unwrapping import spatialParameterIntegration, \
-    parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers
+    parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers, \
+    parameterBasedNoisyPointRemoval_Iter
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence
@@ -221,10 +222,10 @@ class Processing:
         length, width, num_ifgs = ifg_stack_obj.getShape(dataset_name="ifgs")
 
         cand_mask1 = selectPixels(
-            path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
+            path=self.path, selection_method="adi", thrsh=self.config.consistency_check.coherence_p1,
             grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger
         )
-
+        self.logger.info(f"Number of pixels selected: {np.sum(cand_mask1)}")
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         mask_valid_area = ut.detectValidAreas(bmap_obj=bmap_obj, logger=self.logger)
 
@@ -348,16 +349,28 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        spatial_ref_id, point_id, net_par_obj = parameterBasedNoisyPointRemoval(
+       # spatial_ref_id, point_id, net_par_obj = parameterBasedNoisyPointRemoval(
+       #     net_par_obj=net_par_obj,
+       #     point_id=point_id,
+       #     coord_xy=coord_xy,
+       #     design_mat=design_mat,
+       #     bmap_obj=bmap_obj,
+       #     bool_plot=True,
+       #     logger=self.logger)
+
+        # function with iterations limit
+        spatial_ref_id, point_id, net_par_obj = parameterBasedNoisyPointRemoval_Iter(
             net_par_obj=net_par_obj,
             point_id=point_id,
             coord_xy=coord_xy,
             design_mat=design_mat,
+            num_points_remove=3,
+            rmse_thrsh=0.02,
+            niter=100,
             bmap_obj=bmap_obj,
             bool_plot=True,
             logger=self.logger
         )
-
         net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
         point_obj.writeToFile()
