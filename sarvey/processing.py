@@ -48,7 +48,7 @@ from sarvey.unwrapping import spatialParameterIntegration, \
     parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
 import sarvey.utils as ut
-from sarvey.coherence import computeIfgsAndTemporalCoherence
+from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsAndTemporalCoherence2
 from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
 
@@ -171,17 +171,34 @@ class Processing:
         temp_coh_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
                                     dshape=dshape, dtype=np.float32, mode="w", chunks=True)
 
-        mean_amp_img = computeIfgsAndTemporalCoherence(
-            path_temp_coh=join(self.path, "temporal_coherence.h5"),
-            path_ifgs=join(self.path, "ifg_stack.h5"),
-            path_slc=join(self.config.general.input_path, "slcStack.h5"),
-            ifg_array=np.array(ifg_net_obj.ifg_list),
-            time_mask=time_mask,
-            wdw_size=self.config.preparation.filter_window_size,
-            num_boxes=num_patches,
-            box_list=box_list,
-            num_cores=self.config.general.num_cores,
-            logger=log)
+        if self.config.preparation.uneven_kernel_tempcoh:
+            log.info(msg=f"CALCULATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
+            mean_amp_img = computeIfgsAndTemporalCoherence2(
+                path_temp_coh=join(self.path, "temporal_coherence.h5"),
+                path_ifgs=join(self.path, "ifg_stack.h5"),
+                path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                ifg_array=np.array(ifg_net_obj.ifg_list),
+                time_mask=time_mask,
+                wsize_range=self.config.preparation.filter_winsize_range,
+                wsize_azi=self.config.preparation.filter_winsize_azimuth,
+                num_boxes=num_patches,
+                box_list=box_list,
+                num_cores=self.config.general.num_cores,
+                logger=log)
+        else:
+            mean_amp_img = computeIfgsAndTemporalCoherence(
+                path_temp_coh=join(self.path, "temporal_coherence.h5"),
+                path_ifgs=join(self.path, "ifg_stack.h5"),
+                path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                ifg_array=np.array(ifg_net_obj.ifg_list),
+                time_mask=time_mask,
+                wdw_size=self.config.preparation.filter_window_size,
+                num_boxes=num_patches,
+                box_list=box_list,
+                num_cores=self.config.general.num_cores,
+                logger=log)
+        
+
 
         # store auxilliary datasets for faster access during processing
         coord_utm_obj = CoordinatesUTM(file_path=join(self.path, "coordinates_utm.h5"), logger=self.logger)

@@ -264,6 +264,24 @@ class Preparation(BaseModel, extra="forbid"):
         default=9
     )
 
+    uneven_kernel_tempcoh: bool = Field(
+        title="Uneven filter for temporal coherence",
+        description="Expects values from range and azimuth winsize",
+        default=True
+    )
+
+    filter_winsize_range: int = Field(
+        title="Size of filtering window [pixel] range",
+        description="Set the size of window for lowpass filtering in range.",
+        default=11
+    )
+
+    filter_winsize_azimuth: int = Field(
+        title="Size of filtering window [pixel] azimuth",
+        description="Set the size of window for lowpass filtering in azimuth.",
+        default=41
+    )
+
     @field_validator('start_date', 'end_date')
     def checkDates(cls, v):
         """Check if date format is valid."""

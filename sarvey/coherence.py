@@ -135,6 +135,104 @@ def computeIfgsAndTemporalCoherence(*, path_temp_coh: str, path_ifgs: str, path_
     logger.debug(msg='\ntime used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
     return mean_amp_img
 
+def computeIfgsAndTemporalCoherence2(*, path_temp_coh: str, path_ifgs: str, path_slc: str, ifg_array: np.ndarray,
+                                    time_mask: np.ndarray, wsize_range: int, wsize_azi: int, num_boxes: int, box_list: list,
+                                    num_cores: int, logger: Logger):
+    """ComputeIfgsAndTemporalCoherence.
+
+    Compute the interferograms and temporal coherence from the SLC stack for a given set of (spatial) patches.
+
+    Parameters
+    ----------
+    path_temp_coh : str
+        Path to the temporary coherence stack. The data will be stored in this file during processing.
+    path_ifgs : str
+        Path to the interferograms stack. The data will be stored in this file during processing.
+    path_slc : str
+        Path to the SLC stack. The data will be read from this file.
+    ifg_array : np.ndarray
+        Array containing the indices of the reference and secondary images which are used to compute the interferograms.
+    time_mask : np.ndarray
+        Binary mask indicating the selected images from the SLC stack.
+    wsize_range : int
+        Size of the filter window. Has to be odd.
+    wsize_azi : int
+        Size of the filter window. Has to be odd.
+    num_boxes : int
+        Number of patches to enable reading and processing of larger SLC stacks.
+    box_list : list
+        List containing the indices of each patch.
+    num_cores : int
+        Number of cores for parallel processing.
+    logger : Logger
+        Logger object.
+
+    Returns
+    -------
+    mean_amp_img : np.ndarray
+        Mean amplitude image.
+    """
+    start_time = time.time()
+    filter_kernel = np.ones((wsize_range, wsize_azi), dtype=np.float64)
+    filter_kernel[wsize_range // 2, wsize_azi // 2] = 0
+
+    slc_stack_obj = slcStack(path_slc)
+    slc_stack_obj.open()
+    temp_coh_obj = BaseStack(file=path_temp_coh, logger=logger)
+    ifg_stack_obj = BaseStack(file=path_ifgs, logger=logger)
+
+    mean_amp_img = np.zeros((slc_stack_obj.length, slc_stack_obj.width), dtype=np.float32)
+    num_ifgs = ifg_array.shape[0]
+
+    for idx in range(num_boxes):
+        bbox = box_list[idx]
+        block2d = convertBboxToBlock(bbox=bbox)
+
+        # read slc
+        slc = slc_stack_obj.read(datasetName='slc', box=bbox, print_msg=False)
+        slc = slc[time_mask, :, :]
+
+        mean_amp = np.mean(np.abs(slc), axis=0)
+        mean_amp[mean_amp == 0] = np.nan
+        mean_amp_img[bbox[1]:bbox[3], bbox[0]:bbox[2]] = np.log10(mean_amp)
+
+        # compute ifgs
+        ifgs = computeIfgs(slc=slc, ifg_array=ifg_array)
+        ifg_stack_obj.writeToFileBlock(data=ifgs, dataset_name="ifgs", block=block2d, print_msg=False)
+        del slc
+
+        # filter ifgs
+        avg_neighbours = np.zeros_like(ifgs)
+        if num_cores == 1:
+            for i in range(num_ifgs):
+                avg_neighbours[:, :, i] = convolve2d(in1=ifgs[:, :, i], in2=filter_kernel, mode='same', boundary="symm")
+        else:
+
+            args = [(
+                idx,
+                ifgs[:, :, idx],
+                filter_kernel) for idx in range(num_ifgs)]
+
+            with multiprocessing.Pool(processes=num_cores) as pool:
+                results = pool.map(func=launchConvolve2d, iterable=args)
+
+            # retrieve results
+            for j, avg_neigh in results:
+                avg_neighbours[:, :, j] = avg_neigh
+            del results, args, avg_neigh
+
+        # compute temporal coherence
+        residual_phase = np.angle(ifgs * np.conjugate(avg_neighbours))
+        del ifgs, avg_neighbours
+        temp_coh = np.abs(np.mean(np.exp(1j * residual_phase), axis=2))
+        temp_coh_obj.writeToFileBlock(data=temp_coh, dataset_name="temp_coh", block=block2d, print_msg=False)
+        del residual_phase, temp_coh
+        logger.info(msg="Patches processed:\t {}/{}".format(idx + 1, num_boxes))
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='\ntime used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
+    return mean_amp_img
+
 
 @jit(nopython=True)
 def computeIfgs(*, slc: np.ndarray, ifg_array: np.ndarray):
