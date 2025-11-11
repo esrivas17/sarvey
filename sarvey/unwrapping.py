@@ -40,6 +40,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import structural_rank
 from scipy.sparse.linalg import lsqr
 from scipy import stats
+from scipy.optimize import minimize
 from logging import Logger
 import cmcrameri as cmc
 
