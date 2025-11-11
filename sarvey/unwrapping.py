@@ -519,10 +519,10 @@ def launchSeasonalModelling(*, parameters: tuple, plot: False):
                 ax2.set_ylabel("Phase [rad]")
                 ax2.legend()
 
-                ax2.scatter(ifg_net_obj.datesf_ifg, phaseres, s=20, c='red', label="Residuals")
-                ax2.set_title(f"Phase residuals")
-                ax2.set_xlabel("Years")
-                ax2.set_ylabel("Phase [rad]")
+                ax3.scatter(ifg_net_obj.datesf_ifg, phaseres, s=20, c='red', label="Residuals")
+                ax3.set_title(f"Phase residuals")
+                ax3.set_xlabel("Years")
+                ax3.set_ylabel("Phase [rad]")
                 plt.tight_layout()
                 plt.show()
         else:
