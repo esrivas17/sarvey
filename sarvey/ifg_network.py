@@ -37,7 +37,8 @@ from typing import Union
 import warnings
 from logging import Logger
 from scipy.spatial import Delaunay
-
+import datetime as dt
+import pdb
 
 class IfgNetwork:
     """Abstract class/interface for different types of interferogram networks."""
@@ -98,15 +99,19 @@ class IfgNetwork:
         with h5py.File(path, 'r') as f:
             self.num_images = f.attrs["num_images"]
             self.num_ifgs = f.attrs["num_ifgs"]
+            self.type = f.attrs["type"]
 
             self.tbase_ifg = f['tbase_ifg'][:]
             self.pbase_ifg = f['pbase_ifg'][:]
             self.tbase = f['tbase'][:]
             self.pbase = f['pbase'][:]
             self.ifg_list = f['ifg_list'][:]
+            if self.type == 'star':
+                self.datesf_ifg = f['datesf_ifg'][:]
             try:
                 self.dates = f['dates'][:]
                 self.dates = [date.decode("utf-8") for date in self.dates]
+                self.dates_dt = [datetime.datetime.strptime(x, '%Y-%m-%d').date() for x in self.dates]
             except KeyError as ke:
                 self.dates = None
                 print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
@@ -133,13 +138,16 @@ class IfgNetwork:
         with h5py.File(path, 'w') as f:
             f.attrs["num_images"] = self.num_images
             f.attrs["num_ifgs"] = self.num_ifgs
-
+            f.attrs["type"] = self.type
+            
             f.create_dataset('tbase_ifg', data=self.tbase_ifg)
             f.create_dataset('pbase_ifg', data=self.pbase_ifg)
             f.create_dataset('tbase', data=self.tbase)
             f.create_dataset('pbase', data=self.pbase)
             f.create_dataset('ifg_list', data=self.ifg_list)
             f.create_dataset('dates', data=dates)
+            if self.type == 'star':
+                f.create_dataset('datesf_ifg', data=self.datesf_ifg)
 
 
 class StarNetwork(IfgNetwork):
@@ -163,6 +171,12 @@ class StarNetwork(IfgNetwork):
         self.tbase = tbase / 365.25
         self.num_images = pbase.shape[0]
         self.dates = dates
+        self.ref_idx = ref_idx
+        self.dates_dt = np.array([dt.datetime.strptime(x, '%Y-%m-%d').date() for x in dates])
+        tofyear = lambda x: x.year + (x.timetuple().tm_yday /365)
+        floatyear = np.vectorize(tofyear)
+        self.datesf = floatyear(self.dates_dt)
+        self.type = 'star'
 
         for i in range(self.num_images):
             if i == ref_idx:
@@ -171,6 +185,7 @@ class StarNetwork(IfgNetwork):
 
         self.pbase_ifg = np.delete(self.pbase - self.pbase[ref_idx], ref_idx)
         self.tbase_ifg = np.delete(self.tbase - self.tbase[ref_idx], ref_idx)
+        self.datesf_ifg = np.delete(self.datesf, ref_idx)
         self.num_ifgs = self.num_images - 1
 
 
@@ -195,6 +210,7 @@ class SmallTemporalBaselinesNetwork(IfgNetwork):
         self.tbase = tbase / 365.25
         self.num_images = pbase.shape[0]
         self.dates = dates
+        self.type = 'stb'
 
         for i in range(self.num_images):
             for j in range(num_link):
@@ -233,6 +249,7 @@ class SmallBaselineNetwork(IfgNetwork):
         self.num_images = pbase.shape[0]
         self.dates = dates
         flag_restrict_to_max_tbase = False
+        self.type = 'sb'
 
         # in this section use tbase in [days] (function argument, not self.)
         for i in range(self.num_images - 1):
@@ -288,6 +305,7 @@ class DelaunayNetwork(IfgNetwork):
         self.num_images = pbase.shape[0]
         self.dates = dates
         scale = 0.25
+        self.type = 'delunay'
 
         network = Delaunay(points=np.stack([self.pbase, self.tbase * 365.25 * scale]).T)
         for p1, p2, p3 in network.simplices:
@@ -322,6 +340,7 @@ class SmallBaselineYearlyNetwork(IfgNetwork):
         self.tbase = tbase / 365.25
         self.num_images = pbase.shape[0]
         self.dates = dates
+        self.type = 'syear'
 
         # add small temporal baselines
         for i in range(self.num_images):

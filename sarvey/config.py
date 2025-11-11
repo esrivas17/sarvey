@@ -75,6 +75,12 @@ class General(BaseModel, extra="forbid"):
         default='puma'
     )
 
+    adi_path: str = Field(
+        title="Amplitude dispersion file path",
+        description="Amplitude dispersion",
+        default="amplitude_dispersion.h5"
+    )
+
     logging_level: str = Field(
         title="Logging level.",
         description="Set loggig level.",
@@ -282,6 +288,12 @@ class Preparation(BaseModel, extra="forbid"):
         default=41
     )
 
+    quality_selection_method: str = Field(
+        title="amplitude dispersion or temporal coherence",
+        description="Select metric for pixel quality 'tcoh' and 'adi'.",
+        default='tcoh'
+    )
+
     @field_validator('start_date', 'end_date')
     def checkDates(cls, v):
         """Check if date format is valid."""
@@ -333,6 +345,12 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         title="Temporal coherence threshold for first-order points",
         description="Set the temporal coherence threshold of first-order points for the consistency check.",
         default=0.9
+    )
+
+    adi_p1: float = Field(
+        title="Maximum ADI threshold for first-order points",
+        description="Set the ADI threshold of first-order points for the consistency check.",
+        default=0.4
     )
 
     grid_size: int = Field(

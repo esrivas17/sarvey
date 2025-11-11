@@ -31,11 +31,13 @@
 import multiprocessing
 import time
 from os.path import exists, join
+import pdb
 
 import numpy as np
 from scipy.sparse.linalg import lsqr
 from typing import Union
 from logging import Logger
+import datetime as dt
 
 from mintpy.utils import ptime
 
@@ -211,12 +213,12 @@ def predictPhase(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, dem
             loc_inc=obj.loc_inc,
             ifg_space=ifg_space
         )
-    elif isinstance(obj, NetworkParameter):
+    elif isinstance(obj, Network): #NetworkParameter):
         pred_phase_demerr, pred_phase_vel = predictPhaseCore(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
-            vel=obj.vel,
-            demerr=obj.demerr,
+            vel=vel.T,
+            demerr=demerr.T,
             slant_range=obj.slant_range,
             loc_inc=obj.loc_inc,
             ifg_space=ifg_space
@@ -867,3 +869,30 @@ def checkIfRequiredFilesExist(*, path_to_files: str, required_files: list, logge
         if not exists(join(path_to_files, file)):
             logger.error(f"File from previous step(s) is missing: {file}.")
             raise FileNotFoundError
+
+def splitInYears(*, ifg_net_obj: IfgNetwork, logger:Logger):
+    logger.debug(f"SplitInYears Function")
+    if ifg_net_obj.type == 'star':
+        # times
+        dates_ifg = np.array([dt.datetime.strptime(x, '%Y-%m-%d').date() for x in ifg_net_obj.dates])
+        mindt = np.min(dates_ifg)
+        maxdt = np.max(dates_ifg)
+        logger.debug(f"min date: {mindt}, max date: {maxdt}")
+        if mindt.month <= 5:
+            minyear = mindt.year -1
+        else:
+            minyear = mindt.year
+        
+        maxyear = maxdt.year +1 
+
+        #nyears = maxyear - minyear
+        
+        # years mask
+        years = np.arange(minyear, maxyear+1, 1)
+        #assert years.size == nyears
+        nyears = years.size
+        logger.debug(f"Minyear: {minyear}, maxyear: {maxyear}, number of crest in model :{nyears}")
+        return years, nyears
+    else:
+        logger.error("Function only available for star network")
+

@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from logging import Logger
 from os.path import join
+import pdb
 
 import mintpy.utils.readfile as readfile
 
@@ -220,6 +221,8 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         grid_min_val = False
         unit = "Temporal\nCoherence [ ]"
         cmap = "lajolla"
+        logger.debug(
+        f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
 
     if selection_method == "miaplpy":
         error_msg = "This part is not developed yet. MiaplPy data is read in another way."
@@ -233,8 +236,22 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         # unit = "Phase-Linking\nCoherence [ ]"
         # cmap = "lajolla"
 
-    logger.debug(
-        f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
+    if selection_method == "adi":
+        adi_file = join(path, "amplitude_dispersion.h5")
+        logger.debug(f"Reading amplitude dispersion file: {adi_file}")
+        adi_obj = BaseStack(file=adi_file, logger=logger)
+        quality = adi_obj.read(dataset_name="adi")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels: [{np.min(quality):.2f}, {np.max(quality):.2f}].)")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels excluding invalid values: "
+                     f"[{np.nanmin(quality):.2f}, {np.nanmax(quality):.2f}].)")
+        cand_mask = quality <= thrsh
+        grid_min_val = False
+        unit = "ADI [ ]"
+        cmap = "lajolla"
+        logger.debug(
+        f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
+
+    
     if grid_size is not None:  # -> sparse pixel selection
         logger.debug(f"Select sparse pixels using grid size {grid_size} m.")
         coord_utm_file = join(path, "coordinates_utm.h5")
@@ -273,6 +290,43 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         plt.close(plt.gcf())
 
     return cand_mask
+
+
+def selectPixels_DemErr(*, path: str, demerr: np.array, thrsh: float,
+                 grid_size: int = None, bool_plot: bool = False, logger: Logger):
+    logger.debug(f"Selecting points based on threshold from dem err: {thrsh}")
+    cand_mask = demerr >= thrsh
+    grid_min_val = False
+    unit = f"Demerr {thrsh}: [ ]"
+    cmap = "lajolla"
+    logger.debug(
+    f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
+
+
+    if grid_size is not None:  # -> sparse pixel selection
+        logger.debug(f"Select sparse pixels using grid size {grid_size} m.")
+        coord_utm_file = join(path, "coordinates_utm.h5")
+        logger.debug(f"Reading coordinates from file: {coord_utm_file}")
+        coord_utm_obj = CoordinatesUTM(file_path=coord_utm_file, logger=logger)
+        coord_utm_obj.open()
+        box_list = ut.createSpatialGrid(coord_utm_img=coord_utm_obj.coord_utm,
+                                        length=coord_utm_obj.coord_utm.shape[1],
+                                        width=coord_utm_obj.coord_utm.shape[2],
+                                        grid_size=grid_size,
+                                        logger=logger)[0]
+        logger.debug(f"Number of grid boxes for sparse pixel selection: {len(box_list)}.")
+        cand_mask_sparse = ut.selectBestPointsInGrid(box_list=box_list, quality=demerr, sel_min=grid_min_val)
+        cand_mask &= cand_mask_sparse
+        logger.debug(f"Number of selected sparse pixels: {np.sum(cand_mask)}")
+        min_map_coord = np.min(coord_utm_obj.coord_utm[..., cand_mask], axis=1)
+        max_map_coord = np.max(coord_utm_obj.coord_utm[..., cand_mask], axis=1)
+        logger.debug(
+            f"[Min, Max] of map coordinates of selected points along first axis: "
+            f"[{min_map_coord[0]:.1f}, {max_map_coord[0]:.1f}].")
+        logger.debug(
+            f"[Min, Max] of map coordinates of selected points along second axis: "
+            f"[{min_map_coord[1]:.1f}, {max_map_coord[1]:.1f}].")
+
 
 
 def createArcsBetweenPoints(*, point_obj: Points, knn: int = None, max_arc_length: float = np.inf,

@@ -39,11 +39,12 @@ from kamui import unwrap_arbitrary
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import structural_rank
 from scipy.sparse.linalg import lsqr
-from scipy.optimize import minimize
+from scipy import stats
 from logging import Logger
 import cmcrameri as cmc
 
 from mintpy.utils import ptime
+import datetime as dt
 
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
@@ -382,6 +383,253 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
     return demerr, vel, gamma
 
+
+def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, demerr: np.ndarray, 
+                       vel: np.ndarray, plotflag: bool, num_cores: int = 1, logger: Logger):
+    msg = "#" * 10
+    msg += " SEASONAL ARC MODELLING "
+    msg += "#" * 10
+    logger.info(msg=msg)
+    start_time = time.time()
+
+    # set basic parameters
+    f = 1 # frequency cycles per years
+    num_arcs = net_obj.num_arcs
+    arc_idx_range = np.arange(num_arcs)
+
+    # times
+    yearsRg, nyears = ut.splitInYears(ifg_net_obj=ifg_net_obj, logger=logger)
+
+    nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years
+    
+    pred_phase_demerr, pred_phase_vel = ut.predictPhase(obj=net_obj, vel=vel, demerr=demerr, ifg_space=True, logger=logger)
+    pred_phase = pred_phase_demerr + pred_phase_vel
+    arc_res_phase = np.angle(np.exp(1j * net_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))
+    
+
+    if num_cores == 1:
+        args = (arc_idx_range, num_arcs, arc_res_phase, ifg_net_obj, yearsRg, nyears, logger)
+        arc_idx_range, a_sin, a_cos, icept, gamma = launchSeasonalModelling(parameters=args, plot=plotflag)
+    else:
+        logger.info(msg="start parallel processing with {} cores.".format(num_cores))
+        # parameters
+        a_sin = np.zeros((num_arcs, nyears), dtype=np.float32)
+        a_cos = np.zeros((num_arcs, nyears), dtype=np.float32)
+        icept = np.zeros((num_arcs, nyears), dtype=np.float32)
+        gamma = np.zeros((num_arcs, nyears), dtype=np.float32)
+
+        num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores
+        # cores
+        idx = ut.splitDatasetForParallelProcessing(num_samples=net_obj.num_arcs, num_cores=num_cores)
+        args = [(idx_range, idx_range.shape[0], arc_res_phase[idx_range, :], ifg_net_obj, yearsRg, nyears, logger) for idx_range in idx]
+        with multiprocessing.Pool(processes=num_cores) as pool:
+            results = pool.map(func=launchSeasonalModelling, iterable=args)
+
+        # retrieve results
+        for i, a_sin_i, a_cos_i, icept_i, gamma_i in results:
+            a_sin[i] = a_sin_i
+            a_cos[i] = a_cos_i
+            icept[i] = icept_i
+            gamma[i] = gamma_i
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.info(msg="Finished temporal unwrapping.")
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+    return a_sin, a_cos, icept, gamma
+        
+def launchSeasonalModelling(*, parameters: tuple, plot: False):
+    (arc_idx_range, num_arcs, phase, ifg_net_obj, yearsRg, nyears, logger) = parameters
+
+    nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years 
+    # model A sin(2pi*f*t+phase)
+    # parameters
+    a_sin = np.zeros((num_arcs, 1), dtype=float)
+    a_cos = np.zeros((num_arcs, 1), dtype=float)
+    #phase = np.zeros((num_arcs, 1), dtype=float)
+    #icept = np.zeros((num_arcs, 1), dtype=float)
+    gamma = np.zeros((num_arcs, 1), dtype=float)
+
+    # base sin/cos for all times
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+    sin_base = np.sin(omega * ifg_net_obj.datesf_ifg)
+    cos_base = np.cos(omega * ifg_net_obj.datesf_ifg)
+
+    for k in range(num_arcs):
+        design_mat = np.column_stack([sin_base, cos_base])
+        phasevec = np.asarray(phase[k], dtype=float)
+
+        # OLS
+        coef, residuals, rank, s = np.linalg.lstsq(design_mat, phasevec, rcond=None)
+        phase_hat = design_mat @ coef
+        phaseres = phasevec - phase_hat
+
+        # full model
+        RSS1 = np.sum((phaseres)**2)
+
+        # Reduced model (mean only)
+        phase_mean = np.mean(phasevec)
+        RSS0 = np.sum((phasevec - phase_mean)**2)
+        p0 = 1
+
+        #amps = np.sqrt(a**2 + b**2)  # amplitudes per year
+        #phi = np.arctan2(b, a) # phases per year
+
+        # degrees of freedom
+        n, p1 = design_mat.shape
+        df_num = p1 - p0
+        df_den = n - p1
+
+        # F-test
+        RSS_diff = max(RSS0 - RSS1, 0.0)
+        F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
+        p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
+        
+        if p_value < 0.02:
+            # model is significant, there is a periodic signal
+            logger.debug(f"Seasonal modelling meaningful- arc:{k}")
+            a_sin[k] = coef[0] #sin amp
+            a_cos[k] = coef[1] # cos amp
+            gamma[k] = np.abs(np.mean(np.exp(1j * phaseres)))
+
+            if plot:
+                fig, (ax1, ax2) = plt.subplots(2,1, figsize=(12,9))
+                ax1.set_ylim(-np.pi, np.pi)
+                ax2.set_ylim(-np.pi, np.pi)
+                
+                # Optional: label y-ticks as multiples of π
+                ticks = [-np.pi, -np.pi/2, 0, np.pi/2, np.pi]
+                labels = [r"$-\pi$", r"$-\pi/2$", "0", r"$\pi/2$", r"$\pi$"]
+                ax1.set_yticks(ticks)
+                ax1.set_yticklabels(labels)
+                ax2.set_yticks(ticks)
+                ax2.set_yticklabels(labels)
+
+                #plot
+                ax1.scatter(ifg_net_obj.datesf_ifg, phasevec, s=20, c='orange', label="Phase")
+                ax1.plot(ifg_net_obj.datesf_ifg, phase_hat, linewidth=2, c='brown', label="Model")
+                ax1.set_title(f"Phase and model")
+                ax1.set_xlabel("Years")
+                ax1.set_ylabel("Phase [rad]")
+                ax1.legend()
+
+                ax2.scatter(ifg_net_obj.datesf_ifg, phaseres, s=20, c='red', label="Residuals")
+                ax2.set_title(f"Phase residuals")
+                ax2.set_xlabel("Years")
+                ax2.set_ylabel("Phase [rad]")
+                plt.tight_layout()
+                plt.show()
+        else:
+            # model not significat, no periodic signal
+            logger.debug(f"Seasonal modelling not significant - arc:{k}")
+           
+    return arc_idx_range, a_sin, a_cos, gamma
+
+
+def launchSeasonalPerYearModelling(*, parameters: tuple, plot: False):
+    (arc_idx_range, num_arcs, phase, ifg_net_obj, yearsRg, nyears, logger) = parameters
+
+    nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years 
+
+    # parameters
+    a_sin = np.zeros((num_arcs, nyears), dtype=float)
+    a_cos = np.zeros((num_arcs, nyears), dtype=float)
+    icept = np.zeros((num_arcs, nyears), dtype=float)
+    gamma = np.zeros((num_arcs, 1), dtype=float)
+
+    # base sin/cos for all times
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+    sin_base = np.sin(omega * ifg_net_obj.datesf_ifg)
+    cos_base = np.cos(omega * ifg_net_obj.datesf_ifg)
+
+    for k in range(num_arcs):
+        design_mat = np.zeros((ifg_net_obj.num_ifgs, nparams), dtype=np.float32)
+        # per year
+        for ix, (y0, y1) in enumerate(zip(yearsRg[:-1], yearsRg[1:])):
+            i = ix*3
+            mask = ((ifg_net_obj.datesf_ifg >= y0) & (ifg_net_obj.datesf_ifg < y1)).astype(float)
+            design_mat[:,i] = sin_base * mask
+            design_mat[:,i+1] = cos_base * mask
+            design_mat[:, i+2] = mask
+    
+        phasevec = np.asarray(phase[k], dtype=float)
+        if phasevec.shape[0] != ifg_net_obj.num_ifgs:
+            logger.error(f"phase[k] length mismatch for arc {k}: expected {ifg_net_obj.num_ifg}, got {phasevec.shape[0]}")
+            continue
+        
+        # degrees of freedom
+        n, p1 = design_mat.shape
+        if n <= p1:
+            logger.warning(f"Not enough observations (n={n}) for parameters (p={p1}) on arc {k}. Skipping.")
+            continue
+
+        # OLS
+        coef, residuals, rank, s = np.linalg.lstsq(design_mat, phase[k], rcond=None)
+        phase_hat = design_mat @ coef
+        phaseres = phasevec - phase_hat
+
+        # full model
+        RSS1 = np.sum((phaseres)**2)
+
+        # Reduced model (mean only)
+        phase_mean = np.mean(phasevec)
+        RSS0 = np.sum((phasevec - phase_mean)**2)
+        p0 = 1
+
+        #amps = np.sqrt(a**2 + b**2)  # amplitudes per year
+        #phi = np.arctan2(b, a) # phases per year
+
+        # degrees of freedom
+        df_num = p1 - p0
+        df_den = n - p1
+
+        # F-test
+        RSS_diff = max(RSS0 - RSS1, 0.0)
+        F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
+        p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
+        
+        if p_value < 0.01:
+            # model is significant, there is a periodic signal
+            logger.debug(f"Seasonal modelling meaningful- arc:{k}")
+            a_sin[k] = coef[0::3] #sin amp
+            a_cos[k] = coef[1::3] # cos amp
+            icept[k] = coef[2::3] # offset
+            gamma[k] = np.abs(np.mean(np.exp(1j * phaseres)))
+
+            if plot:
+                fig, (ax1, ax2) = plt.subplots(2,1, figsize=(12,9))
+                ax1.set_ylim(-np.pi, np.pi)
+                ax2.set_ylim(-np.pi, np.pi)
+                
+                # Optional: label y-ticks as multiples of π
+                ticks = [-np.pi, -np.pi/2, 0, np.pi/2, np.pi]
+                labels = [r"$-\pi$", r"$-\pi/2$", "0", r"$\pi/2$", r"$\pi$"]
+                ax1.set_yticks(ticks)
+                ax1.set_yticklabels(labels)
+                ax2.set_yticks(ticks)
+                ax2.set_yticklabels(labels)
+
+                #plot
+                ax1.scatter(ifg_net_obj.datesf_ifg, phasevec, s=20, c='orange', label="Phase")
+                ax1.plot(ifg_net_obj.datesf_ifg, phase_hat, linewidth=2, c='brown', label="Model")
+                ax1.set_title(f"Phase and model")
+                ax1.set_xlabel("Years")
+                ax1.set_ylabel("Phase [rad]")
+                ax1.legend()
+
+                ax2.scatter(ifg_net_obj.datesf_ifg, phaseres, s=20, c='red', label="Residuals")
+                ax2.set_title(f"Phase residuals")
+                ax2.set_xlabel("Years")
+                ax2.set_ylabel("Phase [rad]")
+                plt.tight_layout()
+                plt.show()
+        else:
+            # model not significat, no periodic signal
+            logger.debug(f"Seasonal modelling not significant - arc:{k}")
+           
+    return arc_idx_range, a_sin, a_cos, icept, gamma
+    
 
 def launchSpatialUnwrapping(parameters: tuple) -> tuple[np.ndarray, np.ndarray]:
     """LaunchSpatialUnwrapping.

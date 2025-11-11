@@ -45,13 +45,13 @@ from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, Sma
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
 from sarvey.unwrapping import spatialParameterIntegration, \
-    parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers
-from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
+    parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers, seasonalUnwrapping
+from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, selectPixels_DemErr
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsAndTemporalCoherence2
 from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
-
+import pdb
 
 class Processing:
     """Processing."""
@@ -153,7 +153,6 @@ class Processing:
         msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
         msg += "#" * 11
         log.info(msg=msg)
-
         box_list, num_patches = ut.preparePatches(num_patches=self.config.general.num_patches,
                                                   width=slc_stack_obj.width,
                                                   length=slc_stack_obj.length,
@@ -197,7 +196,6 @@ class Processing:
                 box_list=box_list,
                 num_cores=self.config.general.num_cores,
                 logger=log)
-        
 
 
         # store auxilliary datasets for faster access during processing
@@ -237,24 +235,46 @@ class Processing:
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
         length, width, num_ifgs = ifg_stack_obj.getShape(dataset_name="ifgs")
 
-        cand_mask1 = selectPixels(
-            path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
-            grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger
-        )
+        # checks if adi is available
+        if self.config.general.adi_path:
+            # checking if amplitude dispersion file exists. it should be created with sarveyside
+            # create placeholder in result file for datasets which are stored patch-wise
+            from pathlib import Path
+            if Path(join(self.path, self.config.general.adi_path)).exists():
+                adi_obj = BaseStack(file=join(self.path, self.config.general.adi_path), logger=self.logger)
+                if adi_obj.datasetExists(dataset_name="adi"):
+                    self.logger.info(msg=f"AMPLITUDE DISPERSION DATASET FOUND")
+                else:
+                    self.logger.info(msg=f"AMPLITUDE DISPERSION DATASET NOT FOUND")
 
-        bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
-        mask_valid_area = ut.detectValidAreas(bmap_obj=bmap_obj, logger=self.logger)
+        if self.config.preparation.quality_selection_method == "tcoh":
+            self.logger.info(msg=f"QUALITY METHOD: TEMPORAL COHERENCE")
+            cand_mask1 = selectPixels(
+                path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger
+            )
 
-        if self.config.consistency_check.mask_p1_file is not None:
-            path_mask_aoi = join(self.config.consistency_check.mask_p1_file)
-            self.logger.info(msg="load mask for area of interest from: {}.".format(path_mask_aoi))
-            mask_aoi = readfile.read(path_mask_aoi, datasetName='mask')[0].astype(np.bool_)
-            mask_valid_area &= mask_aoi
+            bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
+            mask_valid_area = ut.detectValidAreas(bmap_obj=bmap_obj, logger=self.logger)
+
+            if self.config.consistency_check.mask_p1_file is not None:
+                path_mask_aoi = join(self.config.consistency_check.mask_p1_file)
+                self.logger.info(msg="load mask for area of interest from: {}.".format(path_mask_aoi))
+                mask_aoi = readfile.read(path_mask_aoi, datasetName='mask')[0].astype(np.bool_)
+                mask_valid_area &= mask_aoi
+            else:
+                self.logger.info(msg="No mask for area of interest given.")
+
+            cand_mask1 &= mask_valid_area
+        elif self.config.preparation.quality_selection_method == "adi":
+            self.logger.info(msg=f"QUALITY METHOD: AMPLITUDE DISPERSION")
+            cand_mask1 = selectPixels(
+                path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger
+            )
         else:
-            self.logger.info(msg="No mask for area of interest given.")
-
-        cand_mask1 &= mask_valid_area
-
+            raise NotImplementedError
+        
         fig = plt.figure(figsize=(15, 5))
         ax = fig.add_subplot()
         ax.imshow(mask_valid_area, cmap=cmc.cm.cmaps["grayC"], alpha=0.5, zorder=10, vmin=0, vmax=1)
@@ -292,6 +312,7 @@ class Processing:
                                                 point_id_img=point_id_img, logger=self.logger)
 
         point_obj.writeToFile()
+
         del ifg_stack_obj, cand_mask1
 
         # 1) create spatial network
@@ -306,7 +327,7 @@ class Processing:
         )
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
-
+        # arc unwrapping
         demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
@@ -315,7 +336,12 @@ class Processing:
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
+        
 
+        asin, acos, icept, gammaseason = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, 
+                           demerr=demerr, vel=vel, num_cores=1, plotflag=True,
+                                                logger=self.logger)
+        pdb.set_trace()
         net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(
@@ -325,6 +351,8 @@ class Processing:
             gamma=gamma
         )
         net_par_obj.writeToFile()
+        #net_obj.openExternalData(input_path=self.config.general.input_path)
+       
 
         # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
@@ -379,7 +407,7 @@ class Processing:
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
         point_obj.writeToFile()
 
-    def runUnwrappingTimeAndSpace(self):
+    def runUnwrappingTimeAndSpace(self, ref_ix=0):
         """RunTemporalAndSpatialUnwrapping."""
         net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
@@ -392,7 +420,7 @@ class Processing:
         )
 
         # reference point can be set arbitrarily, because outliers are removed.
-        spatial_ref_idx = 0
+        spatial_ref_idx = ref_ix
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
@@ -409,6 +437,11 @@ class Processing:
         #                                               spatial_ref_idx=spatial_ref_idx,
         #                                               res_tol=5.0,
         #                                               max_rm_fraction=0.001)
+
+        #cand_mask_demerr = selectPixels_DemErr(path=self.path, demerr=demerr, thrsh=10, 
+         #                                      grid_size=self.config.consistency_check.grid_size, 
+         #                                      bool_plot=True, logger=self.logger)
+        
         fig = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
