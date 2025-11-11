@@ -486,15 +486,15 @@ def launchSeasonalModelling(*, parameters: tuple, plot: False):
         F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
         p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
         
-        if p_value < 0.02:
+        if p_value < 0.005:
             # model is significant, there is a periodic signal
-            logger.debug(f"Seasonal modelling meaningful- arc:{k}")
+            logger.debug(f"Seasonal modelling meaningful - arc:{k}")
             a_sin[k] = coef[0] #sin amp
             a_cos[k] = coef[1] # cos amp
             gamma[k] = np.abs(np.mean(np.exp(1j * phaseres)))
 
             if plot:
-                fig, (ax1, ax2) = plt.subplots(2,1, figsize=(12,9))
+                fig, (ax1, ax2, ax3) = plt.subplots(3,1, figsize=(10,7))
                 ax1.set_ylim(-np.pi, np.pi)
                 ax2.set_ylim(-np.pi, np.pi)
                 
@@ -508,11 +508,16 @@ def launchSeasonalModelling(*, parameters: tuple, plot: False):
 
                 #plot
                 ax1.scatter(ifg_net_obj.datesf_ifg, phasevec, s=20, c='orange', label="Phase")
-                ax1.plot(ifg_net_obj.datesf_ifg, phase_hat, linewidth=2, c='brown', label="Model")
-                ax1.set_title(f"Phase and model")
+                ax1.set_title(f"Phase")
                 ax1.set_xlabel("Years")
                 ax1.set_ylabel("Phase [rad]")
-                ax1.legend()
+
+                ax2.scatter(ifg_net_obj.datesf_ifg, phasevec, s=20, c='orange', label="Phase")
+                ax2.plot(ifg_net_obj.datesf_ifg, phase_hat, linewidth=2, c='brown', label="Model")
+                ax2.set_title(f"Phase and model")
+                ax2.set_xlabel("Years")
+                ax2.set_ylabel("Phase [rad]")
+                ax2.legend()
 
                 ax2.scatter(ifg_net_obj.datesf_ifg, phaseres, s=20, c='red', label="Residuals")
                 ax2.set_title(f"Phase residuals")
