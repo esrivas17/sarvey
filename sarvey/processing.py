@@ -420,7 +420,6 @@ class Processing:
         net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
         point_obj.writeToFile()
-        pdb.set_trace()
 
 
     def runUnwrappingTimeAndSpace(self, ref_ix=0):
@@ -699,6 +698,27 @@ class Processing:
         # temporal auto-correlation
         auto_corr_img = np.zeros_like(mask, np.float64)
 
+        if True:
+            vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
+
+            if self.config.filtering.use_moving_points:
+                auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
+            else:
+                # remove DEM error, but not velocity before estimating the temporal autocorrelation
+                pred_phase_demerr = ut.predictPhase(
+                    obj=point1_obj, vel=vel, demerr=demerr, ifg_space=False, logger=self.logger)[0]
+                phase_wo_demerr = point1_obj.phase - pred_phase_demerr
+                auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
+
+            auto_corr_img[mask] = auto_corr
+            auto_corr_img[~mask] = np.inf
+
+            fig = viewer.plotScatter(value=auto_corr, coord=point1_obj.coord_xy, bmap_obj=bmap_obj,
+                                    ttl="Temporal autocorrelation", unit="[ ]", s=3.5, cmap="lajolla",
+                                    vmin=0, vmax=1, logger=self.logger)[0]
+            fig.savefig(join(self.path, "pic", "step_3_tempautocorrelation_demerr.png"), dpi=300)
+            plt.close(fig)
+
         if self.config.preparation.ifg_network_type == 'star':
             vel, demerr, asin, acos, _, _, _, residuals = ut.estimateParametersStar(obj=point1_obj, ifg_space=False)
             if self.config.filtering.use_moving_points:
@@ -721,31 +741,10 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_3_tempautocorrelation_demerr_season.png"), dpi=300)
             plt.close(fig)
 
-        if True:
-            vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
-
-            if self.config.filtering.use_moving_points:
-                auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
-            else:
-                # remove DEM error, but not velocity before estimating the temporal autocorrelation
-                pred_phase_demerr = ut.predictPhase(
-                    obj=point1_obj, vel=vel, demerr=demerr, ifg_space=False, logger=self.logger)[0]
-                phase_wo_demerr = point1_obj.phase - pred_phase_demerr
-                auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
-
-            auto_corr_img[mask] = auto_corr
-            auto_corr_img[~mask] = np.inf
-
-            fig = viewer.plotScatter(value=auto_corr, coord=point1_obj.coord_xy, bmap_obj=bmap_obj,
-                                    ttl="Temporal autocorrelation", unit="[ ]", s=3.5, cmap="lajolla",
-                                    vmin=0, vmax=1, logger=self.logger)[0]
-            fig.savefig(join(self.path, "pic", "step_3_tempautocorrelation_demerr.png"), dpi=300)
-            plt.close(fig)
-
         # create grid
         coord_utm_obj = CoordinatesUTM(file_path=join(self.path, "coordinates_utm.h5"), logger=self.logger)
         coord_utm_obj.open()
-        pdb.set_trace()
+
         # remove points based on threshold
         mask_thrsh = auto_corr_img <= self.config.filtering.max_temporal_autocorrelation
         auto_corr_img[~mask_thrsh] = np.inf
@@ -783,7 +782,8 @@ class Processing:
 
         if self.config.filtering.use_moving_points:
             # recompute the residuals, because now there are fewer points in the obj
-            phase_for_aps_filtering = ut.estimateParameters(obj=point1_obj, ifg_space=False)[-1]
+            #phase_for_aps_filtering = ut.estimateParameters(obj=point1_obj, ifg_space=False)[-1]
+            phase_for_aps_filtering = ut.estimateParametersStar(obj=point1_obj, ifg_space=False)[-1]
         else:
             phase_for_aps_filtering = point1_obj.phase
 
