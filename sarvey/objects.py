@@ -898,3 +898,23 @@ class NetworkParameterSeasonal(Network):
             self.acos = f["acos"][:]
             self.gammaseasonal = f["gammaseasonal"][:]
 
+    def removeArcs(self, *, mask: np.ndarray):
+        """Remove arcs from the list of arcs in the network.
+
+        Parameter
+        ---------
+        mask: np.ndarray
+            mask to select arcs to be kept, rest will be removed.
+        """
+        self.demerr = self.demerr[mask]
+        self.vel = self.vel[mask]
+        self.phase = self.phase[mask, :]
+        self.loc_inc = self.loc_inc[mask]
+        self.slant_range = self.slant_range[mask]
+        self.arcs = np.array(self.arcs)
+        self.arcs = self.arcs[mask, :]
+        self.gamma = self.gamma[mask]
+        self.num_arcs = mask[mask].shape[0]
+        self.asin = self.asin[mask]
+        self.acos = self.acos[mask]
+        self.gammaseasonal = self.gammaseasonal[mask]

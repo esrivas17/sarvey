@@ -45,7 +45,7 @@ from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, Sma
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameterSeasonal
 from sarvey.unwrapping import spatialParameterIntegration, \
-    parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers, seasonalUnwrapping
+    parameterBasedNoisyPointRemoval, seasonalParameterBasedNoisyPointRemoval,temporalUnwrapping, spatialUnwrapping, removeGrossOutliers, seasonalUnwrapping
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, selectPixels_DemErr
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsAndTemporalCoherence2
@@ -362,7 +362,7 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_1_arc_coherence.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-            
+
         self.logger.debug(f"REMOVING OUTLIERS WITH GAMMA SEASONAL")
         net_par_obj, point_id, coord_xy, design_mat = removeGrossOutliers(
             net_obj=net_par_obj, point_id=point_obj.point_id, coord_xy=point_obj.coord_xy, min_num_arc=self.config.consistency_check.min_num_arc,
@@ -378,7 +378,7 @@ class Processing:
             net_obj=net_par_obj, point_id=point_obj.point_id, coord_xy=point_obj.coord_xy, min_num_arc=self.config.consistency_check.min_num_arc,
             quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
             logger=self.logger)
-        pdb.set_trace()
+        
         try:
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=coord_xy[:, 1], y=coord_xy[:, 0],
@@ -393,19 +393,33 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        spatial_ref_id, point_id, net_par_obj = parameterBasedNoisyPointRemoval(
-            net_par_obj=net_par_obj,
-            point_id=point_id,
-            coord_xy=coord_xy,
-            design_mat=design_mat,
-            bmap_obj=bmap_obj,
-            bool_plot=True,
-            logger=self.logger
-        )
+        if self.config.preparation.ifg_network_type == 'star':
+            spatial_ref_id, point_id, net_par_obj = seasonalParameterBasedNoisyPointRemoval(
+                net_par_obj=net_par_obj,
+                point_id=point_id,
+                coord_xy=coord_xy,
+                design_mat=design_mat,
+                bmap_obj=bmap_obj,
+                bool_plot=True,
+                logger=self.logger
+            )
+        else:
+
+            spatial_ref_id, point_id, net_par_obj = parameterBasedNoisyPointRemoval(
+                net_par_obj=net_par_obj,
+                point_id=point_id,
+                coord_xy=coord_xy,
+                design_mat=design_mat,
+                bmap_obj=bmap_obj,
+                bool_plot=True,
+                logger=self.logger
+            )
 
         net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
         point_obj.writeToFile()
+        pdb.set_trace()
+
 
     def runUnwrappingTimeAndSpace(self, ref_ix=0):
         """RunTemporalAndSpatialUnwrapping."""
