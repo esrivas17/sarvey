@@ -338,7 +338,7 @@ class Processing:
                                                 logger=self.logger)
         
 
-        asin, acos, gammaseasonal = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, 
+        asin, acos, gammaseasonal = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, wavelength=point_obj.wavelength,
                            demerr=demerr, vel=vel, num_cores=self.config.general.num_cores, plotflag=True,
                                                 logger=self.logger)
         #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
@@ -423,9 +423,14 @@ class Processing:
 
     def runUnwrappingTimeAndSpace(self, ref_ix=0):
         """RunTemporalAndSpatialUnwrapping."""
-        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+        if self.config.preparation.ifg_network_type == 'star':
+            net_par_obj = NetworkParameterSeasonal(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
-        net_par_obj.open(input_path=self.config.general.input_path)
+            net_par_obj.open(input_path=self.config.general.input_path)
+        else:
+            net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+                                        logger=self.logger)
+            net_par_obj.open(input_path=self.config.general.input_path)
 
         point_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point_obj.open(
@@ -483,6 +488,35 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
 
+        if self.config.preparation.ifg_network_type == 'star':
+            self.logger.info(msg="Integrate ASIN coefficient")
+            asin = spatialParameterIntegration(val_arcs=net_par_obj.asin,
+                                            arcs=net_par_obj.arcs,
+                                            coord_xy=point_obj.coord_xy,
+                                            weights=net_par_obj.gamma,
+                                            spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+
+            fig = viewer.plotScatter(value=-asin, coord=point_obj.coord_xy,
+                                    ttl="Parameter integration: asin coeff [m / year]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                    logger=self.logger)[0]
+            fig.savefig(join(self.path, "pic", "step_2_estimation_asin.png"), dpi=300)
+            plt.close(fig)
+
+            self.logger.info(msg="Integrate ACOS coefficient")
+            acos = spatialParameterIntegration(val_arcs=net_par_obj.acos,
+                                            arcs=net_par_obj.arcs,
+                                            coord_xy=point_obj.coord_xy,
+                                            weights=net_par_obj.gamma,
+                                            spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+
+            fig = viewer.plotScatter(value=-acos, coord=point_obj.coord_xy,
+                                    ttl="Parameter integration: acos coeff [m / year]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                    logger=self.logger)[0]
+            fig.savefig(join(self.path, "pic", "step_2_estimation_acos.png"), dpi=300)
+            plt.close(fig)
+
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
         pred_phase_demerr, pred_phase_vel = ut.predictPhase(
@@ -490,6 +524,13 @@ class Processing:
             ifg_space=True, logger=self.logger
         )
         pred_phase = pred_phase_demerr + pred_phase_vel
+
+        if self.config.preparation.ifg_network_type == 'star':
+            pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(
+                obj=point_obj, vel=vel, demerr=demerr, asin=asin, acos=acos,
+                ifg_space=True, logger=self.logger)
+            pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
+            pdb.set_trace()
 
         wr_phase = point_obj.phase
         wr_res_phase = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase)))

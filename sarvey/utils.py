@@ -228,6 +228,73 @@ def predictPhase(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, dem
         raise TypeError
     return pred_phase_demerr, pred_phase_vel
 
+def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, demerr: np.ndarray = None, asin: np.ndarray = None, acos: np.ndarray = None,
+                 ifg_space: bool = True, logger: Logger):
+    """Predicts the phase time series based on the estimated parameters DEM error and mean velocity.
+
+    Can be used for both arc phase or point phase. Wrapper function for 'predictPhaseCore(...)'
+
+    Parameters
+    ----------
+    obj: Union[NetworkParameter, Points]
+        object of either 'networkParameter' or 'points'. If instance of 'points' is given, 'vel' and 'demerr'
+        also need to be specified.
+    vel: np.ndarray
+        velocity for each sample (default: None)
+    demerr: np.ndarray
+        dem error for each sample (default: None).
+    ifg_space: bool
+        set to True if the phase shall be predicted in interferogram space. If False, phase will be predicted
+        in acquisition space. (default: True)
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+        pred_phase_demerr: np.ndarray
+            predicted phase from DEM error
+        pred_phase_vel: np.ndarray
+            predicted phase from velocity
+
+    Raises
+    ------
+    ValueError
+        vel or demerr is none
+    TypeError
+        obj is of the wrong type
+    """
+    if isinstance(obj, Points):
+        if (vel is None) or (demerr is None):
+            logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
+            raise ValueError
+        pred_phase_demerr, pred_phase_vel, pred_phase_seasonal =predictPhaseCoreStar(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=vel,
+            demerr=demerr,
+            asin = asin,
+            acos = acos,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space
+        )
+    elif isinstance(obj, Network): #NetworkParameter):
+        pred_phase_demerr, pred_phase_vel, pred_phase_seasonal =predictPhaseCoreStar(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=vel.T,
+            demerr=demerr.T,
+            asin = asin,
+            acos = acos,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space
+        )
+    else:
+        logger.error(msg="'obj' must be instance of 'points' or 'networkParameter'!")
+        raise TypeError
+    return pred_phase_demerr, pred_phase_vel, pred_phase_seasonal
+
 
 def predictPhaseCore(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,
                      demerr: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
@@ -276,6 +343,60 @@ def predictPhaseCore(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndar
     pred_phase_vel = factor * tbase[:, np.newaxis] * vel
 
     return pred_phase_demerr.T, pred_phase_vel.T
+
+def predictPhaseCoreStar(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,
+                     demerr: np.ndarray, asin: np.ndarray, acos: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
+    """Predicts the phase time series based on the estimated parameters DEM error and mean velocity.
+
+    Can be used for both arc phase or point phase.
+
+    Parameters
+    ----------
+    ifg_net_obj: IfgNetwork
+        instance of class ifgNetwork
+    wavelength: float
+        wavelength in [m]
+    vel: np.ndarray
+        velocity for each sample
+    demerr: np.ndarray
+        dem error for each sample
+    slant_range: np.ndarray
+        slant range distance for each sample
+    loc_inc: np.ndarray
+        local incidence angle for each sample
+    ifg_space: bool
+        set to True if the phase shall be predicted in interferogram space. If False, phase will be
+        predicted in acquisition space. (default: True)
+
+    Returns
+    -------
+        pred_phase_demerr: np.ndarray
+            predicted phase from DEM error
+        pred_phase_vel: np.ndarray
+            predicted phase from velocity
+    """
+    factor = 4 * np.pi / wavelength
+
+    if ifg_space:
+        tbase = ifg_net_obj.tbase_ifg
+        pbase = ifg_net_obj.pbase_ifg
+    else:
+        tbase = ifg_net_obj.tbase
+        pbase = ifg_net_obj.pbase
+
+    # compute phase due to DEM error
+    pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+
+    # compute phase due to velocity
+    pred_phase_vel = factor * tbase[:, np.newaxis] * vel
+
+    # compute phase due to seasonality
+    omega = 2.0 * np.pi * 1
+    seasonal = asin * np.sin(omega * tbase[:, np.newaxis]) + acos * np.cos(omega * tbase[:, np.newaxis])
+    pred_phase_seasonal = factor * seasonal
+    pdb.set_trace()
+
+    return pred_phase_demerr.T, pred_phase_vel.T, pred_phase_seasonal.T
 
 
 def predictPhaseSingle(*, demerr: float, vel: float, slant_range: float, loc_inc: float,

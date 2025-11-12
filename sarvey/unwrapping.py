@@ -386,7 +386,7 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength
     return demerr, vel, gamma
 
 
-def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, demerr: np.ndarray, 
+def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength: float, demerr: np.ndarray, 
                        vel: np.ndarray, plotflag: bool, num_cores: int = 1, logger: Logger):
     msg = "#" * 10
     msg += " SEASONAL ARC MODELLING "
@@ -409,8 +409,8 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, demerr: np.
     arc_res_phase = np.angle(np.exp(1j * net_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))
 
     if num_cores == 1:
-        args = (arc_idx_range, num_arcs, arc_res_phase, ifg_net_obj, yearsRg, nyears, logger)
-        arc_idx_range, a_sin, a_cos, icept, gamma = launchSeasonalModelling(parameters=args, plot=plotflag)
+        args = (arc_idx_range, num_arcs, arc_res_phase, wavelength, ifg_net_obj, yearsRg, nyears, logger)
+        arc_idx_range, a_sin, a_cos, gamma = launchSeasonalModelling(parameters=args, plot=plotflag)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
         # parameters
@@ -423,7 +423,7 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, demerr: np.
         # cores
         idx = ut.splitDatasetForParallelProcessing(num_samples=net_obj.num_arcs, num_cores=num_cores)
         
-        args = [(idx_range, idx_range.shape[0], arc_res_phase[idx_range, :], ifg_net_obj, yearsRg, nyears, logger) for idx_range in idx]
+        args = [(idx_range, idx_range.shape[0], arc_res_phase[idx_range, :], wavelength, ifg_net_obj, yearsRg, nyears, logger) for idx_range in idx]
         with multiprocessing.Pool(processes=num_cores) as pool:
             results = pool.map(func=launchSeasonalModelling, iterable=args)
 
@@ -439,7 +439,7 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, demerr: np.
     return a_sin, a_cos, gamma
         
 def launchSeasonalModelling(parameters: tuple, plot=False):
-    (arc_idx_range, num_arcs, phase, ifg_net_obj, yearsRg, nyears, logger) = parameters
+    (arc_idx_range, num_arcs, phase, wavelength, ifg_net_obj, yearsRg, nyears, logger) = parameters
     #plot: False
     nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years 
     # model A sin(2pi*f*t+phase)
@@ -453,11 +453,13 @@ def launchSeasonalModelling(parameters: tuple, plot=False):
     # base sin/cos for all times
     f = 1 # frequency cycles per years
     omega = 2.0 * np.pi * f
-    sin_base = np.sin(omega * ifg_net_obj.datesf_ifg)
-    cos_base = np.cos(omega * ifg_net_obj.datesf_ifg)
-
+    factor = 4 * np.pi / wavelength
+    sin_base = factor * np.sin(omega * ifg_net_obj.datesf_ifg)
+    cos_base = factor * np.cos(omega * ifg_net_obj.datesf_ifg)
+    
     for k in range(num_arcs):
         design_mat = np.column_stack([sin_base, cos_base])
+
         phasevec = np.asarray(phase[k], dtype=float)
 
         # OLS
