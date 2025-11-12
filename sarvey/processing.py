@@ -343,6 +343,8 @@ class Processing:
                                                 logger=self.logger)
         #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
         #                               logger=self.logger)
+
+        # ADDING TO GAMMA THE UPDATES GAMMASEASONAL
         net_par_obj = NetworkParameterSeasonal(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
         net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, gamma=gammaseasonal, asin=asin, acos=acos, gseasonal=gammaseasonal)
         net_par_obj.writeToFile()       
@@ -530,7 +532,8 @@ class Processing:
                 obj=point_obj, vel=vel, demerr=demerr, asin=asin, acos=acos,
                 ifg_space=True, logger=self.logger)
             pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
-            pdb.set_trace()
+            pred_phase2 = pred_phase_demerr + pred_phase_vel
+            #pdb.set_trace()
 
         wr_phase = point_obj.phase
         wr_res_phase = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase)))
@@ -553,9 +556,20 @@ class Processing:
         # use same reference point for spatial integration and Puma unwrapping before recombining phases
         unw_res_phase = unw_res_phase - unw_res_phase[spatial_ref_idx, :]
 
+        #   TESTING
+        wr_res_phase2 = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase2)))
+        unw_res_phase2 = spatialUnwrapping(num_ifgs=point_obj.ifg_net_obj.num_ifgs,
+                                          num_points=point_obj.num_points,
+                                          phase=wr_res_phase2,
+                                          method=self.config.general.spatial_unwrapping_method,
+                                          edges=arcs,
+                                          num_cores=self.config.general.num_cores, logger=self.logger)
+        unw_res_phase2 = unw_res_phase2 - unw_res_phase2[spatial_ref_idx, :]
+        
         self.logger.info(msg="Add phase contributions from mean velocity and DEM correction back to "
                              "spatially unwrapped residual phase.")
         unw_phase = unw_res_phase + pred_phase
+        unw_phase2 = unw_res_phase2 + pred_phase2
         # unw_phase = unw_res_phase  # debug: don't add phase back.
 
         # adjust reference to peak of histogram
@@ -580,6 +594,24 @@ class Processing:
         )
         point_obj.phase = phase_ts
         point_obj.writeToFile()
+
+        # TESTING
+        phase_ts2 = ut.invertIfgNetwork(
+            phase=unw_phase2,
+            num_points=point_obj.num_points,
+            ifg_net_obj=point_obj.ifg_net_obj,
+            num_cores=1,  # self.config.general.num_cores,
+            ref_idx=0,
+            logger=self.logger
+        )
+        point_obj = Points(file_path=join(self.path, "p1_ts_testing.h5"), logger=self.logger)
+        point_obj.open(
+            other_file_path=join(self.path, "p1_ifg_unw.h5"),
+            input_path=self.config.general.input_path
+        )
+        point_obj.phase = phase_ts2
+        point_obj.writeToFile()
+
 
     def runUnwrappingSpace(self):
         """RunSpatialUnwrapping."""
@@ -667,30 +699,53 @@ class Processing:
         # temporal auto-correlation
         auto_corr_img = np.zeros_like(mask, np.float64)
 
-        vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
+        if self.config.preparation.ifg_network_type == 'star':
+            vel, demerr, asin, acos, _, _, _, residuals = ut.estimateParametersStar(obj=point1_obj, ifg_space=False)
+            if self.config.filtering.use_moving_points:
+                auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
+            else:
+                # remove DEM error, but not velocity before estimating the temporal autocorrelation
+                pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(obj=point1_obj, vel=vel, demerr=demerr, 
+                                                                                             asin=asin, acos=acos,
+                                                                                              ifg_space=False, logger=self.logger)[0]
+                pred_phase = pred_phase_demerr + pred_phase_seasonal
+                phase_wo_demerr = point1_obj.phase - pred_phase
+                auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
 
-        if self.config.filtering.use_moving_points:
-            auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
-        else:
-            # remove DEM error, but not velocity before estimating the temporal autocorrelation
-            pred_phase_demerr = ut.predictPhase(
-                obj=point1_obj, vel=vel, demerr=demerr, ifg_space=False, logger=self.logger)[0]
-            phase_wo_demerr = point1_obj.phase - pred_phase_demerr
-            auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
+            auto_corr_img[mask] = auto_corr
+            auto_corr_img[~mask] = np.inf
 
-        auto_corr_img[mask] = auto_corr
-        auto_corr_img[~mask] = np.inf
+            fig = viewer.plotScatter(value=auto_corr, coord=point1_obj.coord_xy, bmap_obj=bmap_obj,
+                                    ttl="Temporal autocorrelation", unit="[ ]", s=3.5, cmap="lajolla",
+                                    vmin=0, vmax=1, logger=self.logger)[0]
+            fig.savefig(join(self.path, "pic", "step_3_tempautocorrelation_demerr_season.png"), dpi=300)
+            plt.close(fig)
 
-        fig = viewer.plotScatter(value=auto_corr, coord=point1_obj.coord_xy, bmap_obj=bmap_obj,
-                                 ttl="Temporal autocorrelation", unit="[ ]", s=3.5, cmap="lajolla",
-                                 vmin=0, vmax=1, logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_3_temporal_autocorrelation.png"), dpi=300)
-        plt.close(fig)
+        if True:
+            vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
+
+            if self.config.filtering.use_moving_points:
+                auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
+            else:
+                # remove DEM error, but not velocity before estimating the temporal autocorrelation
+                pred_phase_demerr = ut.predictPhase(
+                    obj=point1_obj, vel=vel, demerr=demerr, ifg_space=False, logger=self.logger)[0]
+                phase_wo_demerr = point1_obj.phase - pred_phase_demerr
+                auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
+
+            auto_corr_img[mask] = auto_corr
+            auto_corr_img[~mask] = np.inf
+
+            fig = viewer.plotScatter(value=auto_corr, coord=point1_obj.coord_xy, bmap_obj=bmap_obj,
+                                    ttl="Temporal autocorrelation", unit="[ ]", s=3.5, cmap="lajolla",
+                                    vmin=0, vmax=1, logger=self.logger)[0]
+            fig.savefig(join(self.path, "pic", "step_3_tempautocorrelation_demerr.png"), dpi=300)
+            plt.close(fig)
 
         # create grid
         coord_utm_obj = CoordinatesUTM(file_path=join(self.path, "coordinates_utm.h5"), logger=self.logger)
         coord_utm_obj.open()
-
+        pdb.set_trace()
         # remove points based on threshold
         mask_thrsh = auto_corr_img <= self.config.filtering.max_temporal_autocorrelation
         auto_corr_img[~mask_thrsh] = np.inf

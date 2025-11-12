@@ -394,7 +394,6 @@ def predictPhaseCoreStar(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.
     omega = 2.0 * np.pi * 1
     seasonal = asin * np.sin(omega * tbase[:, np.newaxis]) + acos * np.cos(omega * tbase[:, np.newaxis])
     pred_phase_seasonal = factor * seasonal
-    pdb.set_trace()
 
     return pred_phase_demerr.T, pred_phase_vel.T, pred_phase_seasonal.T
 
@@ -528,6 +527,88 @@ def estimateParameters(*, obj: Union[Points, Network], estimate_ref_atmo: bool =
         ref_atmo = None
 
     return vel, demerr, ref_atmo, coherence, omega, v_hat
+
+def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bool = True, ifg_space: bool = True):
+    """Estimate the parameters either per point or per arc.
+
+    Parameters are velocity and DEM error (or additionally reference APS).
+
+    Parameters
+    ----------
+    obj: Union[Points, Network]
+        object of either network, networkParameter, points or pointsParameters
+    estimate_ref_atmo: bool
+        set to True if APS of reference date shall be estimated. corresponds to offset of linear
+        motion model (default: False).
+    ifg_space: bool
+        set to True if the phase shall be predicted in interferogram space. If False, phase will be
+        predicted in acquisition space. (default: True)
+
+    Returns
+    -------
+    vel: np.ndarray
+        velocity for each point
+    demerr: np.ndarray
+        dem error for each point
+    ref_atmo: np.ndarray
+        reference APS for each point
+    omega:
+        sum of squared residuals
+    v_hat:
+        residuals
+    """
+    num = obj.phase.shape[0]  # either number of points or number of arcs
+
+    if ifg_space:
+        tbase = obj.ifg_net_obj.tbase_ifg
+        pbase = obj.ifg_net_obj.pbase_ifg
+        num_time = obj.ifg_net_obj.num_ifgs
+    else:
+        tbase = obj.ifg_net_obj.tbase
+        pbase = obj.ifg_net_obj.pbase
+        num_time = obj.ifg_net_obj.num_images
+
+    vel = np.zeros((num,), dtype=np.float32)
+    demerr = np.zeros((num,), dtype=np.float32)
+    asin = np.zeros((num,), dtype=np.float32)
+    acos = np.zeros((num,), dtype=np.float32)
+    omega = np.zeros((num,), dtype=np.float32)
+    coherence = np.zeros((num,), dtype=np.float32)
+    v_hat = np.zeros((num, num_time), dtype=np.float32)
+
+    ref_atmo = None
+    if estimate_ref_atmo:
+        ref_atmo = np.zeros((num,), dtype=np.float32)
+        a = np.zeros((num_time, 5), dtype=np.float32)
+        a[:, 4] = 4 * np.pi / obj.wavelength  # atmospheric delay at reference acquisition
+    else:
+        a = np.zeros((num_time, 4))
+
+    factor = 4 * np.pi / obj.wavelength
+    f = 1 # frequency cycles per years
+    omg = 2.0 * np.pi * f
+    a[:, 1] = factor * tbase  # velocity
+    a[:, 2] = factor * np.sin(omg * tbase)
+    a[:, 3] = factor * np.cos(omg * tbase)
+
+    for p in range(obj.num_points):
+        obv_vec = obj.phase[p, :]
+        a[:, 0] = factor * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
+
+        x_hat, omega[p] = np.linalg.lstsq(a, obv_vec, rcond=None)[0:2]
+        demerr[p] = x_hat[0]
+        vel[p] = x_hat[1]
+        asin[p] = x_hat[2]
+        acos[p] = x_hat[3]
+        if estimate_ref_atmo:
+            ref_atmo[p] = x_hat[4]
+        v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
+        coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
+
+    if not estimate_ref_atmo:
+        ref_atmo = None
+
+    return vel, demerr, asin, acos, ref_atmo, coherence, omega, v_hat
 
 
 def splitImageIntoBoxesRngAz(*, length: int, width: int, num_box_az: int, num_box_rng: int):
