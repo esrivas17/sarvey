@@ -46,6 +46,7 @@ import cmcrameri as cmc
 
 from mintpy.utils import ptime
 import datetime as dt
+import pdb
 
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
@@ -369,7 +370,7 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength
             velocity_bound,
             demerr_bound,
             num_samples) for idx_range in idx]
-
+        
         with multiprocessing.Pool(processes=num_cores) as pool:
             results = pool.map(func=launchAmbiguityFunctionSearch, iterable=args)
 
@@ -406,7 +407,6 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, demerr: np.
     pred_phase_demerr, pred_phase_vel = ut.predictPhase(obj=net_obj, vel=vel, demerr=demerr, ifg_space=True, logger=logger)
     pred_phase = pred_phase_demerr + pred_phase_vel
     arc_res_phase = np.angle(np.exp(1j * net_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))
-    
 
     if num_cores == 1:
         args = (arc_idx_range, num_arcs, arc_res_phase, ifg_net_obj, yearsRg, nyears, logger)
@@ -414,33 +414,33 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, demerr: np.
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
         # parameters
-        a_sin = np.zeros((num_arcs, nyears), dtype=np.float32)
-        a_cos = np.zeros((num_arcs, nyears), dtype=np.float32)
-        icept = np.zeros((num_arcs, nyears), dtype=np.float32)
-        gamma = np.zeros((num_arcs, nyears), dtype=np.float32)
+        a_sin = np.zeros((num_arcs, 1), dtype=np.float32)
+        a_cos = np.zeros((num_arcs, 1), dtype=np.float32)
+        #icept = np.zeros((num_arcs, nyears), dtype=np.float32)
+        gamma = np.zeros((num_arcs, 1), dtype=np.float32)
 
         num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores
         # cores
         idx = ut.splitDatasetForParallelProcessing(num_samples=net_obj.num_arcs, num_cores=num_cores)
+        
         args = [(idx_range, idx_range.shape[0], arc_res_phase[idx_range, :], ifg_net_obj, yearsRg, nyears, logger) for idx_range in idx]
         with multiprocessing.Pool(processes=num_cores) as pool:
             results = pool.map(func=launchSeasonalModelling, iterable=args)
 
         # retrieve results
-        for i, a_sin_i, a_cos_i, icept_i, gamma_i in results:
+        for i, a_sin_i, a_cos_i, gamma_i in results:
             a_sin[i] = a_sin_i
             a_cos[i] = a_cos_i
-            icept[i] = icept_i
             gamma[i] = gamma_i
 
     m, s = divmod(time.time() - start_time, 60)
     logger.info(msg="Finished temporal unwrapping.")
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
-    return a_sin, a_cos, icept, gamma
+    return a_sin, a_cos, gamma
         
-def launchSeasonalModelling(*, parameters: tuple, plot: False):
+def launchSeasonalModelling(parameters: tuple, plot=False):
     (arc_idx_range, num_arcs, phase, ifg_net_obj, yearsRg, nyears, logger) = parameters
-
+    #plot: False
     nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years 
     # model A sin(2pi*f*t+phase)
     # parameters
@@ -486,7 +486,7 @@ def launchSeasonalModelling(*, parameters: tuple, plot: False):
         F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
         p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
         
-        if p_value < 0.005:
+        if p_value < 0.001:
             # model is significant, there is a periodic signal
             logger.debug(f"Seasonal modelling meaningful - arc:{k}")
             a_sin[k] = coef[0] #sin amp
@@ -505,6 +505,8 @@ def launchSeasonalModelling(*, parameters: tuple, plot: False):
                 ax1.set_yticklabels(labels)
                 ax2.set_yticks(ticks)
                 ax2.set_yticklabels(labels)
+                ax3.set_yticks(ticks)
+                ax3.set_yticklabels(labels)
 
                 #plot
                 ax1.scatter(ifg_net_obj.datesf_ifg, phasevec, s=20, c='orange', label="Phase")

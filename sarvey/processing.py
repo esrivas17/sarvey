@@ -43,7 +43,7 @@ from sarvey.densification import densifyNetwork
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
-from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
+from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameterSeasonal
 from sarvey.unwrapping import spatialParameterIntegration, \
     parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers, seasonalUnwrapping
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, selectPixels_DemErr
@@ -338,21 +338,14 @@ class Processing:
                                                 logger=self.logger)
         
 
-        asin, acos, icept, gammaseason = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, 
+        asin, acos, gammaseasonal = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, 
                            demerr=demerr, vel=vel, num_cores=1, plotflag=True,
                                                 logger=self.logger)
-        pdb.set_trace()
-        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
-                                       logger=self.logger)
-        net_par_obj.prepare(
-            net_obj=net_obj,
-            demerr=demerr,
-            vel=vel,
-            gamma=gamma
-        )
-        net_par_obj.writeToFile()
-        #net_obj.openExternalData(input_path=self.config.general.input_path)
-       
+        #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+        #                               logger=self.logger)
+        net_par_obj = NetworkParameterSeasonal(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
+        net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, gamma=gammaseasonal, asin=asin, acos=acos, gseasonal=gammaseasonal)
+        net_par_obj.writeToFile()       
 
         # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
@@ -378,7 +371,7 @@ class Processing:
             quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
             logger=self.logger
         )
-
+        pdb.set_trace()
         try:
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=coord_xy[:, 1], y=coord_xy[:, 0],
