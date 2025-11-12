@@ -492,7 +492,7 @@ def launchSeasonalModelling(parameters: tuple, plot=False):
             a_sin[k] = coef[0] #sin amp
             a_cos[k] = coef[1] # cos amp
             gamma[k] = np.abs(np.mean(np.exp(1j * phaseres)))
-
+            
             if plot:
                 fig, (ax1, ax2, ax3) = plt.subplots(3,1, figsize=(10,7))
                 ax1.set_ylim(-np.pi, np.pi)
@@ -530,6 +530,8 @@ def launchSeasonalModelling(parameters: tuple, plot=False):
         else:
             # model not significat, no periodic signal
             logger.debug(f"Seasonal modelling not significant - arc:{k}")
+            # gamma should be the same 
+            gamma[k] = np.abs(np.mean(np.exp(1j * phasevec)))
            
     return arc_idx_range, a_sin, a_cos, gamma
 

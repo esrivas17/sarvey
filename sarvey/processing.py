@@ -339,7 +339,7 @@ class Processing:
         
 
         asin, acos, gammaseasonal = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, 
-                           demerr=demerr, vel=vel, num_cores=1, plotflag=True,
+                           demerr=demerr, vel=vel, num_cores=self.config.general.num_cores, plotflag=True,
                                                 logger=self.logger)
         #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
         #                               logger=self.logger)
@@ -362,15 +362,22 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_1_arc_coherence.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-
+            
+        self.logger.debug(f"REMOVING OUTLIERS WITH GAMMA SEASONAL")
         net_par_obj, point_id, coord_xy, design_mat = removeGrossOutliers(
-            net_obj=net_par_obj,
-            point_id=point_obj.point_id,
-            coord_xy=point_obj.coord_xy,
-            min_num_arc=self.config.consistency_check.min_num_arc,
+            net_obj=net_par_obj, point_id=point_obj.point_id, coord_xy=point_obj.coord_xy, min_num_arc=self.config.consistency_check.min_num_arc,
             quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
-            logger=self.logger
-        )
+            logger=self.logger)
+        
+        # testing
+        self.logger.debug(f"REMOVING OUTLIERS WITH GAMMA")
+        net_par_obj = NetworkParameterSeasonal(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
+        net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, gamma=gamma, asin=asin, acos=acos, gseasonal=gammaseasonal)
+        net_par_obj.writeToFile()
+        net_par_obj, point_id, coord_xy, design_mat = removeGrossOutliers(
+            net_obj=net_par_obj, point_id=point_obj.point_id, coord_xy=point_obj.coord_xy, min_num_arc=self.config.consistency_check.min_num_arc,
+            quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
+            logger=self.logger)
         pdb.set_trace()
         try:
             ax = bmap_obj.plot(logger=self.logger)
