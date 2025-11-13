@@ -1101,5 +1101,5 @@ def splitInYears(*, ifg_net_obj: IfgNetwork, logger:Logger):
 
 def getRefFromLonLat(*, points_obj: Points, lon: float, lat: float):
     tree = KDTree(points_obj.coord_lalo)
-    ref_ix = tree.query([lat, lon])
+    ref_ix = tree.query([lat, lon])[-1]
     return ref_ix
