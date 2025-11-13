@@ -443,11 +443,10 @@ def launchSeasonalModelling(parameters: tuple, plot=False):
     #plot: False
     nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years 
     # model A sin(2pi*f*t+phase)
+
     # parameters
     a_sin = np.zeros((num_arcs, 1), dtype=float)
     a_cos = np.zeros((num_arcs, 1), dtype=float)
-    #phase = np.zeros((num_arcs, 1), dtype=float)
-    #icept = np.zeros((num_arcs, 1), dtype=float)
     gamma = np.zeros((num_arcs, 1), dtype=float)
 
     # base sin/cos for all times

@@ -1069,6 +1069,8 @@ class Processing:
 
                 vel_p1 = vel_p1[mask]
                 demerr_p1 = demerr_p1[mask]
+                asin_p1 = asin_p1[mask]
+                acos_p1 = acos_p1[mask]
 
                 # remove unstable p1 from p1
                 point1_obj.removePoints(
@@ -1112,7 +1114,6 @@ class Processing:
             logger=self.logger
         )  # returns parameters of both first- and second-order points
         else:
-
             demerr, vel, gamma = densifyNetwork(
                 point1_obj=point1_obj,
                 vel_p1=vel_p1,

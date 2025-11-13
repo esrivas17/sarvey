@@ -168,8 +168,8 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
     f = 1 # frequency cycles per years
     omega = 2.0 * np.pi * f
     factor = 4 * np.pi / global_point2_obj.wavelength
-    sin_base = factor * np.sin(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
-    cos_base = factor * np.cos(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
+    sin_base = factor * np.sin(omega * global_point2_obj.ifg_net_obj.datesf_ifg)
+    cos_base = factor * np.cos(omega * global_point2_obj.ifg_net_obj.datesf_ifg)
 
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
@@ -204,14 +204,15 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
         pred_phase_demerr_p2 = factor * global_point2_obj.ifg_net_obj.pbase_ifg / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])) * demerr_point2
         pred_phase_vel_p2 = factor * global_point2_obj.ifg_net_obj.tbase_ifg * vel_point2
         pred_phase_p2 = pred_phase_demerr_p2 + pred_phase_vel_p2
-        arc_res_phase = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * pred_phase_p2)))
+        arc_res_phase = np.angle(np.exp(1j * arc_phase_p1) * np.conjugate(np.exp(1j * pred_phase_p2)))
 
         # estimate seasonality
         design_mat_seasonal = np.column_stack([sin_base, cos_base])
         # OLS
-        coef, residuals, rank, s = np.linalg.lstsq(design_mat_seasonal, arc_res_phase, rcond=None)
+        coef, residuals, rank, s = np.linalg.lstsq(design_mat_seasonal, arc_res_phase.T.mean(axis=1), rcond=None)
         phase_hat = design_mat_seasonal @ coef
-        phaseres = arc_res_phase - phase_hat
+        phaseres = np.angle(np.exp(1j * arc_res_phase) * np.conjugate(np.exp(1j * phase_hat.T))) 
+        #phaseres = arc_res_phase - phase_hat
 
         demerr_p2[idx] = demerr_point2
         vel_p2[idx] = vel_point2
@@ -352,45 +353,7 @@ def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndar
 def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, asin_p1: np.array, acos_p1: np.array, point2_obj: Points,
                    num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,
                    num_samples: int, num_cores: int = 1, logger: Logger):
-    """DensifyNetwork.
 
-    Densifies the network with second-order points by connecting the second-order points to the closest points in the
-    first-order network.
-
-    Parameters
-    ----------
-    point1_obj : Points
-        Points object with first-order points
-    vel_p1 : np.ndarray
-        Velocity array of the first-order points
-    demerr_p1 : np.ndarray
-        DEM error array of the first-order points
-    point2_obj : Points
-        Points object with second-order points
-    num_conn_p1 : int
-        Number of nearest points in the first-order network
-    max_dist_p1 : float
-        Maximum allowed distance to the nearest points in the first-order network
-    velocity_bound : float
-        Bound for the velocity estimate in temporal unwrapping
-    demerr_bound : float
-        Bound for the DEM error estimate in temporal unwrapping
-    num_samples : int
-        Number of samples for the search of the optimal parameters
-    num_cores : int
-        Number of cores for parallel processing (default: 1)
-    logger : Logger
-        Logger object
-
-    Returns
-    -------
-    demerr_p2 : np.ndarray
-        DEM error array of the second-order points
-    vel_p2 : np.ndarray
-        Velocity array of the second-order points
-    gamma_p2 : np.ndarray
-        Estimated temporal coherence array of the second-order points resulting from temporal unwrapping
-    """
     msg = "#" * 10
     msg += " DENSIFICATION WITH SECOND-ORDER POINTS INCLUDING SEASONAL SIGNAL "
     msg += "#" * 10
@@ -411,8 +374,8 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     # the arc double differences to be able to test the ambiguities. Kampes (2006) does re-wrap, but is testing based
     # on the estimated parameters. Hence, it doesn't make a difference for him. Not re-wrapping can be a starting point
     # for triangle-based temporal unwrapping.
-    demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
-    #demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
+    #demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
+    demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
     # initialize output
     init_args = (tree_p1, point2_obj, demod_phase1)
 
