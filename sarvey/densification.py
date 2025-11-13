@@ -39,7 +39,7 @@ from mintpy.utils import ptime
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
 from sarvey.objects import Points
 import sarvey.utils as ut
-
+import pdb
 
 def densificationInitializer(tree_p1: KDTree, point2_obj: Points, demod_phase1: np.ndarray):
     """DensificationInitializer.
@@ -146,6 +146,85 @@ def launchDensifyNetworkConsistencyCheck(args: tuple):
         counter += 1
 
     return idx_range, demerr_p2, vel_p2, gamma_p2
+
+
+def launchDensifyStarNetworkConsistencyCheck(args: tuple):
+
+    (idx_range, num_points, num_conn_p1, max_dist_p1, velocity_bound, demerr_bound, num_samples) = args
+
+    counter = 0
+    prog_bar = ptime.progressBar(maxValue=num_points)
+
+    # initialize output
+    demerr_p2 = np.zeros((num_points,), dtype=np.float32)
+    vel_p2 = np.zeros((num_points,), dtype=np.float32)
+    asin_p2 = np.zeros((num_points,), dtype=np.float32)
+    acos_p2 = np.zeros((num_points,), dtype=np.float32)
+    gamma_p2 = np.zeros((num_points,), dtype=np.float32)
+
+    #design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 2), dtype=np.float32)
+    design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 4), dtype=np.float32)
+
+     # base sin/cos for all times
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+    factor = 4 * np.pi / global_point2_obj.wavelength
+    sin_base = factor * np.sin(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
+    cos_base = factor * np.cos(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
+
+    demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
+    vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
+
+    factor = 4 * np.pi / global_point2_obj.wavelength
+
+    for idx in range(num_points):
+        p2 = idx_range[idx]
+        # nearest points in p1
+        dist, nearest_p1 = global_tree_p1.query([global_point2_obj.coord_utm[p2, 0],
+                                                 global_point2_obj.coord_utm[p2, 1]], k=num_conn_p1)
+        mask = (dist < max_dist_p1) & (dist != 0)
+        mask[:3] = True  # ensure that always at least the three closest points are used
+        nearest_p1 = nearest_p1[mask]
+
+        # compute arc observations to nearest points
+        arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) *
+                                np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1, :])))
+
+        design_mat[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
+                            / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
+        design_mat[:, 1] = factor * global_point2_obj.ifg_net_obj.tbase_ifg
+
+        demerr_point2, vel_point2, gamma_point2 = oneDimSearchTemporalCoherence(
+            demerr_range=demerr_range,
+            vel_range=vel_range,
+            obs_phase=arc_phase_p1,
+            design_mat=design_mat
+        )
+
+        # calculate residual phase
+        pred_phase_demerr_p2 = factor * global_point2_obj.ifg_net_obj.pbase_ifg / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])) * demerr_point2
+        pred_phase_vel_p2 = factor * global_point2_obj.ifg_net_obj.tbase_ifg * vel_point2
+        pred_phase_p2 = pred_phase_demerr_p2 + pred_phase_vel_p2
+        arc_res_phase = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * pred_phase_p2)))
+
+        # estimate seasonality
+        design_mat_seasonal = np.column_stack([sin_base, cos_base])
+        # OLS
+        coef, residuals, rank, s = np.linalg.lstsq(design_mat_seasonal, arc_res_phase, rcond=None)
+        phase_hat = design_mat @ coef
+        phaseres = arc_res_phase - phase_hat
+
+        demerr_p2[idx] = demerr_point2
+        vel_p2[idx] = vel_point2
+        gamma_p2[idx] = np.abs(np.mean(np.exp(1j * phaseres)))
+        asin_p2[idx] = coef[0]
+        acos_p2[idx] = coef[1]
+
+        prog_bar.update(counter + 1, every=np.int16(200),
+                        suffix='{}/{} points'.format(counter + 1, num_points))
+        counter += 1
+
+    return idx_range, demerr_p2, vel_p2, asin_p2, acos_p2, gamma_p2
 
 
 def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, point2_obj: Points,
@@ -269,3 +348,132 @@ def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndar
     vel_p2 = vel_p2[sort_idx]
     gamma_p2 = gamma_p2[sort_idx]
     return demerr_p2, vel_p2, gamma_p2
+
+
+def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, asin_p1: np.array, acos_p1: np.array, point2_obj: Points,
+                   num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,
+                   num_samples: int, num_cores: int = 1, logger: Logger):
+    """DensifyNetwork.
+
+    Densifies the network with second-order points by connecting the second-order points to the closest points in the
+    first-order network.
+
+    Parameters
+    ----------
+    point1_obj : Points
+        Points object with first-order points
+    vel_p1 : np.ndarray
+        Velocity array of the first-order points
+    demerr_p1 : np.ndarray
+        DEM error array of the first-order points
+    point2_obj : Points
+        Points object with second-order points
+    num_conn_p1 : int
+        Number of nearest points in the first-order network
+    max_dist_p1 : float
+        Maximum allowed distance to the nearest points in the first-order network
+    velocity_bound : float
+        Bound for the velocity estimate in temporal unwrapping
+    demerr_bound : float
+        Bound for the DEM error estimate in temporal unwrapping
+    num_samples : int
+        Number of samples for the search of the optimal parameters
+    num_cores : int
+        Number of cores for parallel processing (default: 1)
+    logger : Logger
+        Logger object
+
+    Returns
+    -------
+    demerr_p2 : np.ndarray
+        DEM error array of the second-order points
+    vel_p2 : np.ndarray
+        Velocity array of the second-order points
+    gamma_p2 : np.ndarray
+        Estimated temporal coherence array of the second-order points resulting from temporal unwrapping
+    """
+    msg = "#" * 10
+    msg += " DENSIFICATION WITH SECOND-ORDER POINTS INCLUDING SEASONAL SIGNAL "
+    msg += "#" * 10
+    logger.info(msg=msg)
+    start_time = time.time()
+
+    # find the closest points from first-order network
+    tree_p1 = KDTree(data=point1_obj.coord_utm)
+
+    # remove parameters from wrapped phase
+    pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(obj=point1_obj, vel=vel_p1, demerr=demerr_p1, 
+                                                                                             asin=asin_p1, acos=acos_p1,
+                                                                                              ifg_space=False, logger=logger)[0]
+    pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
+
+    # Note: for small baselines it does not make a difference if re-wrapping the phase difference or not.
+    # However, for long baselines (like in the star network) it does make a difference. Leijen (2014) does not re-wrap
+    # the arc double differences to be able to test the ambiguities. Kampes (2006) does re-wrap, but is testing based
+    # on the estimated parameters. Hence, it doesn't make a difference for him. Not re-wrapping can be a starting point
+    # for triangle-based temporal unwrapping.
+    demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
+    #demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
+
+    # initialize output
+    init_args = (tree_p1, point2_obj, demod_phase1)
+
+    if num_cores == 1:
+        densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
+        args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1,
+                velocity_bound, demerr_bound, num_samples)
+        idx_range, demerr_p2, vel_p2, asin_p2, acos_p2, gamma_p2 = launchDensifyStarNetworkConsistencyCheck(args)
+    else:
+        with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
+            logger.info(msg="start parallel processing with {} cores.".format(num_cores))
+            num_cores = point2_obj.num_points if num_cores > point2_obj.num_points else num_cores
+            # avoids having less samples than cores
+            idx = ut.splitDatasetForParallelProcessing(num_samples=point2_obj.num_points, num_cores=num_cores)
+            args = [(
+                idx_range,
+                idx_range.shape[0],
+                num_conn_p1,
+                max_dist_p1,
+                velocity_bound,
+                demerr_bound,
+                num_samples
+            ) for idx_range in idx]
+
+            results = pool.map_async(launchDensifyStarNetworkConsistencyCheck, args, chunksize=1)
+            while True:
+                time.sleep(5)
+                if results.ready():
+                    results = results.get()
+                    break
+
+        demerr_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        vel_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        gamma_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        asin_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        acos_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+
+        # retrieve results
+        for i, demerr_i, vel_i, asin_i, acos_i, gamma_i in results:
+            demerr_p2[i] = demerr_i
+            vel_p2[i] = vel_i
+            gamma_p2[i] = gamma_i
+            asin_p2[i] = asin_i
+            acos_p2[i] = acos_i
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
+
+    # combine p1 and p2 parameters and bring them in correct order using point_id
+    sort_idx = np.argsort(np.append(point1_obj.point_id, point2_obj.point_id))
+    demerr_p2 = np.append(demerr_p1, demerr_p2)  # add gamma=1 for p1 pixels
+    vel_p2 = np.append(vel_p1, vel_p2)
+    asin_p2 = np.append(asin_p1, asin_p2)
+    acos_p2 = np.append(acos_p1, acos_p2)
+    gamma_p2 = np.append(np.ones_like(point1_obj.point_id), gamma_p2)  # add gamma=1 for p1 pixels
+
+    demerr_p2 = demerr_p2[sort_idx]
+    vel_p2 = vel_p2[sort_idx]
+    gamma_p2 = gamma_p2[sort_idx]
+    asin_p2 = asin_p2[sort_idx]
+    acos_p2 = acos_p2[sort_idx]
+    return demerr_p2, vel_p2, asin_p2, acos_p2, gamma_p2

@@ -39,7 +39,7 @@ from mintpy.utils import readfile
 from mintpy.utils.plot import auto_flip_direction
 
 from sarvey import viewer
-from sarvey.densification import densifyNetwork
+from sarvey.densification import densifyNetwork, densifyNetworkSeasonal
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
@@ -736,7 +736,7 @@ class Processing:
                 # remove DEM error, but not velocity before estimating the temporal autocorrelation
                 pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(obj=point1_obj, vel=vel, demerr=demerr, 
                                                                                              asin=asin, acos=acos,
-                                                                                              ifg_space=False, logger=self.logger)[0]
+                                                                                              ifg_space=False, logger=self.logger)
                 pred_phase = pred_phase_demerr + pred_phase_seasonal
                 phase_wo_demerr = point1_obj.phase - pred_phase
                 auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
@@ -1001,15 +1001,15 @@ class Processing:
         else:
             vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
 
-            # load wrapped phase to remove known components for unwrapping p2 points
-            point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
-            point1_obj.open(input_path=self.config.general.input_path)
+        # load wrapped phase to remove known components for unwrapping p2 points
+        point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
+        point1_obj.open(input_path=self.config.general.input_path)
 
-            aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
-            aps1_obj.open(input_path=self.config.general.input_path)
+        aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
+        aps1_obj.open(input_path=self.config.general.input_path)
 
-            aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
-            aps2_obj.open(input_path=self.config.general.input_path)
+        aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        aps2_obj.open(input_path=self.config.general.input_path)
 
         if self.config.filtering.mask_p2_file is None:
             """
@@ -1095,10 +1095,13 @@ class Processing:
         point2_obj.phase = np.angle(np.exp(1j * point2_obj.phase) * np.conjugate(np.exp(1j * aps2_ifg_phase)))
         point1_obj.phase = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * aps1_ifg_phase)))
 
-        demerr, vel, gamma = densifyNetwork(
+        if self.config.preparation.ifg_network_type == 'star':
+            demerr, vel, asin, acos, gamma = densifyNetworkSeasonal(
             point1_obj=point1_obj,
             vel_p1=vel_p1,
             demerr_p1=demerr_p1,
+            asin_p1=asin_p1,
+            acos_p1=acos_p1
             point2_obj=point2_obj,
             num_conn_p1=self.config.densification.num_connections_to_p1,
             max_dist_p1=self.config.densification.max_distance_to_p1,
@@ -1108,6 +1111,21 @@ class Processing:
             num_cores=self.config.general.num_cores,
             logger=self.logger
         )  # returns parameters of both first- and second-order points
+        else:
+
+            demerr, vel, gamma = densifyNetwork(
+                point1_obj=point1_obj,
+                vel_p1=vel_p1,
+                demerr_p1=demerr_p1,
+                point2_obj=point2_obj,
+                num_conn_p1=self.config.densification.num_connections_to_p1,
+                max_dist_p1=self.config.densification.max_distance_to_p1,
+                velocity_bound=self.config.densification.velocity_bound,
+                demerr_bound=self.config.densification.dem_error_bound,
+                num_samples=self.config.densification.num_optimization_samples,
+                num_cores=self.config.general.num_cores,
+                logger=self.logger
+            )  # returns parameters of both first- and second-order points
 
         # store combined set of first and second-order points
         point2_obj.addPointsFromObj(
@@ -1144,6 +1162,20 @@ class Processing:
                     dpi=300)
         plt.close(fig)
 
+        if self.config.preparation.ifg_network_type == 'star':
+            fig = plt.figure(figsize=(15, 5))
+            axs = fig.subplots(1, 2)
+            axs[0].hist(-asin[mask_gamma] * 100, bins=200)
+            axs[0].set_ylabel('Absolute frequency')
+            axs[0].set_xlabel('ASIN [cm]')
+
+            axs[1].hist(-acos[mask_gamma]* 100, bins=200)
+            axs[1].set_ylabel('Absolute frequency')
+            axs[1].set_xlabel('ACOS [cm]')
+            fig.savefig(join(self.path, "pic", "step_4_consistency_seasonal_parameters_p2_coh{}.png".format(coh_value)),
+                        dpi=300)
+            plt.close(fig)
+
         fig = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
                                  cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
@@ -1164,16 +1196,37 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
+        if self.config.preparation.ifg_network_type == 'star':
+            fig = viewer.plotScatter(value=-asin[mask_gamma], coord=point2_obj.coord_xy,
+                                 ttl="ASIN in [m]",
+                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 logger=self.logger)[0]
+            fig.savefig(join(self.path, "pic", "step_4_estimation_ASIN_p2_coh{}.png".format(coh_value)), dpi=300)
+            plt.close(fig)
+
+            fig = viewer.plotScatter(value=-acos[mask_gamma], coord=point2_obj.coord_xy, ttl="ACOS in [m]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                    logger=self.logger)[0]
+            fig.savefig(join(self.path, "pic", "step_4_estimation_ACOS_p2_coh{}.png".format(coh_value)), dpi=300)
+            plt.close(fig)
+
         self.logger.info(msg="Remove phase contributions from mean velocity "
-                             "and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-            obj=point2_obj,
-            vel=vel[mask_gamma],
-            demerr=demerr[mask_gamma],
-            ifg_space=True,
-            logger=self.logger
-        )
-        pred_phase = pred_phase_demerr + pred_phase_vel
+                             "and DEM correction from wrapped phase of points, star network also seasonal components were removed")
+        
+        if self.config.preparation.ifg_network_type == 'star':
+            self.logger.info(msg="Remove phase contributions from mean velocity and DEM correction and seasonal signal from wrapped phase of points.")
+            pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(
+                obj=point2_obj, vel=vel, demerr=demerr, asin=asin, acos=acos,
+                ifg_space=True, logger=self.logger)
+            pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
+        else:
+            self.logger.info(msg="Remove phase contributions from mean velocity"
+                             " and DEM correction from wrapped phase of points.")
+            pred_phase_demerr, pred_phase_vel = ut.predictPhase(
+                obj=point2_obj, vel=vel, demerr=demerr,
+                ifg_space=True, logger=self.logger
+            )
+            pred_phase = pred_phase_demerr + pred_phase_vel
 
         wr_phase = point2_obj.phase
         wr_res_phase = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase)))
