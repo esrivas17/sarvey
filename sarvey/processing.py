@@ -424,6 +424,7 @@ class Processing:
 
     def runUnwrappingTimeAndSpace(self, ref_ix=0):
         """RunTemporalAndSpatialUnwrapping."""
+
         if self.config.preparation.ifg_network_type == 'star':
             net_par_obj = NetworkParameterSeasonal(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
@@ -440,7 +441,13 @@ class Processing:
         )
 
         # reference point can be set arbitrarily, because outliers are removed.
-        spatial_ref_idx = ref_ix
+        # REFERENCE
+        if self.config.preparation.reference_latlon is None:
+            spatial_ref_idx=ref_ix
+        else:
+            lat, lon = self.config.preparation.reference_latlon
+            self.logger(f"Setting reference with lon:{lon} lat: {lat}")
+            spatial_ref_idx = ut.getRefFromLonLat(points_obj=point_obj, lon=lon, lat=lat)
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
@@ -518,21 +525,23 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_2_estimation_acos.png"), dpi=300)
             plt.close(fig)
 
-        self.logger.info(msg="Remove phase contributions from mean velocity"
-                             " and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-            obj=point_obj, vel=vel, demerr=demerr,
-            ifg_space=True, logger=self.logger
-        )
-        pred_phase = pred_phase_demerr + pred_phase_vel
-
+        
         if self.config.preparation.ifg_network_type == 'star':
+            self.logger.info(msg="Remove phase contributions from mean velocity and DEM correction and seasonal signal from wrapped phase of points.")
             pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(
                 obj=point_obj, vel=vel, demerr=demerr, asin=asin, acos=acos,
                 ifg_space=True, logger=self.logger)
             pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
             pred_phase2 = pred_phase_demerr + pred_phase_vel
-            #pdb.set_trace()
+
+        else:
+            self.logger.info(msg="Remove phase contributions from mean velocity"
+                             " and DEM correction from wrapped phase of points.")
+            pred_phase_demerr, pred_phase_vel = ut.predictPhase(
+                obj=point_obj, vel=vel, demerr=demerr,
+                ifg_space=True, logger=self.logger
+            )
+            pred_phase = pred_phase_demerr + pred_phase_vel
 
         wr_phase = point_obj.phase
         wr_res_phase = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase)))
@@ -987,17 +996,20 @@ class Processing:
         # estimate parameters from unwrapped phase
         point1_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point1_obj.open(input_path=self.config.general.input_path)
-        vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
+        if self.config.preparation.ifg_network_type == 'star':
+            vel_p1, demerr_p1, asin_p1, acos_p1, ref_atmo, coherence, omega, v_hat = ut.estimateParametersStar(obj=point1_obj, ifg_space=True)
+        else:
+            vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
 
-        # load wrapped phase to remove known components for unwrapping p2 points
-        point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
-        point1_obj.open(input_path=self.config.general.input_path)
+            # load wrapped phase to remove known components for unwrapping p2 points
+            point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
+            point1_obj.open(input_path=self.config.general.input_path)
 
-        aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
-        aps1_obj.open(input_path=self.config.general.input_path)
+            aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
+            aps1_obj.open(input_path=self.config.general.input_path)
 
-        aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
-        aps2_obj.open(input_path=self.config.general.input_path)
+            aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+            aps2_obj.open(input_path=self.config.general.input_path)
 
         if self.config.filtering.mask_p2_file is None:
             """

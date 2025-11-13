@@ -488,7 +488,7 @@ def launchSeasonalModelling(parameters: tuple, plot=False):
         F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
         p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
         
-        if p_value < 0.001:
+        if p_value < 0.5:
             # model is significant, there is a periodic signal
             logger.debug(f"Seasonal modelling meaningful - arc:{k}")
             a_sin[k] = coef[0] #sin amp

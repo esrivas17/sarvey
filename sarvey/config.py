@@ -32,7 +32,7 @@ import os
 import json5
 from datetime import date
 from json import JSONDecodeError
-from typing import Optional
+from typing import Optional, Tuple
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -294,6 +294,12 @@ class Preparation(BaseModel, extra="forbid"):
         default='tcoh'
     )
 
+    reference_latlon: Optional[Tuple[float, float]] = Field(
+        title="Optional Reference",
+        description="Reference point in latitude and longitude",
+        default=None
+    )
+
     @field_validator('start_date', 'end_date')
     def checkDates(cls, v):
         """Check if date format is valid."""
@@ -336,6 +342,29 @@ class Preparation(BaseModel, extra="forbid"):
         if v <= 0:
             raise ValueError("Filter window size must be greater than zero.")
         return v
+    
+    @field_validator('reference_latlon', mode='before')
+    def parse_str(cls, v):
+        if v is None:
+            return None
+
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return None  # empty string → None
+
+            # split on comma or whitespace
+            parts = [p for p in v.replace(',', ' ').split() if p]
+            if len(parts) != 2:
+                raise ValueError("Must provide exactly two numbers separated by space or comma")
+
+            try:
+                return float(parts[0]), float(parts[1])
+            except ValueError:
+                raise ValueError("Both entries must be numbers")
+
+        return v
+
 
 
 class ConsistencyCheck(BaseModel, extra="forbid"):

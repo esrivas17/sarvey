@@ -40,6 +40,7 @@ from logging import Logger
 import datetime as dt
 
 from mintpy.utils import ptime
+from scipy.spatial import KDTree
 
 from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage
 from sarvey.ifg_network import IfgNetwork
@@ -1098,3 +1099,7 @@ def splitInYears(*, ifg_net_obj: IfgNetwork, logger:Logger):
     else:
         logger.error("Function only available for star network")
 
+def getRefFromLonLat(*, points_obj: Points, lon: float, lat: float):
+    tree = KDTree(points_obj.coord_lalo)
+    ref_ix = tree.query([lat, lon])
+    return ref_ix
