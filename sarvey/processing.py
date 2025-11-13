@@ -446,7 +446,7 @@ class Processing:
             spatial_ref_idx=ref_ix
         else:
             lat, lon = self.config.preparation.reference_latlon
-            self.logger(f"Setting reference with lon:{lon} lat: {lat}")
+            self.logger.info(f"Setting reference with lon:{lon} lat: {lat}")
             spatial_ref_idx = ut.getRefFromLonLat(points_obj=point_obj, lon=lon, lat=lat)
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
