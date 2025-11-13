@@ -1101,7 +1101,7 @@ class Processing:
             vel_p1=vel_p1,
             demerr_p1=demerr_p1,
             asin_p1=asin_p1,
-            acos_p1=acos_p1
+            acos_p1=acos_p1,
             point2_obj=point2_obj,
             num_conn_p1=self.config.densification.num_connections_to_p1,
             max_dist_p1=self.config.densification.max_distance_to_p1,
@@ -1216,14 +1216,14 @@ class Processing:
         if self.config.preparation.ifg_network_type == 'star':
             self.logger.info(msg="Remove phase contributions from mean velocity and DEM correction and seasonal signal from wrapped phase of points.")
             pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(
-                obj=point2_obj, vel=vel, demerr=demerr, asin=asin, acos=acos,
+                obj=point2_obj, vel=vel[mask_gamma], demerr=demerr[mask_gamma], asin=asin[mask_gamma], acos=acos[mask_gamma],
                 ifg_space=True, logger=self.logger)
             pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
         else:
             self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
             pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-                obj=point2_obj, vel=vel, demerr=demerr,
+                obj=point2_obj, vel=vel[mask_gamma], demerr=demerr[mask_gamma],
                 ifg_space=True, logger=self.logger
             )
             pred_phase = pred_phase_demerr + pred_phase_vel

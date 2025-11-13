@@ -162,8 +162,7 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
     acos_p2 = np.zeros((num_points,), dtype=np.float32)
     gamma_p2 = np.zeros((num_points,), dtype=np.float32)
 
-    #design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 2), dtype=np.float32)
-    design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 4), dtype=np.float32)
+    design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 2), dtype=np.float32)
 
      # base sin/cos for all times
     f = 1 # frequency cycles per years
@@ -211,7 +210,7 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
         design_mat_seasonal = np.column_stack([sin_base, cos_base])
         # OLS
         coef, residuals, rank, s = np.linalg.lstsq(design_mat_seasonal, arc_res_phase, rcond=None)
-        phase_hat = design_mat @ coef
+        phase_hat = design_mat_seasonal @ coef
         phaseres = arc_res_phase - phase_hat
 
         demerr_p2[idx] = demerr_point2
@@ -404,7 +403,7 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     # remove parameters from wrapped phase
     pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(obj=point1_obj, vel=vel_p1, demerr=demerr_p1, 
                                                                                              asin=asin_p1, acos=acos_p1,
-                                                                                              ifg_space=False, logger=logger)[0]
+                                                                                              ifg_space=True, logger=logger)
     pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
 
     # Note: for small baselines it does not make a difference if re-wrapping the phase difference or not.
@@ -414,7 +413,6 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     # for triangle-based temporal unwrapping.
     demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
     #demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
-
     # initialize output
     init_args = (tree_p1, point2_obj, demod_phase1)
 
