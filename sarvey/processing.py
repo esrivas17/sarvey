@@ -1241,6 +1241,24 @@ class Processing:
 
         point_obj.writeToFile()
 
+        # saving unwrapped residuals
+        phase_res_ts = ut.invertIfgNetwork(
+            phase=unw_res_phase,
+            num_points=point2_obj.num_points,
+            ifg_net_obj=point2_obj.ifg_net_obj,
+            num_cores=1,  # self.config.general.num_cores,
+            ref_idx=0,
+            logger=self.logger)
+        
+        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_res_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj_res.open(
+            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+            input_path=self.config.general.input_path
+        )
+        point_obj_res.phase = phase_res_ts
+
+        point_obj_res.writeToFile()
+
     def runDensificationSpace(self):
         """RunDensification."""
         coh_value = int(self.config.filtering.coherence_p2 * 100)

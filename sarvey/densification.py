@@ -35,6 +35,7 @@ from scipy.spatial import KDTree
 from logging import Logger
 
 from mintpy.utils import ptime
+from scipy import stats
 
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
 from sarvey.objects import Points
@@ -214,11 +215,32 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
         phaseres = np.angle(np.exp(1j * arc_res_phase) * np.conjugate(np.exp(1j * phase_hat.T))) 
         #phaseres = arc_res_phase - phase_hat
 
+        # F test
+        # full model
+        RSS1 = np.sum((phaseres)**2)
+        # Reduced model (mean only)
+        phase_mean = np.mean(arc_res_phase)
+        RSS0 = np.sum((arc_res_phase - phase_mean)**2)
+        p0 = 1
+
+        # degrees of freedom
+        n, p1 = design_mat.shape
+        df_num = p1 - p0
+        df_den = n - p1
+
+        # F-test
+        RSS_diff = max(RSS0 - RSS1, 0.0)
+        F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
+        p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
+
         demerr_p2[idx] = demerr_point2
         vel_p2[idx] = vel_point2
-        gamma_p2[idx] = np.abs(np.mean(np.exp(1j * phaseres)))
-        asin_p2[idx] = coef[0]
-        acos_p2[idx] = coef[1]
+        if p_value < 0.05:
+            gamma_p2[idx] = np.abs(np.mean(np.exp(1j * phaseres)))
+            asin_p2[idx] = coef[0]
+            acos_p2[idx] = coef[1]
+        else:
+            gamma_p2[idx] = gamma_point2
 
         prog_bar.update(counter + 1, every=np.int16(200),
                         suffix='{}/{} points'.format(counter + 1, num_points))
