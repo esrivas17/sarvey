@@ -843,11 +843,10 @@ class NetworkParameterSeasonal(Network):
         self.arcs = None
         self.num_arcs = None
         self.logger = logger
-        self.asin = None
-        self.acos = None
-        self.gammaseasonal = None
+        self.amplitude = None
+        self.offset = None
 
-    def prepare(self, *, net_obj: Network, demerr: np.ndarray, vel: np.ndarray, gamma: np.ndarray, asin: np.ndarray, acos: np.array, gseasonal: np.array):
+    def prepare(self, *, net_obj: Network, demerr: np.ndarray, vel: np.ndarray, gamma: np.ndarray, amplitude: np.ndarray, offset: np.array):
         """Prepare.
 
         Parameter
@@ -869,10 +868,8 @@ class NetworkParameterSeasonal(Network):
         self.demerr = demerr
         self.vel = vel
         self.gamma = gamma
-        self.asin = asin
-        self.acos = acos
-        self.gammaseasonal = gseasonal
-
+        self.amplitude = amplitude
+        self.offset = offset
 
     def writeToFile(self):
         """Write DEM error, velocity and temporal coherence to file."""
@@ -882,9 +879,8 @@ class NetworkParameterSeasonal(Network):
             f.create_dataset('demerr', data=self.demerr)
             f.create_dataset('vel', data=self.vel)
             f.create_dataset('gamma', data=self.gamma)
-            f.create_dataset('asin', data=self.asin)
-            f.create_dataset('acos', data=self.acos)
-            f.create_dataset('gammaseasonal', data=self.gammaseasonal)
+            f.create_dataset('amplitude', data=self.amplitude)
+            f.create_dataset('offset', data=self.offset)
 
     def open(self, *, input_path: str):
         """Read data from file."""
@@ -894,9 +890,8 @@ class NetworkParameterSeasonal(Network):
             self.demerr = f["demerr"][:]
             self.vel = f["vel"][:]
             self.gamma = f["gamma"][:]
-            self.asin = f["asin"][:]
-            self.acos = f["acos"][:]
-            self.gammaseasonal = f["gammaseasonal"][:]
+            self.amplitude = f["amplitude"][:]
+            self.offset = f["offset"][:]
 
     def removeArcs(self, *, mask: np.ndarray):
         """Remove arcs from the list of arcs in the network.
@@ -915,6 +910,5 @@ class NetworkParameterSeasonal(Network):
         self.arcs = self.arcs[mask, :]
         self.gamma = self.gamma[mask]
         self.num_arcs = mask[mask].shape[0]
-        self.asin = self.asin[mask]
-        self.acos = self.acos[mask]
-        self.gammaseasonal = self.gammaseasonal[mask]
+        self.amplitude = self.amplitude[mask]
+        self.offset = self.offset[mask]

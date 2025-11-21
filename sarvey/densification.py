@@ -38,6 +38,7 @@ from mintpy.utils import ptime
 from scipy import stats
 
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
+from sarvey.unwrapping_seasonal import oneDimSearchTemporalCoherence2
 from sarvey.objects import Points
 import sarvey.utils as ut
 import pdb
@@ -151,7 +152,8 @@ def launchDensifyNetworkConsistencyCheck(args: tuple):
 
 def launchDensifyStarNetworkConsistencyCheck(args: tuple):
 
-    (idx_range, num_points, num_conn_p1, max_dist_p1, velocity_bound, demerr_bound, num_samples) = args
+    (idx_range, num_points, num_conn_p1, max_dist_p1, velocity_bound, 
+     demerr_bound, amplitude_bound, offset_bound, num_samples) = args
 
     counter = 0
     prog_bar = ptime.progressBar(maxValue=num_points)
@@ -159,23 +161,21 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
     # initialize output
     demerr_p2 = np.zeros((num_points,), dtype=np.float32)
     vel_p2 = np.zeros((num_points,), dtype=np.float32)
-    asin_p2 = np.zeros((num_points,), dtype=np.float32)
-    acos_p2 = np.zeros((num_points,), dtype=np.float32)
+    amplitude_p2 = np.zeros((num_points,), dtype=np.float32)
+    offset_p2 = np.zeros((num_points,), dtype=np.float32)
     gamma_p2 = np.zeros((num_points,), dtype=np.float32)
 
-    design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 2), dtype=np.float32)
+    design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 4), dtype=np.float32)
 
-     # base sin/cos for all times
+    # base sin/cos for all times
     f = 1 # frequency cycles per years
     omega = 2.0 * np.pi * f
     factor = 4 * np.pi / global_point2_obj.wavelength
-    sin_base = factor * np.sin(omega * global_point2_obj.ifg_net_obj.datesf_ifg)
-    cos_base = factor * np.cos(omega * global_point2_obj.ifg_net_obj.datesf_ifg)
 
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
-
-    factor = 4 * np.pi / global_point2_obj.wavelength
+    amplitude_range = np.linspace(0, amplitude_bound, num_samples)
+    offset_range = np.linspace(0, offset_bound, num_samples)
 
     for idx in range(num_points):
         p2 = idx_range[idx]
@@ -194,59 +194,27 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
                             / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
         design_mat[:, 1] = factor * global_point2_obj.ifg_net_obj.tbase_ifg
 
-        demerr_point2, vel_point2, gamma_point2 = oneDimSearchTemporalCoherence(
-            demerr_range=demerr_range,
-            vel_range=vel_range,
-            obs_phase=arc_phase_p1,
-            design_mat=design_mat
-        )
+        design_mat[:, 2] = factor * np.cos(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
+        design_mat[:, 3] = factor * np.sin(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
 
-        # calculate residual phase
-        pred_phase_demerr_p2 = factor * global_point2_obj.ifg_net_obj.pbase_ifg / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])) * demerr_point2
-        pred_phase_vel_p2 = factor * global_point2_obj.ifg_net_obj.tbase_ifg * vel_point2
-        pred_phase_p2 = pred_phase_demerr_p2 + pred_phase_vel_p2
-        arc_res_phase = np.angle(np.exp(1j * arc_phase_p1) * np.conjugate(np.exp(1j * pred_phase_p2)))
+        #demerr_point2, vel_point2, gamma_point2 = oneDimSearchTemporalCoherence(
+        #    demerr_range=demerr_range,
+        #    vel_range=vel_range,
+        #    obs_phase=arc_phase_p1,
+        #    design_mat=design_mat
+        #)
 
-        # estimate seasonality
-        design_mat_seasonal = np.column_stack([sin_base, cos_base])
-        # OLS
-        coef, residuals, rank, s = np.linalg.lstsq(design_mat_seasonal, arc_res_phase.T.mean(axis=1), rcond=None)
-        phase_hat = design_mat_seasonal @ coef
-        phaseres = np.angle(np.exp(1j * arc_res_phase) * np.conjugate(np.exp(1j * phase_hat.T))) 
-        #phaseres = arc_res_phase - phase_hat
-
-        # F test
-        # full model
-        RSS1 = np.sum((phaseres)**2)
-        # Reduced model (mean only)
-        phase_mean = np.mean(arc_res_phase)
-        RSS0 = np.sum((arc_res_phase - phase_mean)**2)
-        p0 = 1
-
-        # degrees of freedom
-        n, p1 = design_mat.shape
-        df_num = p1 - p0
-        df_den = n - p1
-
-        # F-test
-        RSS_diff = max(RSS0 - RSS1, 0.0)
-        F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
-        p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
-
-        demerr_p2[idx] = demerr_point2
-        vel_p2[idx] = vel_point2
-        if p_value < 0.05:
-            gamma_p2[idx] = np.abs(np.mean(np.exp(1j * phaseres)))
-            asin_p2[idx] = coef[0]
-            acos_p2[idx] = coef[1]
-        else:
-            gamma_p2[idx] = gamma_point2
+        demerr_p2[idx], vel_p2[idx], amplitude_p2[idx], offset_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence2(demerr_range=demerr_range, 
+                                                                                              vel_range=vel_range, 
+                                                                                              amp_range=amplitude_range,
+                                                                                     offset_range=offset_range, 
+                                                                                     obs_phase=arc_phase_p1, design_mat=design_mat)
 
         prog_bar.update(counter + 1, every=np.int16(200),
                         suffix='{}/{} points'.format(counter + 1, num_points))
         counter += 1
 
-    return idx_range, demerr_p2, vel_p2, asin_p2, acos_p2, gamma_p2
+    return idx_range, demerr_p2, vel_p2, amplitude_p2, offset_p2, gamma_p2
 
 
 def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, point2_obj: Points,
@@ -372,8 +340,8 @@ def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndar
     return demerr_p2, vel_p2, gamma_p2
 
 
-def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, asin_p1: np.array, acos_p1: np.array, point2_obj: Points,
-                   num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,
+def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, amplitude_p1: np.array, offset_p1: np.array, point2_obj: Points,
+                   num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float, amplitude_bound: float, offset_bound: float,
                    num_samples: int, num_cores: int = 1, logger: Logger):
 
     msg = "#" * 10
@@ -387,8 +355,8 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
 
     # remove parameters from wrapped phase
     pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(obj=point1_obj, vel=vel_p1, demerr=demerr_p1, 
-                                                                                             asin=asin_p1, acos=acos_p1,
-                                                                                              ifg_space=True, logger=logger)
+                                                                                 amplitude=amplitude_p1, offset=offset_p1, 
+                                                                                 ifg_space=True, logger=logger)
     pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
 
     # Note: for small baselines it does not make a difference if re-wrapping the phase difference or not.
@@ -404,8 +372,8 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     if num_cores == 1:
         densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1,
-                velocity_bound, demerr_bound, num_samples)
-        idx_range, demerr_p2, vel_p2, asin_p2, acos_p2, gamma_p2 = launchDensifyStarNetworkConsistencyCheck(args)
+                velocity_bound, demerr_bound, amplitude_bound, offset_bound,num_samples)
+        idx_range, demerr_p2, vel_p2, amplitude_p2, offset_p2, gamma_p2 = launchDensifyStarNetworkConsistencyCheck(args)
     else:
         with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))
@@ -419,6 +387,8 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
                 max_dist_p1,
                 velocity_bound,
                 demerr_bound,
+                amplitude_bound,
+                offset_bound,
                 num_samples
             ) for idx_range in idx]
 
@@ -432,16 +402,16 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
         demerr_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
         vel_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
         gamma_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
-        asin_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
-        acos_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        amplitude_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        offset_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
 
         # retrieve results
-        for i, demerr_i, vel_i, asin_i, acos_i, gamma_i in results:
+        for i, demerr_i, vel_i, amplitude_i, offset_i, gamma_i in results:
             demerr_p2[i] = demerr_i
             vel_p2[i] = vel_i
             gamma_p2[i] = gamma_i
-            asin_p2[i] = asin_i
-            acos_p2[i] = acos_i
+            amplitude_p2[i] = amplitude_i
+            offset_p2[i] = offset_i
 
     m, s = divmod(time.time() - start_time, 60)
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
@@ -450,13 +420,13 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     sort_idx = np.argsort(np.append(point1_obj.point_id, point2_obj.point_id))
     demerr_p2 = np.append(demerr_p1, demerr_p2)  # add gamma=1 for p1 pixels
     vel_p2 = np.append(vel_p1, vel_p2)
-    asin_p2 = np.append(asin_p1, asin_p2)
-    acos_p2 = np.append(acos_p1, acos_p2)
+    amplitude_p2 = np.append(amplitude_p1, amplitude_p2)
+    offset_p2 = np.append(offset_p1, offset_p2)
     gamma_p2 = np.append(np.ones_like(point1_obj.point_id), gamma_p2)  # add gamma=1 for p1 pixels
 
     demerr_p2 = demerr_p2[sort_idx]
     vel_p2 = vel_p2[sort_idx]
     gamma_p2 = gamma_p2[sort_idx]
-    asin_p2 = asin_p2[sort_idx]
-    acos_p2 = acos_p2[sort_idx]
-    return demerr_p2, vel_p2, asin_p2, acos_p2, gamma_p2
+    amplitude_p2 = amplitude_p2[sort_idx]
+    offset_p2 = offset_p2[sort_idx]
+    return demerr_p2, vel_p2, amplitude_p2, offset_p2, gamma_p2

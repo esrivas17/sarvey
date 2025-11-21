@@ -46,6 +46,7 @@ import cmcrameri as cmc
 
 from mintpy.utils import ptime
 import datetime as dt
+
 import pdb
 
 import sarvey.utils as ut
@@ -53,67 +54,6 @@ from sarvey.ifg_network import IfgNetwork
 from sarvey.objects import Network, NetworkParameter, AmplitudeImage
 
 
-def objFuncTemporalCoherence(x, *args):
-    """Compute temporal coherence from parameters and phase. To be used as objective function for optimization.
-
-    Parameters
-    ----------
-    x: np.ndarray
-        Search space for the DEM error in a 1D grid.
-    args: tuple
-        Additional arguments: (design_mat, obs_phase, scale_vel, scale_demerr).
-
-    Returns
-    -------
-    1 - gamma: float
-    """
-    (design_mat, obs_phase, scale_vel, scale_demerr) = args
-
-    # equalize the gradients in both directions
-    x[0] *= scale_demerr
-    x[1] *= scale_vel
-
-    pred_phase = np.matmul(design_mat, x)
-    res = (obs_phase - pred_phase.T).ravel()
-    gamma = np.abs(np.mean(np.exp(1j * res)))
-    return 1 - gamma
-
-
-def gridSearchTemporalCoherence(*, demerr_grid: np.ndarray, vel_grid: np.ndarray, design_mat: np.ndarray,
-                                obs_phase: np.ndarray):
-    """Grid search which maximizes the temporal coherence as the objective function.
-
-    Parameters
-    ----------
-    demerr_grid: np.ndarray
-        Search space for the DEM error in a 2D grid.
-    vel_grid: np.ndarray
-        Search space for the velocity in a 2D grid.
-    design_mat: np.ndarray
-        Design matrix for estimating parameters from arc phase.
-    obs_phase: np.ndarray
-        Observed phase of the arc.
-
-    Returns
-    -------
-    demerr: float
-        estimated DEM error.
-    vel: float
-        estimated velocity.
-    gamma: float
-        estimated temporal coherence.
-    """
-    demerr_grid_flat = demerr_grid.flatten()
-    vel_grid_flat = vel_grid.flatten()
-    gamma_flat = np.array(
-        [1 - objFuncTemporalCoherence(np.array([demerr_grid_flat[i], vel_grid_flat[i]]),
-                                      design_mat, obs_phase, 1, 1)
-         for i in range(demerr_grid_flat.shape[0])])
-    gamma = gamma_flat.reshape(demerr_grid.shape)
-    idx_max_gamma = np.argmax(gamma_flat)
-
-    # return demerr_grid_flat[idx_max_gamma], vel_grid_flat[idx_max_gamma], gamma_flat[idx_max_gamma]
-    return demerr_grid_flat[idx_max_gamma], vel_grid_flat[idx_max_gamma], gamma
 
 
 def findOptimum(*, obs_phase: np.ndarray, design_mat: np.ndarray, val_range: np.ndarray):
@@ -143,11 +83,42 @@ def findOptimum(*, obs_phase: np.ndarray, design_mat: np.ndarray, val_range: np.
     else:
         # step consistency check
         res = obs_phase - pred_phase.T
-
+        
     gamma = np.abs(np.mean(np.exp(1j * res), axis=1))
     max_idx = np.argmax(gamma)
     opt_val = val_range[max_idx]
     return opt_val, gamma[max_idx], pred_phase[:, max_idx]
+
+
+def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: np.ndarray, offset_range: np.ndarray):
+
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+
+    # meshgrid of candidate coefficients 
+    amps_vals, offset_vals = np.meshgrid(amps_range, offset_range, indexing='ij') 
+
+    # pred phase
+    sine_part = amps_vals.ravel() * np.sin(omega*offset_vals.ravel())
+    cosine_part = amps_vals.ravel() * np.cos(omega*offset_vals.ravel())
+    
+    pred_phase = design_mat[:,0] * cosine_part[:,np.newaxis] + design_mat[:,1] * sine_part[:,np.newaxis]
+
+    # finding maximum coherence
+    if len(obs_phase.shape) == 2:
+        # step densification
+        res = obs_phase[:, np.newaxis, :] - pred_phase
+        res = np.moveaxis(res, 0, 1)
+        res = res.reshape((pred_phase.shape[1], -1))  # combine residuals from all arcs
+    else:
+        # step consistency check
+        res = pred_phase - obs_phase
+
+    gamma = np.abs(np.mean(np.exp(1j * res), axis=1))
+    idx_max = np.argmax(gamma)
+    idx_r, idx_c = np.unravel_index(idx_max, amps_vals.shape)
+
+    return amps_vals[idx_r, idx_c], offset_vals[idx_r, idx_c], gamma[idx_max], pred_phase[idx_max]
 
 
 def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.ndarray, obs_phase: np.ndarray,
@@ -219,27 +190,14 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.nda
     return demerr, vel, gamma
 
 
-def SeasonalSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.ndarray, amplitude_range: np.array, offset_range: np,array, obs_phase: np.ndarray,
+def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.ndarray, amp_range: np.ndarray, offset_range: np.ndarray, obs_phase: np.ndarray,
                                   design_mat: np.ndarray):
-    """One dimensional search for maximum temporal coherence that fits the observed arc phase.
 
-    Parameters
-    ----------
-    demerr_range: np.ndarray
-        Search space for the DEM error in a 1D grid.
-    vel_range: np.ndarray
-        Search space for the velocity in a 1D grid.
-    design_mat: np.ndarray
-        Design matrix for estimating parameters from arc phase.
-    obs_phase: np.ndarray
-        Observed phase of the arc.
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+    space_cos = amp_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:]
+    space_sin = amp_range[:,np.newaxis] * np.sin(omega*offset_range)[np.newaxis,:]
 
-    Returns
-    -------
-    demerr: float
-    vel: float
-    gamma: float
-    """
     demerr, gamma_demerr, pred_phase_demerr = findOptimum(
         obs_phase=obs_phase,
         design_mat=design_mat[:, 0],
@@ -263,6 +221,9 @@ def SeasonalSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.n
             design_mat=design_mat[:, 1],
             val_range=vel_range
         )
+
+        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=obs_phase-(pred_phase_demerr+pred_phase_vel), 
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
     else:
         vel, gamma_vel, pred_phase_vel = findOptimum(
             obs_phase=obs_phase - pred_phase_demerr,
@@ -274,49 +235,215 @@ def SeasonalSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.n
             design_mat=design_mat[:, 0],
             val_range=demerr_range
         )
+        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=obs_phase-(pred_phase_demerr+pred_phase_vel), 
+                                                                         design_mat=design_mat[:, 2:],  amps_range=amp_range, offset_range=offset_range)
 
+    
+    #print(f"Initial guesses\nDemerr: {demerr} gamma: {gamma_demerr}\nVel: {vel} gamma: {gamma_vel}\nAmp: {amp} - offset: {offset} gamma: {gamma_seasonal}")
     # improve initial estimate with gradient descent approach
     scale_demerr = demerr_range.max()
     scale_vel = vel_range.max()
+    scale_amp = amp_range.max()
+    scale_offset = offset_range.max()
+    initial_guess = np.array([demerr/scale_demerr, vel/scale_vel, amp/scale_amp, offset/scale_offset]).T
 
-    demerr, vel, gamma = gradientSearchTemporalCoherence(scale_vel=scale_vel,scale_demerr=scale_demerr,obs_phase=obs_phase, 
-                                                         design_mat=design_mat, x0=np.array([demerr / scale_demerr, vel / scale_vel]).T)
+    demerr, vel, amp, offset, gamma = gradientSearchTemporalCoherence2(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_amp=scale_amp, scale_offset=scale_offset, 
+                                                          obs_phase=obs_phase, design_mat=design_mat, omega=omega, x0=initial_guess)
+    cos_term = amp * np.cos(omega*offset)
+    sin_term = amp * np.sin(omega*offset)
 
-    pred_phase = np.matmul(design_mat, np.array([demerr, vel]))
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cos_term, sin_term]))
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
-    return demerr, vel, gamma
+
+    return demerr, vel, amp, offset, gamma
 
 
-def gradientSearchTemporalCoherence(*, scale_vel: float, scale_demerr: float, obs_phase: np.ndarray,
-                                    design_mat: np.ndarray, x0: np.ndarray):
-    """GradientSearchTemporalCoherence.
 
-    Parameters
-    ----------
-    scale_demerr: float
-        Scaling factor for DEM error to equalize the axis of the search space.
-    scale_vel: float
-        Scaling factor for velocity to equalize the axis of the search space.
-    design_mat: np.ndarray
-        Design matrix for estimating parameters from arc phase.
-    obs_phase: np.ndarray
-        Observed phase of the arc.
-    x0: np.ndarray
-        Initial values for optimization.
 
-    Returns
-    -------
-    demerr: float
-    vel: float
-    gamma: float
-    """
-    opt_res = minimize(objFuncTemporalCoherence, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr),  bounds=((-1, 1), (-1, 1)), method='L-BFGS-B')
+def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, scale_amp: float, scale_offset, obs_phase: np.ndarray,
+                                    design_mat: np.ndarray, omega: float, x0: np.ndarray):
+    bounds = ((-1, 1), (-1, 1), (0, 1), (0,1))
+    opt_res = minimize(objFuncTempCoh2, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega),  bounds=bounds, method='L-BFGS-B')
+    #With Jacobian
+    #opt_res = minimize(objFuncTempCoh2, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega),  
+    #                    bounds=bounds, method='L-BFGS-B', jac=Jacobian)
     gamma = 1 - opt_res.fun
     demerr = opt_res.x[0] * scale_demerr
     vel = opt_res.x[1] * scale_vel
-    return demerr, vel, gamma
+    amp = opt_res.x[2] * scale_amp
+    offset = opt_res.x[3]*scale_offset
+    return demerr, vel, amp, offset, gamma
 
+def objFuncTempCoh2(x, *args):
+    (design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega) = args
+    
+    #scale_cos = scale_amp * np.sin(omega*scale_offset)
+    #scale_sin = scale_amp * np.cos(omega*scale_offset)
+
+    x[0] *= scale_demerr
+    x[1] *= scale_vel
+    x[2] *= scale_amp
+    x[3] *= scale_offset
+
+    # pred phase
+    params = np.array([x[0], x[1], x[2]*np.cos(omega*x[3]), x[2]*np.sin(omega*x[3])])
+    pred_phase = np.matmul(design_mat, params)
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma = np.abs(np.mean(np.exp(1j*res)))
+    return 1-gamma
+
+
+def Jacobian(x, *args):
+    (design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega) = args
+    
+    """
+    o = 1 - g
+    g = abs(1/N * np.mean(exp(1j*r)))
+    r = obs - d1 * demerr - d2 * vel - d3 * A * np.cos(w*phi) - d4 * A * np.sin(w*phi)
+
+    phi: shift
+    w:  2.0 * np.pi * f
+
+    do/demerr = do/dg * dg/dr * dr/demerr
+    do/dv = do/dg * dg/dr *  dr/dv
+    """
+
+    #x[0] *= scale_demerr
+    #x[1] *= scale_vel
+    #x[2] *= scale_amp
+    #x[3] *= scale_offset
+
+    demerr  = x[0] * scale_demerr
+    vel     = x[1] * scale_vel
+    A       = x[2] * scale_amp
+    phi     = x[3] * scale_offset
+
+    # dr/demerr, dr/v, dr/A, dr/shift
+    dr_demerr = - design_mat[:,0]
+    dr_v      = - design_mat[:,1]
+    dr_A      = - design_mat[:,2]*np.cos(omega*phi) - design_mat[:,3]*np.sin(omega*phi)
+    dr_phi    = - omega * A * design_mat[:,2] * np.sin(omega * phi) - omega * A * design_mat[:,3] * np.cos(omega*phi)
+    
+    # dg/dr
+    params = np.array([demerr, vel, A*np.cos(omega*phi), A*np.sin(omega*phi)])
+    pred_phase = np.matmul(design_mat, params)
+
+    
+    if len(obs_phase.shape) == 2:
+        res = (obs_phase - pred_phase)
+        g = np.mean(np.exp(1j*res), axis=0)
+        gamma = np.abs(np.mean(np.exp(1j * res), axis=0))
+        e = np.exp(1j * res)
+    else:
+        res = (obs_phase - pred_phase)
+        g = np.mean(np.exp(1j*res))
+        gamma = np.abs(np.mean(np.exp(1j * res)))
+        e = np.exp(1j * res)
+
+    #dg_dr = gamma/abs(gamma) * np.exp(1j*res) * 1j / res.size
+    #dg_dr = np.real((np.conj(g)/np.abs(g)) * (1j/res.size * np.exp(1j*res)))
+    #dg_dr = - (1/res.size) * np.imag((np.conj(g) / np.abs(g)) * res)
+    dg_dr = np.real((np.conj(g) / gamma) * (1j / res.size * e))
+    
+    # do/dr
+    do_dr = -1
+
+    """
+    Note: Because the objective function depends on every residual 𝑟𝑘, we sum up
+    By the chain rule the derivative of the objective function w.r.t a parameter p is the sum over all residuals
+    contributions do/dr times dr/dp, this is exactly as np.sum(dg/dr*dr/ddemerr) or 
+    """
+
+    #jacobian = np.array([do_dr*np.sum(dg_dr*dr_demerr)*scale_demerr, 
+    #                     do_dr*np.sum(dg_dr*dr_v)*scale_vel, 
+    #                     do_dr*np.sum(dg_dr*dr_A)*scale_amp, 
+    #                     do_dr*np.sum(dg_dr*dr_phi)*scale_offset])
+
+    jacobian = np.array([do_dr* (dg_dr @ dr_demerr) *scale_demerr, 
+                         do_dr* (dg_dr @ dr_v)*scale_vel, 
+                         do_dr* (dg_dr @ dr_A)*scale_amp, 
+                         do_dr* (dg_dr @ dr_phi)*scale_offset])
+    
+    return jacobian
+
+
+def Jacobian2(x, *args):
+    """
+    Returns (o, jac) where:
+      - o is scalar objective o = 1 - gamma
+      - jac is length-4 gradient wrt optimizer variables x (same order as x)
+    args: (design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega)
+    design_mat shape: (N,4) with columns corresponding to d1,d2,d3,d4
+    """
+    (design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega) = args
+
+    # --- avoid modifying input x in-place: build scaled physical parameters p ---
+    s_dem = scale_demerr
+    s_vel = scale_vel
+    s_amp = scale_amp
+    s_off = scale_offset
+
+    # x are optimizer variables; p are physical params used in model
+    demerr = x[0] * s_dem
+    vel    = x[1] * s_vel
+    A      = x[2] * s_amp
+    shift  = x[3] * s_off
+
+    # --- construct params used by design matrix multiplication ---
+    cos_s = np.cos(omega * shift)
+    sin_s = np.sin(omega * shift)
+    # params plug into design_mat @ params
+    params = np.array([demerr, vel, A * cos_s, A * sin_s])   # shape (4,)
+
+    # --- residuals r = obs - pred ---
+    pred_phase = design_mat @ params      # shape (N,)
+    r = (obs_phase - pred_phase).ravel()  # shape (N,)
+
+    # --- complex mean and gamma ---
+    e = np.exp(1j * r)                    # shape (N,)
+    g = e.mean()                          # complex scalar
+    gamma = np.abs(g)
+    eps = 1e-12
+    denom = max(gamma, eps)
+    o = 1.0 - gamma
+
+    # --- dgamma/dr (real vector length N) ---
+    # formula: Re( conj(g)/|g| * (i/N * e) )
+    N = r.size
+    dgamma_dr = np.real((np.conj(g) / gamma) * (1j / N * e))  # shape (N,)
+
+    # --- dr/dparams (each is array length N) ---
+    # assuming design_mat columns are [d1, d2, d3, d4]
+    d1 = design_mat[:, 0]
+    d2 = design_mat[:, 1]
+    d3 = design_mat[:, 2]
+    d4 = design_mat[:, 3]
+
+    dr_ddem = - d1
+    dr_dv   = - d2
+    dr_dA   = - (d3 * cos_s + d4 * sin_s)
+    # correct derivative w.r.t shift:
+    # dr/dshift = A*omega*( d3*sin(omega*shift) - d4*cos(omega*shift) )
+    dr_dshift = A * omega * (d3 * sin_s - d4 * cos_s)
+
+    # --- chain: do/dparam = - sum_k dgamma_dr[k] * dr_dp[k] ---
+    # note: do/dgamma = -1 so combined is - dgamma_dr * dr_dp summed
+    do_ddem = - np.sum(dgamma_dr * dr_ddem)
+    do_dv   = - np.sum(dgamma_dr * dr_dv)
+    do_dA   = - np.sum(dgamma_dr * dr_dA)
+    do_dshift = - np.sum(dgamma_dr * dr_dshift)
+
+    # --- convert derivatives wrt physical params p to derivatives wrt x (optimizer vars)
+    # p = s * x  => do/dx = do/dp * s
+    grad_x0 = do_ddem * s_dem
+    grad_x1 = do_dv   * s_vel
+    grad_x2 = do_dA   * s_amp
+    grad_x3 = do_dshift * s_off
+
+    jac = np.array([grad_x0, grad_x1, grad_x2, grad_x3], dtype=float)
+
+    return jac
 
 def launchAmbiguityFunctionSearch(parameters: tuple):
     """Wrap for launching ambiguity function for temporal unwrapping in parallel.
@@ -363,36 +490,65 @@ def launchAmbiguityFunctionSearch(parameters: tuple):
     return arc_idx_range, demerr, vel, gamma
 
 
-def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength: float, velocity_bound: float,
-                       demerr_bound: float, num_samples: int, num_cores: int = 1, logger: Logger) -> \
-        tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Solve ambiguities for every arc in spatial Network object.
+def launchAmbiguityFunctionSearch2(parameters: tuple):
+    """Wrap for launching ambiguity function for temporal unwrapping in parallel.
 
     Parameters
     ----------
-    ifg_net_obj: IfgNetwork
-        The IfgNetwork object.
-    net_obj: Network
-        The Network object.
-    wavelength: float
-        The wavelength.
-    velocity_bound: float
-        The velocity bound.
-    demerr_bound: float
-        The DEM error bound.
-    num_samples: int
-        The number of samples for the search space.
-    num_cores: int
-        Number of cores to be used. Default is 1.
-    logger: Logger
-        Logging handler.
+    parameters: tuple
+        Arguments for temporal unwrapping in parallel.
 
     Returns
     -------
+    arc_idx_range: np.ndarray
     demerr: np.ndarray
     vel: np.ndarray
     gamma: np.ndarray
     """
+    (arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, 
+     velocity_bound, demerr_bound, amp_bound, offset_bound, num_samples) = parameters
+
+    demerr = np.zeros((num_arcs, 1), dtype=np.float32)
+    vel = np.zeros((num_arcs, 1), dtype=np.float32)
+    amplitude = np.zeros((num_arcs, 1), dtype=np.float32)
+    offset = np.zeros((num_arcs, 1), dtype=np.float32)
+    gamma = np.zeros((num_arcs, 1), dtype=np.float32)
+
+    design_mat = np.zeros((ifg_net_obj.num_ifgs, 4), dtype=np.float32)
+
+    demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
+    vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
+    amplitude_range = np.linspace(0, amp_bound, num_samples)
+    offset_range = np.linspace(0, offset_bound, num_samples)
+    
+    # prog_bar = ptime.progressBar(maxValue=num_arcs)
+
+    factor = 4 * np.pi / wavelength
+
+    # base seasonal model
+    # model A*np.cos(2*np.pi(t-T0)) which is equal to A[np.cos(2*np.pi*t)*np.cos(2*np.pi*T0) + np.sin(2*np.pi*t)*np.sin(2*np.pi*T0)]
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+    space_cos = amplitude_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:] 
+    space_sin = amplitude_range[:,np.newaxis] * np.sin(omega*offset_range)[np.newaxis,:]
+
+    for k in range(num_arcs):
+        design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat[:, 1] = factor * ifg_net_obj.tbase_ifg
+        design_mat[:, 2] = factor * np.cos(omega * ifg_net_obj.tbase_ifg)
+        design_mat[:, 3] = factor * np.sin(omega * ifg_net_obj.tbase_ifg)
+
+        demerr[k], vel[k], amplitude[k], offset[k], gamma[k] = oneDimSearchTemporalCoherence2(demerr_range=demerr_range, vel_range=vel_range, amp_range=amplitude_range,
+                                                                                     offset_range=offset_range, obs_phase=phase[k, :], design_mat=design_mat)
+
+    return arc_idx_range, demerr, vel, amplitude, offset, gamma
+
+
+def seasonalUnwrapping2(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength: float, velocity_bound: float,
+                       demerr_bound: float, amp_bound: float, offset_bound: float, num_samples: int, 
+                       num_cores: int = 1, logger: Logger)-> \
+        tuple[np.ndarray, np.ndarray, np.ndarray]:
+
     msg = "#" * 10
     msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION "
     msg += "#" * 10
@@ -401,23 +557,25 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength
     start_time = time.time()
 
     if num_cores == 1:
-        args = (
-            np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
-            net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, num_samples)
-        arc_idx_range, demerr, vel, gamma = launchAmbiguityFunctionSearch(parameters=args)
+        args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
+            net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, 
+            demerr_bound, amp_bound, offset_bound, num_samples)
+
+        arc_idx_range, demerr, vel, amplitude, offset, gamma = launchAmbiguityFunctionSearch2(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
 
         demerr = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
         vel = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        amplitude = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        offset = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
         gamma = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
 
         num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores  # avoids having more samples then
         # cores
         idx = ut.splitDatasetForParallelProcessing(num_samples=net_obj.num_arcs, num_cores=num_cores)
 
-        args = [(
-            idx_range,
+        args = [(idx_range,
             idx_range.shape[0],
             net_obj.phase[idx_range, :],
             net_obj.slant_range[idx_range],
@@ -426,23 +584,27 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength
             wavelength,
             velocity_bound,
             demerr_bound,
+            amp_bound,
+            offset_bound,
             num_samples) for idx_range in idx]
         
         with multiprocessing.Pool(processes=num_cores) as pool:
-            results = pool.map(func=launchAmbiguityFunctionSearch, iterable=args)
+            results = pool.map(func=launchAmbiguityFunctionSearch2, iterable=args)
 
         # retrieve results
-        for i, demerr_i, vel_i, gamma_i in results:
+        for i, demerr_i, vel_i, amp_i, offset_i, gamma_i in results:
             demerr[i] = demerr_i
             vel[i] = vel_i
             gamma[i] = gamma_i
+            amplitude[i] = amp_i
+            offset[i] = offset_i
 
     m, s = divmod(time.time() - start_time, 60)
     logger.info(msg="Finished temporal unwrapping.")
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
-    return demerr, vel, gamma
+    return demerr, vel, amplitude, offset, gamma
 
-# delete this
+
 def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength: float, demerr: np.ndarray, 
                        vel: np.ndarray, plotflag: bool, num_cores: int = 1, logger: Logger):
     msg = "#" * 10
@@ -473,7 +635,6 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength:
         # parameters
         a_sin = np.zeros((num_arcs, 1), dtype=np.float32)
         a_cos = np.zeros((num_arcs, 1), dtype=np.float32)
-        #icept = np.zeros((num_arcs, nyears), dtype=np.float32)
         gamma = np.zeros((num_arcs, 1), dtype=np.float32)
 
         num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores
@@ -494,8 +655,7 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength:
     logger.info(msg="Finished temporal unwrapping.")
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
     return a_sin, a_cos, gamma
-
-# delete this    
+        
 def launchSeasonalModelling(parameters: tuple, plot=False):
     (arc_idx_range, num_arcs, phase, wavelength, ifg_net_obj, yearsRg, nyears, logger) = parameters
     #plot: False
@@ -1346,31 +1506,31 @@ def seasonalParameterBasedNoisyPointRemoval(*, net_par_obj: NetworkParameter, po
         rmse_demerr = np.zeros((num_points,))
         rmse_vel = np.zeros((num_points,))
 
-        # amplitude
-        obv_vec = net_par_obj.amplitude.reshape(-1, )
-        amplitude_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
-        r_amplitudes = obv_vec - np.matmul(design_mat.toarray(), amplitude_points)
-        # offset
-        obv_vec = net_par_obj.offset.reshape(-1, )
-        offset_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
-        r_offset = obv_vec - np.matmul(design_mat.toarray(), offset_points)
+        # asin
+        obv_vec = net_par_obj.asin.reshape(-1, )
+        asin_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
+        r_asin = obv_vec - np.matmul(design_mat.toarray(), asin_points)
+        # acos
+        obv_vec = net_par_obj.acos.reshape(-1, )
+        acos_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
+        r_acos = obv_vec - np.matmul(design_mat.toarray(), acos_points)
         # rmse vectors
-        rmse_amplitude =  np.zeros((num_points,))
-        rmse_offset =  np.zeros((num_points,))
+        rmse_asin =  np.zeros((num_points,))
+        rmse_acos =  np.zeros((num_points,))
 
         for p in range(num_points):
             r_mask = design_mat[:, p].toarray() != 0
             rmse_demerr[p] = np.sqrt(np.mean(r_demerr[r_mask.ravel()].ravel() ** 2))
             rmse_vel[p] = np.sqrt(np.mean(r_vel[r_mask.ravel()].ravel() ** 2))
-            rmse_amplitude[p] = np.sqrt(np.mean(r_amplitudes[r_mask.ravel()].ravel() ** 2))
-            rmse_offset[p] = np.sqrt(np.mean(r_offset[r_mask.ravel()].ravel() ** 2))
+            rmse_asin[p] = np.sqrt(np.mean(r_asin[r_mask.ravel()].ravel() ** 2))
+            rmse_acos[p] = np.sqrt(np.mean(r_acos[r_mask.ravel()].ravel() ** 2))
 
         rmse = rmse_vel.copy()
         max_rmse = np.max(rmse.ravel())
         logger.info(msg="Maximum RMSE DEM correction: {:.2f} m".format(np.max(rmse_demerr.ravel())))
         logger.info(msg="Maximum RMSE velocity: {:.4f} m / year".format(np.max(rmse_vel.ravel())))
-        logger.info(msg="Maximum RMSE Amplitude: {:.4f} m".format(np.max(rmse_amplitude.ravel())))
-        logger.info(msg="Maximum RMSE offset: {:.4f} year".format(np.max(rmse_offset.ravel())))
+        logger.info(msg="Maximum RMSE asin: {:.4f} m / year".format(np.max(rmse_asin.ravel())))
+        logger.info(msg="Maximum RMSE acos: {:.4f} m / year".format(np.max(rmse_acos.ravel())))
 
         if bool_plot:
             # vel
@@ -1398,29 +1558,29 @@ def seasonalParameterBasedNoisyPointRemoval(*, net_par_obj: NetworkParameter, po
                         dpi=300)
             plt.close(fig)
 
-            # amplitude
+            # asin
             ax = bmap_obj.plot(logger=logger)
-            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_amplitude, s=3.5,
+            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_asin, s=3.5,
                             cmap=cmc.cm.cmaps["lajolla"])
             plt.colorbar(sc, pad=0.03, shrink=0.5)
-            ax.set_title("{}. iteration\nAmplitude - RMSE per point in [m]".format(it_count))
+            ax.set_title("{}. iteration\nASIN - RMSE per point in [m]".format(it_count))
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(dirname(net_par_obj.file_path), "pic",
-                             f"step_1_rmse_amplitude_{it_count}th_iter.png"),
+                             f"step_1_rmse_asin_{it_count}th_iter.png"),
                         dpi=300)
             plt.close(fig)
 
-            # rmse
+            # acos
             ax = bmap_obj.plot(logger=logger)
-            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_offset, s=3.5,
+            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_acos, s=3.5,
                             cmap=cmc.cm.cmaps["lajolla"])
             plt.colorbar(sc, pad=0.03, shrink=0.5)
-            ax.set_title("{}. iteration\nOffset - RMSE per point in [m]".format(it_count))
+            ax.set_title("{}. iteration\nACOS - RMSE per point in [m]".format(it_count))
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(dirname(net_par_obj.file_path), "pic",
-                             f"step_1_rmse_offset_{it_count}th_iter.png"),
+                             f"step_1_rmse_acos_{it_count}th_iter.png"),
                         dpi=300)
             plt.close(fig)
 

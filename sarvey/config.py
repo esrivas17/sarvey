@@ -294,12 +294,6 @@ class Preparation(BaseModel, extra="forbid"):
         default='tcoh'
     )
 
-    reference_latlon: Optional[Tuple[float, float]] = Field(
-        title="Optional Reference",
-        description="Reference point in latitude and longitude",
-        default=None
-    )
-
     @field_validator('start_date', 'end_date')
     def checkDates(cls, v):
         """Check if date format is valid."""
@@ -342,29 +336,6 @@ class Preparation(BaseModel, extra="forbid"):
         if v <= 0:
             raise ValueError("Filter window size must be greater than zero.")
         return v
-    
-    @field_validator('reference_latlon', mode='before')
-    def parse_str(cls, v):
-        if v is None:
-            return None
-
-        if isinstance(v, str):
-            v = v.strip()
-            if not v:
-                return None  # empty string → None
-
-            # split on comma or whitespace
-            parts = [p for p in v.replace(',', ' ').split() if p]
-            if len(parts) != 2:
-                raise ValueError("Must provide exactly two numbers separated by space or comma")
-
-            try:
-                return float(parts[0]), float(parts[1])
-            except ValueError:
-                raise ValueError("Both entries must be numbers")
-
-        return v
-
 
 
 class ConsistencyCheck(BaseModel, extra="forbid"):
@@ -416,6 +387,18 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         title="Bounds on DEM error for temporal unwrapping [m]",
         description="Set the bound (symmetric) for the DEM error estimation in temporal unwrapping.",
         default=100.0
+    )
+
+    amplitude_bound: float = Field(
+        title="Bounds on amplitude in centimeters",
+        description="Only positive values from zero.",
+        default=0.05
+    )
+
+    offset_bound: float = Field(
+        title="Bounds on offset of seasonal signal",
+        description="Positive values from zero",
+        default=1.0
     )
 
     num_optimization_samples: int = Field(
@@ -644,6 +627,18 @@ class Densification(BaseModel, extra="forbid"):
         title="Bounds on DEM error for temporal unwrapping [m]",
         description="Set the bound (symmetric) for the DEM error estimation in temporal unwrapping.",
         default=100.0
+    )
+
+    amplitude_bound: float = Field(
+        title="Bounds on amplitude in centimeters",
+        description="Only positive values from zero.",
+        default=0.05
+    )
+
+    offset_bound: float = Field(
+        title="Bounds on offset of seasonal signal",
+        description="Positive values from zero",
+        default=1.0
     )
 
     num_optimization_samples: int = Field(

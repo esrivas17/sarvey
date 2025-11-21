@@ -229,7 +229,8 @@ def predictPhase(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, dem
         raise TypeError
     return pred_phase_demerr, pred_phase_vel
 
-def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, demerr: np.ndarray = None, asin: np.ndarray = None, acos: np.ndarray = None,
+def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, demerr: np.ndarray = None, 
+                     amplitude: np.ndarray = None, offset: np.ndarray = None,
                  ifg_space: bool = True, logger: Logger):
     """Predicts the phase time series based on the estimated parameters DEM error and mean velocity.
 
@@ -273,8 +274,8 @@ def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None,
             wavelength=obj.wavelength,
             vel=vel,
             demerr=demerr,
-            asin = asin,
-            acos = acos,
+            amplitude = amplitude,
+            offset = offset,
             slant_range=obj.slant_range,
             loc_inc=obj.loc_inc,
             ifg_space=ifg_space
@@ -283,10 +284,10 @@ def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None,
         pred_phase_demerr, pred_phase_vel, pred_phase_seasonal =predictPhaseCoreStar(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
-            vel=vel.T,
-            demerr=demerr.T,
-            asin = asin,
-            acos = acos,
+            vel=vel,
+            demerr=demerr,
+            amplitude = amplitude,
+            offset = offset,
             slant_range=obj.slant_range,
             loc_inc=obj.loc_inc,
             ifg_space=ifg_space
@@ -346,7 +347,7 @@ def predictPhaseCore(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndar
     return pred_phase_demerr.T, pred_phase_vel.T
 
 def predictPhaseCoreStar(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,
-                     demerr: np.ndarray, asin: np.ndarray, acos: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
+                     demerr: np.ndarray, amplitude: np.ndarray, offset: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
     """Predicts the phase time series based on the estimated parameters DEM error and mean velocity.
 
     Can be used for both arc phase or point phase.
@@ -393,8 +394,9 @@ def predictPhaseCoreStar(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.
 
     # compute phase due to seasonality
     omega = 2.0 * np.pi * 1
-    seasonal = asin * np.sin(omega * tbase[:, np.newaxis]) + acos * np.cos(omega * tbase[:, np.newaxis])
-    pred_phase_seasonal = factor * seasonal
+
+    # pred phase
+    pred_phase_seasonal = factor * amplitude * np.cos(omega*(tbase[:, np.newaxis]-offset))
 
     return pred_phase_demerr.T, pred_phase_vel.T, pred_phase_seasonal.T
 
@@ -571,8 +573,8 @@ def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bo
 
     vel = np.zeros((num,), dtype=np.float32)
     demerr = np.zeros((num,), dtype=np.float32)
-    asin = np.zeros((num,), dtype=np.float32)
-    acos = np.zeros((num,), dtype=np.float32)
+    amplitude = np.zeros((num,), dtype=np.float32)
+    offset = np.zeros((num,), dtype=np.float32)
     omega = np.zeros((num,), dtype=np.float32)
     coherence = np.zeros((num,), dtype=np.float32)
     v_hat = np.zeros((num, num_time), dtype=np.float32)
@@ -589,8 +591,8 @@ def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bo
     f = 1 # frequency cycles per years
     omg = 2.0 * np.pi * f
     a[:, 1] = factor * tbase  # velocity
-    a[:, 2] = factor * np.sin(omg * tbase)
-    a[:, 3] = factor * np.cos(omg * tbase)
+    a[:, 2] = factor * np.cos(omg * tbase) 
+    a[:, 3] = factor * np.sin(omg * tbase)
 
     for p in range(obj.num_points):
         obv_vec = obj.phase[p, :]
@@ -599,8 +601,8 @@ def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bo
         x_hat, omega[p] = np.linalg.lstsq(a, obv_vec, rcond=None)[0:2]
         demerr[p] = x_hat[0]
         vel[p] = x_hat[1]
-        asin[p] = x_hat[2]
-        acos[p] = x_hat[3]
+        amplitude[p] = x_hat[2]
+        offset[p] = x_hat[3]
         if estimate_ref_atmo:
             ref_atmo[p] = x_hat[4]
         v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
@@ -609,7 +611,7 @@ def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bo
     if not estimate_ref_atmo:
         ref_atmo = None
 
-    return vel, demerr, asin, acos, ref_atmo, coherence, omega, v_hat
+    return vel, demerr, amplitude, offset, ref_atmo, coherence, omega, v_hat
 
 
 def splitImageIntoBoxesRngAz(*, length: int, width: int, num_box_az: int, num_box_rng: int):
