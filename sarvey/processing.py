@@ -469,7 +469,7 @@ class Processing:
         
         fig = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
@@ -489,7 +489,7 @@ class Processing:
         #                                            max_rm_fraction=0.001)
         fig = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
@@ -511,14 +511,14 @@ class Processing:
 
             fig = viewer.plotScatter(value=amplitude, coord=point_obj.coord_xy,
                                     ttl="Parameter integration: amplitude coeff [m]",
-                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=False,
+                                    bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=False,
                                     logger=self.logger)[0]
             fig.savefig(join(self.path, "pic", "step_2_estimation_seasonal_amplitude.png"), dpi=300)
             plt.close(fig)
 
             fig = viewer.plotScatter(value=offset, coord=point_obj.coord_xy,
                                     ttl="Parameter integration: seasonal phase [rad]",
-                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=False,
+                                    bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=False,
                                     logger=self.logger)[0]
             fig.savefig(join(self.path, "pic", "step_2_estimation_seasonal_phase.png"), dpi=300)
             plt.close(fig)

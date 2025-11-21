@@ -364,8 +364,8 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     # the arc double differences to be able to test the ambiguities. Kampes (2006) does re-wrap, but is testing based
     # on the estimated parameters. Hence, it doesn't make a difference for him. Not re-wrapping can be a starting point
     # for triangle-based temporal unwrapping.
-    #demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
-    demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
+    demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
+    #demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
     # initialize output
     init_args = (tree_p1, point2_obj, demod_phase1)
 

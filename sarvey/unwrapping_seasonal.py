@@ -91,7 +91,9 @@ def findOptimum(*, obs_phase: np.ndarray, design_mat: np.ndarray, val_range: np.
 
 
 def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: np.ndarray, offset_range: np.ndarray):
-
+    """
+    Finds optimum for amp and offset in a 2d search space
+    """
     f = 1 # frequency cycles per years
     omega = 2.0 * np.pi * f
 
@@ -257,7 +259,6 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
     return demerr, vel, amp, offset, gamma
-
 
 
 
