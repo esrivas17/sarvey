@@ -606,7 +606,21 @@ def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bo
         if estimate_ref_atmo:
             ref_atmo[p] = x_hat[4]
         v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
+        #v_hat[p, :] = np.angle(np.exp(1j * (obv_vec - np.matmul(a, x_hat))))
         coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
+        
+        #ph1 = obv_vec
+        #ph2 = np.matmul(a, x_hat)
+        #pha = np.angle(np.exp(1j * (ph1 - ph2)))
+        #res = obv_vec - np.matmul(a, x_hat)
+        #sumex = np.sum(res > np.pi)
+        #sumex += np.sum(res < -np.pi)
+        #print(sumex)
+        #sumex = np.sum(pha > np.pi)
+        #sumex += np.sum(pha < -np.pi)
+        #print(sumex)
+        #pdb.set_trace()
+        #import matplotlib.pyplot as plt
 
     if not estimate_ref_atmo:
         ref_atmo = None

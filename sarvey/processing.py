@@ -328,41 +328,43 @@ class Processing:
         )
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
-        # arc unwrapping
-        demerr, vel, amp, offset, gamma = seasonalUnwrapping2(ifg_net_obj=point_obj.ifg_net_obj,
-                                                net_obj=net_obj,
-                                                wavelength=point_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                amp_bound=self.config.consistency_check.amplitude_bound,
-                                                offset_bound=self.config.consistency_check.offset_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
-        # WRITING TO FILE
-        net_par_obj = NetworkParameterSeasonal(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
-        net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, gamma=gamma, amplitude=amp, offset=offset)
-        net_par_obj.writeToFile()
 
-        demerr1, vel1, gamma1 = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
-                                                net_obj=net_obj,
-                                                wavelength=point_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
-        
-        #asin, acos, gammaseasonal = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, wavelength=point_obj.wavelength,
-           #                demerr=demerr, vel=vel, num_cores=self.config.general.num_cores, plotflag=True,
-          #                                      logger=self.logger)
-        #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
-        #                               logger=self.logger)
+        if self.config.preparation.ifg_network_type == 'star':
+            # arc unwrapping
+            demerr, vel, amp, offset, gamma = seasonalUnwrapping2(ifg_net_obj=point_obj.ifg_net_obj,
+                                                    net_obj=net_obj,
+                                                    wavelength=point_obj.wavelength,
+                                                    velocity_bound=self.config.consistency_check.velocity_bound,
+                                                    demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                    amp_bound=self.config.consistency_check.amplitude_bound,
+                                                    offset_bound=self.config.consistency_check.offset_bound,
+                                                    num_samples=self.config.consistency_check.num_optimization_samples,
+                                                    num_cores=self.config.general.num_cores,
+                                                    logger=self.logger)
+            # WRITING TO FILE
+            net_par_obj = NetworkParameterSeasonal(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
+            net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, gamma=gamma, amplitude=amp, offset=offset)
+            net_par_obj.writeToFile()
+        else:
+            demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
+                                                    net_obj=net_obj,
+                                                    wavelength=point_obj.wavelength,
+                                                    velocity_bound=self.config.consistency_check.velocity_bound,
+                                                    demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                    num_samples=self.config.consistency_check.num_optimization_samples,
+                                                    num_cores=self.config.general.num_cores,
+                                                    logger=self.logger)
+            
+            #asin, acos, gammaseasonal = seasonalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj, net_obj=net_obj, wavelength=point_obj.wavelength,
+            #                demerr=demerr, vel=vel, num_cores=self.config.general.num_cores, plotflag=True,
+            #                                      logger=self.logger)
+            #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+            #                               logger=self.logger)
 
-        # WRITING TO FILE
-        net_par_obj1 = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
-        net_par_obj1.prepare(net_obj=net_obj, demerr=demerr1, vel=vel1, gamma=gamma1)
-        net_par_obj1.writeToFile()
+            # WRITING TO FILE
+            net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
+            net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, gamma=gamma)
+            net_par_obj.writeToFile()
 
         # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
@@ -685,7 +687,7 @@ class Processing:
                 # remove DEM error, but not velocity before estimating the temporal autocorrelation
                 pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(
                 obj=point1_obj, vel=vel, demerr=demerr, amplitude=amplitude, offset=offset,
-                ifg_space=True, logger=self.logger)
+                ifg_space=False, logger=self.logger)
                 
                 pred_phase = pred_phase_demerr + pred_phase_seasonal
                 phase_wo_demerr = point1_obj.phase - pred_phase
@@ -925,7 +927,7 @@ class Processing:
                     coord_utm1=point1_obj.coord_utm,
                     coord_utm2=aps2_obj.coord_utm,
                     num_cores=self.config.general.num_cores,
-                    bool_plot=False,
+                    bool_plot=True,
                     logger=self.logger
                 )
             else:
@@ -1283,6 +1285,25 @@ class Processing:
 
         point_obj_res.writeToFile()
 
+        # saving wrapped residual phase because is so suspicious
+        wr_phase_ts = ut.invertIfgNetwork(
+            phase=wr_res_phase,
+            num_points=point2_obj.num_points,
+            ifg_net_obj=point2_obj.ifg_net_obj,
+            num_cores=1,  # self.config.general.num_cores,
+            ref_idx=0,
+            logger=self.logger)
+        
+        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_wr_res_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj_res.open(
+            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+            input_path=self.config.general.input_path
+        )
+        point_obj_res.phase = wr_phase_ts
+
+        point_obj_res.writeToFile()
+
+        
     def runDensificationSpace(self):
         """RunDensification."""
         coh_value = int(self.config.filtering.coherence_p2 * 100)
