@@ -109,9 +109,14 @@ def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: 
     # finding maximum coherence
     if len(obs_phase.shape) == 2:
         # step densification
-        res = obs_phase[:, np.newaxis, :] - pred_phase
-        res = np.moveaxis(res, 0, 1)
-        res = res.reshape((pred_phase.shape[1], -1))  # combine residuals from all arcs
+        A, P = obs_phase.shape 
+        N = pred_phase.shape[0]
+        res = obs_phase[:, None, :] - pred_phase[None, :, :]
+        res = res.transpose(1, 0, 2)
+        res = res.reshape(N, A * P)
+        #res = obs_phase[:, np.newaxis, :] - pred_phase
+        #res = np.moveaxis(res, 0, 1)
+        #res = res.reshape((pred_phase.shape[1], -1))  # combine residuals from all arcs
     else:
         # step consistency check
         res = pred_phase - obs_phase
@@ -223,8 +228,9 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
             design_mat=design_mat[:, 1],
             val_range=vel_range
         )
-
-        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=obs_phase-(pred_phase_demerr+pred_phase_vel), 
+        res = np.angle(np.exp(1j * (obs_phase - (pred_phase_demerr+pred_phase_vel))))
+        res1 = obs_phase-(pred_phase_demerr+pred_phase_vel)
+        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=res,
                                                                          design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
     else:
         vel, gamma_vel, pred_phase_vel = findOptimum(
@@ -237,7 +243,9 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
             design_mat=design_mat[:, 0],
             val_range=demerr_range
         )
-        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=obs_phase-(pred_phase_demerr+pred_phase_vel), 
+        res = np.angle(np.exp(1j * (obs_phase - (pred_phase_demerr+pred_phase_vel))))
+        res1 = obs_phase-(pred_phase_demerr+pred_phase_vel)
+        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=res, 
                                                                          design_mat=design_mat[:, 2:],  amps_range=amp_range, offset_range=offset_range)
 
     
@@ -551,7 +559,7 @@ def seasonalUnwrapping2(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelengt
         tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     msg = "#" * 10
-    msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION "
+    msg += " TEMPORAL UNWRAPPING2: AMBIGUITY FUNCTION "
     msg += "#" * 10
     logger.info(msg=msg)
 
