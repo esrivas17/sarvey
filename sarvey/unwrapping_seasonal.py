@@ -281,8 +281,6 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
     
     #demerr2, vel2, cosine, sine, gamma2 = gradientSearchTemporalCoherenceLinear(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_cosine=scale_cos, scale_sine=scale_sin, 
     #                                                      obs_phase=obs_phase, design_mat=design_mat, omega=omega, x0=initial_guess2)
-    if abs(vel) > 0.01:
-        pdb.set_trace()
 
     cos_term = amp * np.cos(omega*offset)
     sin_term = amp * np.sin(omega*offset)
@@ -355,9 +353,6 @@ def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, s
     vel = opt_res.x[1] * scale_vel
     amp = opt_res.x[2] * scale_amp
     offset = opt_res.x[3]*scale_offset
-
-    #if abs(vel) > 0.01:
-    #    pdb.set_trace()
 
     return demerr, vel, amp, offset, gamma
 
@@ -542,50 +537,6 @@ def Jacobian2(x, *args):
     jac = np.array([grad_x0, grad_x1, grad_x2, grad_x3], dtype=float)
 
     return jac
-
-def launchAmbiguityFunctionSearch(parameters: tuple):
-    """Wrap for launching ambiguity function for temporal unwrapping in parallel.
-
-    Parameters
-    ----------
-    parameters: tuple
-        Arguments for temporal unwrapping in parallel.
-
-    Returns
-    -------
-    arc_idx_range: np.ndarray
-    demerr: np.ndarray
-    vel: np.ndarray
-    gamma: np.ndarray
-    """
-    (arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound,
-     num_samples) = parameters
-
-    demerr = np.zeros((num_arcs, 1), dtype=np.float32)
-    vel = np.zeros((num_arcs, 1), dtype=np.float32)
-    gamma = np.zeros((num_arcs, 1), dtype=np.float32)
-
-    design_mat = np.zeros((ifg_net_obj.num_ifgs, 2), dtype=np.float32)
-
-    demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
-    vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
-
-    # prog_bar = ptime.progressBar(maxValue=num_arcs)
-
-    factor = 4 * np.pi / wavelength
-
-    for k in range(num_arcs):
-        design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
-        design_mat[:, 1] = factor * ifg_net_obj.tbase_ifg
-
-        demerr[k], vel[k], gamma[k] = oneDimSearchTemporalCoherence(
-            demerr_range=demerr_range,
-            vel_range=vel_range,
-            obs_phase=phase[k, :],
-            design_mat=design_mat
-        )
-
-    return arc_idx_range, demerr, vel, gamma
 
 
 def launchAmbiguityFunctionSearch2(parameters: tuple):
