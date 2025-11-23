@@ -1090,7 +1090,6 @@ class Processing:
             num_cores=self.config.general.num_cores,
             logger=self.logger
         )  # returns parameters of both first- and second-order points
-        
         else:
             demerr, vel, gamma = densifyNetwork(
                 point1_obj=point1_obj,
@@ -1230,7 +1229,7 @@ class Processing:
         unw_phase = unw_res_phase + pred_phase
 
         point2_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
+        vel = ut.estimateParametersStar(obj=point2_obj, ifg_space=True)[0]
         point2_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point2_obj.writeToFile()

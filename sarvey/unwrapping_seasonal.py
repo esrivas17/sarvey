@@ -128,7 +128,7 @@ def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: 
     return amps_vals[idx_r, idx_c], offset_vals[idx_r, idx_c], gamma[idx_max], pred_phase[idx_max]
 
 
-def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.ndarray, obs_phase: np.ndarray,
+def oneDimSearchTemporalCoherence3(*, demerr_range: np.ndarray, vel_range: np.ndarray, amp_range: np.ndarray, offset_range: np.ndarray, obs_phase: np.ndarray,
                                   design_mat: np.ndarray):
     """One dimensional search for maximum temporal coherence that fits the observed arc phase.
 
@@ -149,57 +149,6 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.nda
     vel: float
     gamma: float
     """
-    demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 0],
-        val_range=demerr_range
-    )
-
-    vel, gamma_vel, pred_phase_vel = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 1],
-        val_range=vel_range
-    )
-
-    if gamma_vel > gamma_demerr:
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
-    else:
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
-
-    # improve initial estimate with gradient descent approach
-    scale_demerr = demerr_range.max()
-    scale_vel = vel_range.max()
-    
-    demerr, vel, gamma = gradientSearchTemporalCoherence(scale_vel=scale_vel, scale_demerr=scale_demerr, obs_phase=obs_phase, 
-                                                         design_mat=design_mat, x0=np.array([demerr / scale_demerr,vel / scale_vel]).T)
-
-    pred_phase = np.matmul(design_mat, np.array([demerr, vel]))
-    res = (obs_phase - pred_phase.T).ravel()
-    gamma = np.abs(np.mean(np.exp(1j * res)))
-    return demerr, vel, gamma
-
-
-def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.ndarray, amp_range: np.ndarray, offset_range: np.ndarray, obs_phase: np.ndarray,
-                                  design_mat: np.ndarray):
-
     f = 1 # frequency cycles per years
     omega = 2.0 * np.pi * f
     space_cos = amp_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:]
@@ -248,6 +197,71 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
         amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=res, 
                                                                          design_mat=design_mat[:, 2:],  amps_range=amp_range, offset_range=offset_range)
 
+
+    # improve initial estimate with gradient descent approach
+    scale_demerr = demerr_range.max()
+    scale_vel = vel_range.max()
+    
+    demerr, vel, gamma = gradientSearchTemporalCoherence(scale_vel=scale_vel, scale_demerr=scale_demerr, obs_phase=obs_phase, 
+                                                         design_mat=design_mat, x0=np.array([demerr / scale_demerr,vel / scale_vel]).T)
+
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel]))
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+    return demerr, vel, gamma
+
+
+def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.ndarray, amp_range: np.ndarray, offset_range: np.ndarray, obs_phase: np.ndarray,
+                                  design_mat: np.ndarray):
+
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+    space_cos = amp_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:]
+    space_sin = amp_range[:,np.newaxis] * np.sin(omega*offset_range)[np.newaxis,:]
+
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(
+        obs_phase=obs_phase,
+        design_mat=design_mat[:, 0],
+        val_range=demerr_range
+    )
+
+    vel, gamma_vel, pred_phase_vel = findOptimum(
+        obs_phase=obs_phase,
+        design_mat=design_mat[:, 1],
+        val_range=vel_range
+    )
+
+    if gamma_vel > gamma_demerr:
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
+            obs_phase=obs_phase - pred_phase_vel,
+            design_mat=design_mat[:, 0],
+            val_range=demerr_range
+        )
+        vel, gamma_vel, pred_phase_vel = findOptimum(
+            obs_phase=obs_phase - pred_phase_demerr,
+            design_mat=design_mat[:, 1],
+            val_range=vel_range
+        )
+        #res = np.angle(np.exp(1j * (obs_phase - (pred_phase_demerr+pred_phase_vel))))
+        res = obs_phase-(pred_phase_demerr+pred_phase_vel)
+        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=res,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+    else:
+        vel, gamma_vel, pred_phase_vel = findOptimum(
+            obs_phase=obs_phase - pred_phase_demerr,
+            design_mat=design_mat[:, 1],
+            val_range=vel_range
+        )
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
+            obs_phase=obs_phase - pred_phase_vel,
+            design_mat=design_mat[:, 0],
+            val_range=demerr_range
+        )
+        #res = np.angle(np.exp(1j * (obs_phase - (pred_phase_demerr+pred_phase_vel))))
+        res = obs_phase-(pred_phase_demerr+pred_phase_vel)
+        amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=res, 
+                                                                         design_mat=design_mat[:, 2:],  amps_range=amp_range, offset_range=offset_range)
+
     
     #print(f"Initial guesses\nDemerr: {demerr} gamma: {gamma_demerr}\nVel: {vel} gamma: {gamma_vel}\nAmp: {amp} - offset: {offset} gamma: {gamma_seasonal}")
     # improve initial estimate with gradient descent approach
@@ -259,24 +273,32 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
     sine_part = amp*np.sin(omega*offset)
     scale_cos = np.max(space_cos)
     scale_sin = np.max(space_sin)
-    initial_guess = np.array([demerr/scale_demerr, vel/scale_vel, cosine_part/scale_cos, sine_part/scale_sin]).T
-    #initial_guess = np.array([demerr/scale_demerr, vel/scale_vel, amp/scale_amp, offset/scale_offset]).T
+    initial_guess2 = np.array([demerr/scale_demerr, vel/scale_vel, cosine_part/scale_cos, sine_part/scale_sin]).T
+    initial_guess = np.array([demerr/scale_demerr, vel/scale_vel, amp/scale_amp, offset/scale_offset]).T
 
-    #demerr, vel, amp, offset, gamma = gradientSearchTemporalCoherence2(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_amp=scale_amp, scale_offset=scale_offset, 
-    #                                                      obs_phase=obs_phase, design_mat=design_mat, omega=omega, x0=initial_guess)
-    
-    demerr, vel, cosine, sine, gamma = gradientSearchTemporalCoherenceLinear(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_cosine=scale_cos, scale_sine=scale_sin, 
+    demerr, vel, amp, offset, gamma = gradientSearchTemporalCoherence2(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_amp=scale_amp, scale_offset=scale_offset, 
                                                           obs_phase=obs_phase, design_mat=design_mat, omega=omega, x0=initial_guess)
+    
+    #demerr2, vel2, cosine, sine, gamma2 = gradientSearchTemporalCoherenceLinear(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_cosine=scale_cos, scale_sine=scale_sin, 
+    #                                                      obs_phase=obs_phase, design_mat=design_mat, omega=omega, x0=initial_guess2)
+    if abs(vel) > 0.01:
+        pdb.set_trace()
 
-    #cos_term = amp * np.cos(omega*offset)
-    #sin_term = amp * np.sin(omega*offset)
+    cos_term = amp * np.cos(omega*offset)
+    sin_term = amp * np.sin(omega*offset)
 
-    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cosine, sine]))
+    #pred_phase2 = np.matmul(design_mat, np.array([demerr2, vel2, cosine, sine]))
 
-    amp = np.sqrt(cosine**2+sine**2)
-    offset = np.arctan2(sine, cosine)/omega
+    #amp = np.sqrt(cosine**2+sine**2)
+    #offset = np.arctan2(sine, cosine)/omega
 
-    res = (obs_phase - pred_phase.T).ravel()
+    #angle = np.arctan2(sine,cosine)
+    #angle_pos = (angle + 2*np.pi) % (2*np.pi)
+    #offset = angle_pos/omega
+
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cos_term, sin_term]))
+    res = (obs_phase - pred_phase)
+    res = res.ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
     return demerr, vel, amp, offset, gamma
@@ -286,14 +308,15 @@ def gradientSearchTemporalCoherenceLinear(*, scale_vel: float, scale_demerr: flo
                                     design_mat: np.ndarray, omega: float, x0: np.ndarray):
     bounds = ((-1, 1), (-1, 1), (0, 1), (0,1))
     opt_res = minimize(objFuncTempCohLinear, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_cosine, scale_sine, omega),  bounds=bounds, method='L-BFGS-B')
-    #With Jacobian
-    #opt_res = minimize(objFuncTempCoh2, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega),  
-    #                   bounds=bounds, method='L-BFGS-B', jac=Jacobian)
+
     gamma = 1 - opt_res.fun
     demerr = opt_res.x[0] * scale_demerr
     vel = opt_res.x[1] * scale_vel
     cosine_part = opt_res.x[2] * scale_cosine
     sine_part = opt_res.x[3]*scale_sine
+
+    #if abs(vel) > 0.01:
+    #    pdb.set_trace()
 
     #amp = np.sqrt(cosine_part**2+sine_part**2)
     #offset = np.arctan2(sine_part, cosine_part)/omega
@@ -314,7 +337,8 @@ def objFuncTempCohLinear(x, *args):
 
     # pred phase
     pred_phase = np.matmul(design_mat, x)
-    res = (obs_phase - pred_phase.T).ravel()
+    res = (obs_phase - pred_phase)
+    res = res.ravel()
     gamma = np.abs(np.mean(np.exp(1j*res)))
     return 1-gamma
 
@@ -331,6 +355,10 @@ def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, s
     vel = opt_res.x[1] * scale_vel
     amp = opt_res.x[2] * scale_amp
     offset = opt_res.x[3]*scale_offset
+
+    #if abs(vel) > 0.01:
+    #    pdb.set_trace()
+
     return demerr, vel, amp, offset, gamma
 
 def objFuncTempCoh2(x, *args):
@@ -339,16 +367,17 @@ def objFuncTempCoh2(x, *args):
     #scale_cos = scale_amp * np.sin(omega*scale_offset)
     #scale_sin = scale_amp * np.cos(omega*scale_offset)
 
-    x[0] *= scale_demerr
-    x[1] *= scale_vel
-    x[2] *= scale_amp
-    x[3] *= scale_offset
+    x[0] = x[0] * scale_demerr
+    x[1] = x[1] * scale_vel
+    x[2] = x[2] * scale_amp
+    x[3] = x[3] * scale_offset
 
     # pred phase 
-    # is this non linear? I have no clue what I am doing!!
+    # is this non linear? !!
     params = np.array([x[0], x[1], x[2]*np.cos(omega*x[3]), x[2]*np.sin(omega*x[3])])
     pred_phase = np.matmul(design_mat, params)
-    res = (obs_phase - pred_phase.T).ravel()
+    res = (obs_phase - pred_phase)
+    res = res.ravel()
     gamma = np.abs(np.mean(np.exp(1j*res)))
     return 1-gamma
 
