@@ -41,6 +41,7 @@ from sarvey.unwrapping import oneDimSearchTemporalCoherence
 from sarvey.unwrapping_seasonal import oneDimSearchTemporalCoherence2
 from sarvey.objects import Points
 import sarvey.utils as ut
+from tqdm import tqdm
 import pdb
 
 def densificationInitializer(tree_p1: KDTree, point2_obj: Points, demod_phase1: np.ndarray):
@@ -196,13 +197,6 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
 
         design_mat[:, 2] = factor * np.cos(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
         design_mat[:, 3] = factor * np.sin(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
-
-        #demerr_point2, vel_point2, gamma_point2 = oneDimSearchTemporalCoherence(
-        #    demerr_range=demerr_range,
-        #    vel_range=vel_range,
-        #    obs_phase=arc_phase_p1,
-        #    design_mat=design_mat
-        #)
 
         demerr_p2[idx], vel_p2[idx], amplitude_p2[idx], offset_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence2(demerr_range=demerr_range, 
                                                                                               vel_range=vel_range, 

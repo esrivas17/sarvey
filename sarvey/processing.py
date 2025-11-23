@@ -570,7 +570,7 @@ class Processing:
 
         # adjust reference to peak of histogram
         point_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+        vel = ut.estimateParametersStar(obj=point_obj, ifg_space=True)[0]
         point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
@@ -685,6 +685,7 @@ class Processing:
                 auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
             else:
                 # remove DEM error, but not velocity before estimating the temporal autocorrelation
+
                 pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(
                 obj=point1_obj, vel=vel, demerr=demerr, amplitude=amplitude, offset=offset,
                 ifg_space=False, logger=self.logger)
@@ -1089,6 +1090,7 @@ class Processing:
             num_cores=self.config.general.num_cores,
             logger=self.logger
         )  # returns parameters of both first- and second-order points
+        
         else:
             demerr, vel, gamma = densifyNetwork(
                 point1_obj=point1_obj,
@@ -1104,6 +1106,7 @@ class Processing:
                 logger=self.logger
             )  # returns parameters of both first- and second-order points
 
+        self.logger.info(msg="\nDENSIFICATION FINISHED\n")
         # store combined set of first and second-order points
         point2_obj.addPointsFromObj(
             new_point_id=point1_obj.point_id,
@@ -1149,7 +1152,7 @@ class Processing:
 
             axs[1].hist(offset[mask_gamma], bins=200)
             axs[1].set_ylabel('Absolute frequency')
-            axs[1].set_xlabel('Seasonal phase [yr]')
+            axs[1].set_xlabel('Seasonal signal - offset [yr]')
             fig.savefig(join(self.path, "pic", "step_4_consistency_seasonal_parameters_p2_coh{}.png".format(coh_value)),
                         dpi=300)
             plt.close(fig)
@@ -1163,13 +1166,13 @@ class Processing:
 
         fig = viewer.plotScatter(value=-vel[mask_gamma], coord=point2_obj.coord_xy,
                                  ttl="Mean velocity in [m / year]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_4_estimation_velocity_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-demerr[mask_gamma], coord=point2_obj.coord_xy, ttl="DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
@@ -1177,13 +1180,13 @@ class Processing:
         if self.config.preparation.ifg_network_type == 'star':
             fig = viewer.plotScatter(value=amplitude[mask_gamma]*100, coord=point2_obj.coord_xy,
                                  ttl="Seasonal amplitude in [cm]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=False,
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=False,
                                  logger=self.logger)[0]
             fig.savefig(join(self.path, "pic", "step_4_estimation_seasonal_amplitude_p2_coh{}.png".format(coh_value)), dpi=300)
             plt.close(fig)
 
-            fig = viewer.plotScatter(value=offset[mask_gamma], coord=point2_obj.coord_xy, ttl="Seasonal phase in [yr]",
-                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+            fig = viewer.plotScatter(value=offset[mask_gamma], coord=point2_obj.coord_xy, ttl="Offset in [yr]",
+                                    bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=False,
                                     logger=self.logger)[0]
             fig.savefig(join(self.path, "pic", "step_4_estimation_seasonal_phase_p2_coh{}.png".format(coh_value)), dpi=300)
             plt.close(fig)
@@ -1214,7 +1217,7 @@ class Processing:
         triang_obj = PointNetworkTriangulation(coord_xy=point2_obj.coord_xy, coord_utmxy=None, logger=self.logger)
         triang_obj.triangulateGlobal()
         arcs = triang_obj.getArcsFromAdjMat()
-
+        self.logger.info(msg="Spatial unwrapping of residuals from second order points")
         unw_res_phase = spatialUnwrapping(num_ifgs=point2_obj.ifg_net_obj.num_ifgs,
                                           num_points=point2_obj.num_points,
                                           phase=wr_res_phase,

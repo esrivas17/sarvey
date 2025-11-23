@@ -101,8 +101,8 @@ def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: 
     amps_vals, offset_vals = np.meshgrid(amps_range, offset_range, indexing='ij') 
 
     # pred phase
-    sine_part = amps_vals.ravel() * np.sin(omega*offset_vals.ravel())
     cosine_part = amps_vals.ravel() * np.cos(omega*offset_vals.ravel())
+    sine_part = amps_vals.ravel() * np.sin(omega*offset_vals.ravel())
     
     pred_phase = design_mat[:,0] * cosine_part[:,np.newaxis] + design_mat[:,1] * sine_part[:,np.newaxis]
 
@@ -255,19 +255,68 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
     scale_vel = vel_range.max()
     scale_amp = amp_range.max()
     scale_offset = offset_range.max()
-    initial_guess = np.array([demerr/scale_demerr, vel/scale_vel, amp/scale_amp, offset/scale_offset]).T
+    cosine_part = amp*np.cos(omega*offset)
+    sine_part = amp*np.sin(omega*offset)
+    scale_cos = np.max(space_cos)
+    scale_sin = np.max(space_sin)
+    initial_guess = np.array([demerr/scale_demerr, vel/scale_vel, cosine_part/scale_cos, sine_part/scale_sin]).T
+    #initial_guess = np.array([demerr/scale_demerr, vel/scale_vel, amp/scale_amp, offset/scale_offset]).T
 
-    demerr, vel, amp, offset, gamma = gradientSearchTemporalCoherence2(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_amp=scale_amp, scale_offset=scale_offset, 
+    #demerr, vel, amp, offset, gamma = gradientSearchTemporalCoherence2(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_amp=scale_amp, scale_offset=scale_offset, 
+    #                                                      obs_phase=obs_phase, design_mat=design_mat, omega=omega, x0=initial_guess)
+    
+    demerr, vel, cosine, sine, gamma = gradientSearchTemporalCoherenceLinear(scale_vel=scale_vel, scale_demerr=scale_demerr, scale_cosine=scale_cos, scale_sine=scale_sin, 
                                                           obs_phase=obs_phase, design_mat=design_mat, omega=omega, x0=initial_guess)
-    cos_term = amp * np.cos(omega*offset)
-    sin_term = amp * np.sin(omega*offset)
 
-    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cos_term, sin_term]))
+    #cos_term = amp * np.cos(omega*offset)
+    #sin_term = amp * np.sin(omega*offset)
+
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cosine, sine]))
+
+    amp = np.sqrt(cosine**2+sine**2)
+    offset = np.arctan2(sine, cosine)/omega
+
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
     return demerr, vel, amp, offset, gamma
 
+
+def gradientSearchTemporalCoherenceLinear(*, scale_vel: float, scale_demerr: float, scale_cosine: float, scale_sine, obs_phase: np.ndarray,
+                                    design_mat: np.ndarray, omega: float, x0: np.ndarray):
+    bounds = ((-1, 1), (-1, 1), (0, 1), (0,1))
+    opt_res = minimize(objFuncTempCohLinear, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_cosine, scale_sine, omega),  bounds=bounds, method='L-BFGS-B')
+    #With Jacobian
+    #opt_res = minimize(objFuncTempCoh2, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega),  
+    #                   bounds=bounds, method='L-BFGS-B', jac=Jacobian)
+    gamma = 1 - opt_res.fun
+    demerr = opt_res.x[0] * scale_demerr
+    vel = opt_res.x[1] * scale_vel
+    cosine_part = opt_res.x[2] * scale_cosine
+    sine_part = opt_res.x[3]*scale_sine
+
+    #amp = np.sqrt(cosine_part**2+sine_part**2)
+    #offset = np.arctan2(sine_part, cosine_part)/omega
+
+    return demerr, vel, cosine_part, sine_part, gamma
+
+
+def objFuncTempCohLinear(x, *args):
+    (design_mat, obs_phase, scale_vel, scale_demerr, scale_cosine, scale_sine, omega) = args
+    
+    #scale_cos = scale_amp * np.sin(omega*scale_offset)
+    #scale_sin = scale_amp * np.cos(omega*scale_offset)
+
+    x[0] *= scale_demerr
+    x[1] *= scale_vel
+    x[2] *= scale_cosine
+    x[3] *= scale_sine
+
+    # pred phase
+    pred_phase = np.matmul(design_mat, x)
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma = np.abs(np.mean(np.exp(1j*res)))
+    return 1-gamma
 
 
 def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, scale_amp: float, scale_offset, obs_phase: np.ndarray,
@@ -276,7 +325,7 @@ def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, s
     opt_res = minimize(objFuncTempCoh2, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega),  bounds=bounds, method='L-BFGS-B')
     #With Jacobian
     #opt_res = minimize(objFuncTempCoh2, x0, args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega),  
-    #                    bounds=bounds, method='L-BFGS-B', jac=Jacobian)
+    #                   bounds=bounds, method='L-BFGS-B', jac=Jacobian)
     gamma = 1 - opt_res.fun
     demerr = opt_res.x[0] * scale_demerr
     vel = opt_res.x[1] * scale_vel
@@ -295,7 +344,8 @@ def objFuncTempCoh2(x, *args):
     x[2] *= scale_amp
     x[3] *= scale_offset
 
-    # pred phase
+    # pred phase 
+    # is this non linear? I have no clue what I am doing!!
     params = np.array([x[0], x[1], x[2]*np.cos(omega*x[3]), x[2]*np.sin(omega*x[3])])
     pred_phase = np.matmul(design_mat, params)
     res = (obs_phase - pred_phase.T).ravel()
@@ -339,11 +389,18 @@ def Jacobian(x, *args):
     pred_phase = np.matmul(design_mat, params)
 
     
-    if len(obs_phase.shape) == 2:
-        res = (obs_phase - pred_phase)
+    if len(obs_phase.shape) == 20:
+        # step densification
+        A, P = obs_phase.shape 
+        N = pred_phase.shape[0]
+        res = obs_phase[:, None, :] - pred_phase[None, :, :]
+        res = res.transpose(1, 0, 2)
+        res = res.reshape(N, A * P)
+        e = np.exp(1j * res)
+        #res = (obs_phase - pred_phase)
         g = np.mean(np.exp(1j*res), axis=0)
         gamma = np.abs(np.mean(np.exp(1j * res), axis=0))
-        e = np.exp(1j * res)
+        #e = np.exp(1j * res)
     else:
         res = (obs_phase - pred_phase)
         g = np.mean(np.exp(1j*res))
@@ -409,6 +466,9 @@ def Jacobian2(x, *args):
     pred_phase = design_mat @ params      # shape (N,)
     r = (obs_phase - pred_phase).ravel()  # shape (N,)
 
+
+
+    #r = res
     # --- complex mean and gamma ---
     e = np.exp(1j * r)                    # shape (N,)
     g = e.mean()                          # complex scalar

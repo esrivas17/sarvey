@@ -590,6 +590,10 @@ def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bo
     factor = 4 * np.pi / obj.wavelength
     f = 1 # frequency cycles per years
     omg = 2.0 * np.pi * f
+    
+    #a[:, 1] = 4 * np.pi / obj.wavelength * tbase
+    #a[:, 0] = 4 * np.pi / obj.wavelength * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
+
     a[:, 1] = factor * tbase  # velocity
     a[:, 2] = factor * np.cos(omg * tbase) 
     a[:, 3] = factor * np.sin(omg * tbase)
@@ -601,26 +605,27 @@ def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bo
         x_hat, omega[p] = np.linalg.lstsq(a, obv_vec, rcond=None)[0:2]
         demerr[p] = x_hat[0]
         vel[p] = x_hat[1]
-        amplitude[p] = x_hat[2]
-        offset[p] = x_hat[3]
+        amp = np.sqrt(x_hat[2]**2 + x_hat[3]**2)
+        off = np.arctan2(x_hat[3],x_hat[2])/omg
+        amplitude[p] = amp
+        offset[p] = off
+        pred_phase_demerr = a[:,0] * x_hat[0]
+        pred_phase_vel = a[:,1] * x_hat[1]
+        sine_part = x_hat[3]
+        cosine_part = x_hat[2]
+        pred_phase_seasonal = a[:,2] * cosine_part + a[:,3] * sine_part
+
         if estimate_ref_atmo:
             ref_atmo[p] = x_hat[4]
-        v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
-        #v_hat[p, :] = np.angle(np.exp(1j * (obv_vec - np.matmul(a, x_hat))))
+            atmosphere = a[:,4] * x_hat[4]
+            pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal + atmosphere
+
+        else:
+            pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
+
+        v_hat[p, :] = np.angle(np.exp(1j *(obv_vec - pred_phase)))
+        #v_hat[p, :] = obv_vec - pred_phase
         coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
-        
-        #ph1 = obv_vec
-        #ph2 = np.matmul(a, x_hat)
-        #pha = np.angle(np.exp(1j * (ph1 - ph2)))
-        #res = obv_vec - np.matmul(a, x_hat)
-        #sumex = np.sum(res > np.pi)
-        #sumex += np.sum(res < -np.pi)
-        #print(sumex)
-        #sumex = np.sum(pha > np.pi)
-        #sumex += np.sum(pha < -np.pi)
-        #print(sumex)
-        #pdb.set_trace()
-        #import matplotlib.pyplot as plt
 
     if not estimate_ref_atmo:
         ref_atmo = None
