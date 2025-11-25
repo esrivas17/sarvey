@@ -75,6 +75,12 @@ class General(BaseModel, extra="forbid"):
         default='puma'
     )
 
+    temperature_file: Optional[str] = Field(
+        title="Path to information about temperature",
+        description="Set the path temperature in npy format.",
+        default=""
+    )
+
     logging_level: str = Field(
         title="Logging level.",
         description="Set loggig level.",

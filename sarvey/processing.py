@@ -52,6 +52,7 @@ from sarvey.coherence import computeIfgsAndTemporalCoherence
 from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
 
+import pdb
 
 class Processing:
     """Processing."""
@@ -142,6 +143,11 @@ class Processing:
             )
             log.info(msg="Delaunay ifg network")
 
+        if self.config.general.temperature_file:
+            log.info(msg=f"INTEGRATING TEMPERATURE FILE TO IFG NETWORK")
+            ifg_net_obj.set_temperature(path=self.config.general.temperature_file)
+            ifg_net_obj.set_ifg_temperature(nettype=self.config.preparation.ifg_network_type, ref_idx=int(np.floor(num_slc/2)))
+        
         ifg_net_obj.writeToFile(path=join(self.path, "ifg_network.h5"), logger=log)
         log.info(msg=f"temporal baselines: {np.unique(np.round(np.abs(ifg_net_obj.tbase_ifg) * 365.25).astype(int))}")
 
