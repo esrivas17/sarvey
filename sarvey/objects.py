@@ -828,3 +828,84 @@ class NetworkParameter(Network):
             self.demerr = f["demerr"][:]
             self.vel = f["vel"][:]
             self.gamma = f["gamma"][:]
+
+
+class NetworkParameter_Temp(Network):
+    """Spatial Network with the estimated parameters of each arc in the network."""
+
+    def __init__(self, *, file_path: str, logger: Logger):
+        """Init."""
+        super().__init__(file_path=file_path, logger=logger)
+        self.gamma = None
+        self.vel = None
+        self.demerr = None
+        self.tcoef = None
+        self.slant_range = None
+        self.loc_inc = None
+        self.phase = None
+        self.arcs = None
+        self.num_arcs = None
+        self.logger = logger
+
+    def prepare(self, *, net_obj: Network, demerr: np.ndarray, vel: np.ndarray, tcoef: np.array, gamma: np.ndarray):
+        """Prepare.
+
+        Parameter
+        -----------
+        net_obj: Network
+            object of class Network.
+        demerr: np.ndarray
+            estimated DEM error for each arc in the network.
+        vel: np.ndarray
+            estimated velocity for each arc in the network.
+        gamma: np.ndarray
+            estimated temporal coherence for each arc in the network.
+        """
+        self.num_arcs = net_obj.num_arcs
+        self.arcs = net_obj.arcs
+        self.phase = net_obj.phase
+        self.loc_inc = net_obj.loc_inc
+        self.slant_range = net_obj.slant_range
+        self.demerr = demerr
+        self.vel = vel
+        self.tcoef = tcoef
+        self.gamma = gamma
+
+    def writeToFile(self):
+        """Write DEM error, velocity and temporal coherence to file."""
+        super().writeToFile()
+
+        with h5py.File(self.file_path, 'r+') as f:  # append existing file
+            f.create_dataset('demerr', data=self.demerr)
+            f.create_dataset('vel', data=self.vel)
+            f.create_dataset('gamma', data=self.gamma)
+            f.create_dataset('tcoef', data=self.tcoef)
+
+    def open(self, *, input_path: str):
+        """Read data from file."""
+        super().open(input_path=input_path)
+
+        with h5py.File(self.file_path, 'r') as f:
+            self.demerr = f["demerr"][:]
+            self.vel = f["vel"][:]
+            self.gamma = f["gamma"][:]
+            self.tcoef = f["tcoef"][:]
+
+    def removeArcs(self, *, mask: np.ndarray):
+        """Remove arcs from the list of arcs in the network.
+
+        Parameter
+        ---------
+        mask: np.ndarray
+            mask to select arcs to be kept, rest will be removed.
+        """
+        self.demerr = self.demerr[mask]
+        self.vel = self.vel[mask]
+        self.phase = self.phase[mask, :]
+        self.loc_inc = self.loc_inc[mask]
+        self.slant_range = self.slant_range[mask]
+        self.arcs = np.array(self.arcs)
+        self.arcs = self.arcs[mask, :]
+        self.gamma = self.gamma[mask]
+        self.num_arcs = mask[mask].shape[0]
+        self.tcoef = self.tcoef[mask]

@@ -867,3 +867,119 @@ def checkIfRequiredFilesExist(*, path_to_files: str, required_files: list, logge
         if not exists(join(path_to_files, file)):
             logger.error(f"File from previous step(s) is missing: {file}.")
             raise FileNotFoundError
+
+
+def predictPhase_t(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, demerr: np.ndarray = None,
+                 tcoef =None, ifg_space: bool = True, logger: Logger):
+
+    if isinstance(obj, Points):
+        if (vel is None) or (demerr is None):
+            logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
+            raise ValueError
+        pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = predictPhaseCore_t(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=vel,
+            demerr=demerr,
+            tcoef=tcoef,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space
+        )
+    elif isinstance(obj, NetworkParameter):
+        pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = predictPhaseCore_t(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=obj.vel,
+            demerr=obj.demerr,
+            tcoef=obj.tcoef,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space
+        )
+    else:
+        logger.error(msg="'obj' must be instance of 'points' or 'networkParameter'!")
+        raise TypeError
+    return pred_phase_demerr, pred_phase_vel, pred_phase_tcoef
+
+
+def predictPhaseCore_t(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,
+                     demerr: np.ndarray, tcoef: np.array, slant_range: np.ndarray, 
+                     loc_inc: np.ndarray, ifg_space: bool = True):
+
+    factor = 4 * np.pi / wavelength
+
+    if ifg_space:
+        tbase = ifg_net_obj.tbase_ifg
+        pbase = ifg_net_obj.pbase_ifg
+        tempt = ifg_net_obj.temperatures_ifg
+    else:
+        tbase = ifg_net_obj.tbase
+        pbase = ifg_net_obj.pbase
+        tempt = ifg_net_obj.temperatures
+
+    # compute phase due to DEM error
+    pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+
+    # compute phase due to velocity
+    pred_phase_vel = factor * tbase[:, np.newaxis] * vel
+
+    pred_phase_tcoef = factor * tempt[:, np.newaxis] * vel
+
+
+    return pred_phase_demerr.T, pred_phase_vel.T, pred_phase_tcoef.T
+
+
+def estimateParameters_t(*, obj: Union[Points, Network], estimate_ref_atmo: bool = True, ifg_space: bool = True):
+
+    num = obj.phase.shape[0]  # either number of points or number of arcs
+
+    if ifg_space:
+        tbase = obj.ifg_net_obj.tbase_ifg
+        pbase = obj.ifg_net_obj.pbase_ifg
+        tempt = obj.ifg_net_obj.temperatures_ifg
+        num_time = obj.ifg_net_obj.num_ifgs
+    else:
+        tbase = obj.ifg_net_obj.tbase
+        pbase = obj.ifg_net_obj.pbase
+        tempt = obj.ifg_net_obj.temperatures
+        num_time = obj.ifg_net_obj.num_images
+
+    vel = np.zeros((num,), dtype=np.float32)
+    demerr = np.zeros((num,), dtype=np.float32)
+    tcoef = np.zeros((num,), dtype=np.float32)
+    omega = np.zeros((num,), dtype=np.float32)
+    coherence = np.zeros((num,), dtype=np.float32)
+    v_hat = np.zeros((num, num_time), dtype=np.float32)
+
+    ref_atmo = None
+    if estimate_ref_atmo:
+        ref_atmo = np.zeros((num,), dtype=np.float32)
+        a = np.zeros((num_time, 4), dtype=np.float32)
+        a[:, 3] = 4 * np.pi / obj.wavelength  # atmospheric delay at reference acquisition
+    else:
+        a = np.zeros((num_time, 3))
+
+    a[:, 1] = 4 * np.pi / obj.wavelength * tbase  # velocity
+    a[:, 2] = 4 * np.pi / obj.wavelength * tempt  # tcoef
+
+    for p in range(obj.num_points):
+        obv_vec = obj.phase[p, :]
+        a[:, 0] = 4 * np.pi / obj.wavelength * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
+ 
+        x_hat, omega[p] = np.linalg.lstsq(a, obv_vec, rcond=None)[0:2]
+
+        demerr[p] = x_hat[0]
+        vel[p] = x_hat[1]
+        tcoef[p] = x_hat[2]
+        
+        if estimate_ref_atmo:
+            ref_atmo[p] = x_hat[3]
+
+        v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
+        coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
+
+    if not estimate_ref_atmo:
+        ref_atmo = None
+
+    return vel, demerr, tcoef, ref_atmo, coherence, omega, v_hat

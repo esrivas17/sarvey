@@ -39,12 +39,12 @@ from mintpy.utils import readfile
 from mintpy.utils.plot import auto_flip_direction
 
 from sarvey import viewer
-from sarvey.densification import densifyNetwork
+from sarvey.densification import densifyNetwork, densifyNetwork_temp
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
-from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
-from sarvey.unwrapping import spatialParameterIntegration, \
+from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp
+from sarvey.unwrapping import spatialParameterIntegration,  \
     parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
 import sarvey.utils as ut
@@ -53,6 +53,7 @@ from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
 
 import pdb
+from sarvey.unwrapping_temperature import *
 
 class Processing:
     """Processing."""
@@ -296,21 +297,42 @@ class Processing:
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
-        demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
+        #demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
+        #                                        net_obj=net_obj,
+        #                                        wavelength=point_obj.wavelength,
+        #                                        velocity_bound=self.config.consistency_check.velocity_bound,
+        #                                        demerr_bound=self.config.consistency_check.dem_error_bound,
+        #                                        num_samples=self.config.consistency_check.num_optimization_samples,
+        #                                        num_cores=self.config.general.num_cores,
+        #                                        logger=self.logger)
+
+        demerr, vel, tcoef, gamma = temporalUnwrapping_t(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
                                                 demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                coef_bound=self.config.consistency_check.tcoef_bound,
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
 
-        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+        #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+        #                               logger=self.logger)
+        #net_par_obj.prepare(
+        #    net_obj=net_obj,
+        #    demerr=demerr,
+        #    vel=vel,
+        #    gamma=gamma
+       # )
+       # net_par_obj.writeToFile()
+
+        net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(
             net_obj=net_obj,
             demerr=demerr,
             vel=vel,
+            tcoef=tcoef,
             gamma=gamma
         )
         net_par_obj.writeToFile()
@@ -370,8 +392,12 @@ class Processing:
 
     def runUnwrappingTimeAndSpace(self):
         """RunTemporalAndSpatialUnwrapping."""
-        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
-                                       logger=self.logger)
+        #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+        #                               logger=self.logger)
+        #net_par_obj.open(input_path=self.config.general.input_path)
+
+        net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
+                                           logger=self.logger)
         net_par_obj.open(input_path=self.config.general.input_path)
 
         point_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
@@ -427,11 +453,34 @@ class Processing:
 
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-            obj=point_obj, vel=vel, demerr=demerr,
+        
+        #temperature coefficient
+        self.logger.info(msg="Integrate mean velocity.")
+        tcoef = spatialParameterIntegration(val_arcs=net_par_obj.tcoef,
+                                          arcs=net_par_obj.arcs,
+                                          coord_xy=point_obj.coord_xy,
+                                          weights=net_par_obj.gamma,
+                                          spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+
+        fig = viewer.plotScatter(value=-tcoef, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: temperature coefficient",
+                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
+        plt.close(fig)
+
+
+        #pred_phase_demerr, pred_phase_vel = ut.predictPhase(
+        #    obj=point_obj, vel=vel, demerr=demerr,
+        #    ifg_space=True, logger=self.logger
+        #)
+        #pred_phase = pred_phase_demerr + pred_phase_vel
+
+        pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(
+            obj=point_obj, vel=vel, demerr=demerr, tcoef=tcoef,
             ifg_space=True, logger=self.logger
         )
-        pred_phase = pred_phase_demerr + pred_phase_vel
+        pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_tcoef
 
         wr_phase = point_obj.phase
         wr_res_phase = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase)))
@@ -462,6 +511,8 @@ class Processing:
         # adjust reference to peak of histogram
         point_obj.phase = unw_phase
         vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+        vel = ut.estimateParameters_t(obj=point_obj, ifg_space=True)[0]
+
         point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
@@ -568,7 +619,8 @@ class Processing:
         # temporal auto-correlation
         auto_corr_img = np.zeros_like(mask, np.float64)
 
-        vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
+        #vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
+        vel, demerr, tcoef, _, _, _, residuals = ut.estimateParameters_t(obj=point1_obj, ifg_space=False)
 
         if self.config.filtering.use_moving_points:
             auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
@@ -629,7 +681,8 @@ class Processing:
 
         if self.config.filtering.use_moving_points:
             # recompute the residuals, because now there are fewer points in the obj
-            phase_for_aps_filtering = ut.estimateParameters(obj=point1_obj, ifg_space=False)[-1]
+            #phase_for_aps_filtering = ut.estimateParameters(obj=point1_obj, ifg_space=False)[-1]
+            phase_for_aps_filtering = ut.estimateParameters_t(obj=point1_obj, ifg_space=False)[-1]
         else:
             phase_for_aps_filtering = point1_obj.phase
 
@@ -833,7 +886,8 @@ class Processing:
         # estimate parameters from unwrapped phase
         point1_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point1_obj.open(input_path=self.config.general.input_path)
-        vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
+        #vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
+        vel_p1, demerr_p1, tcoef_p1 = ut.estimateParameters_t(obj=point1_obj, ifg_space=True)[:3]
 
         # load wrapped phase to remove known components for unwrapping p2 points
         point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
@@ -929,19 +983,35 @@ class Processing:
         point2_obj.phase = np.angle(np.exp(1j * point2_obj.phase) * np.conjugate(np.exp(1j * aps2_ifg_phase)))
         point1_obj.phase = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * aps1_ifg_phase)))
 
-        demerr, vel, gamma = densifyNetwork(
+        #demerr, vel, gamma = densifyNetwork(
+        #    point1_obj=point1_obj,
+        #    vel_p1=vel_p1,
+        #    demerr_p1=demerr_p1,
+        #    point2_obj=point2_obj,
+        #    num_conn_p1=self.config.densification.num_connections_to_p1,
+        #    max_dist_p1=self.config.densification.max_distance_to_p1,
+        #    velocity_bound=self.config.densification.velocity_bound,
+        #    demerr_bound=self.config.densification.dem_error_bound,
+        #    num_samples=self.config.densification.num_optimization_samples,
+        #    num_cores=self.config.general.num_cores,
+        #    logger=self.logger
+        #)  # returns parameters of both first- and second-order points
+
+        demerr, vel, tcoef, gamma = densifyNetwork_temp(
             point1_obj=point1_obj,
             vel_p1=vel_p1,
             demerr_p1=demerr_p1,
+            tcoef_p1=tcoef_p1,
             point2_obj=point2_obj,
             num_conn_p1=self.config.densification.num_connections_to_p1,
             max_dist_p1=self.config.densification.max_distance_to_p1,
             velocity_bound=self.config.densification.velocity_bound,
             demerr_bound=self.config.densification.dem_error_bound,
+            tcoef_bound=self.config.densification.tcoef_bound,
             num_samples=self.config.densification.num_optimization_samples,
             num_cores=self.config.general.num_cores,
             logger=self.logger
-        )  # returns parameters of both first- and second-order points
+        )
 
         # store combined set of first and second-order points
         point2_obj.addPointsFromObj(
@@ -978,6 +1048,21 @@ class Processing:
                     dpi=300)
         plt.close(fig)
 
+        # histogram
+        fig = plt.figure(figsize=(15, 5))
+        axs = fig.subplots(1, 2)
+        axs[0].hist(-tcoef[mask_gamma] * 100, bins=200)
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Temp Coeff [rad]')
+
+        axs[1].hist(-demerr[mask_gamma], bins=200)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('DEM error [m]')
+        fig.savefig(join(self.path, "pic", "step_4_consistency_hist_temp_coeff_p2_coh{}.png".format(coh_value)),
+                    dpi=300)
+        plt.close(fig)
+
+        # figures
         fig = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
                                  cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
@@ -998,16 +1083,30 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
+        fig = viewer.plotScatter(value=-tcoef[mask_gamma], coord=point2_obj.coord_xy, ttl="Temperature coef in [-]",
+                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_coh{}.png".format(coh_value)), dpi=300)
+        plt.close(fig)
+
+
         self.logger.info(msg="Remove phase contributions from mean velocity "
                              "and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-            obj=point2_obj,
-            vel=vel[mask_gamma],
-            demerr=demerr[mask_gamma],
-            ifg_space=True,
-            logger=self.logger
+        #pred_phase_demerr, pred_phase_vel = ut.predictPhase(
+        #    obj=point2_obj,
+        #    vel=vel[mask_gamma],
+        #    demerr=demerr[mask_gamma],
+        #    ifg_space=True,
+        #    logger=self.logger
+        #)
+        #pred_phase = pred_phase_demerr + pred_phase_vel
+
+
+        pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(
+            obj=point2_obj, vel=vel[mask_gamma], demerr=demerr[mask_gamma], tcoef=tcoef,
+            ifg_space=True, logger=self.logger
         )
-        pred_phase = pred_phase_demerr + pred_phase_vel
+        pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_tcoef
 
         wr_phase = point2_obj.phase
         wr_res_phase = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase)))
@@ -1028,7 +1127,8 @@ class Processing:
         unw_phase = unw_res_phase + pred_phase
 
         point2_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
+        #vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
+        vel = ut.estimateParameters_t(obj=point2_obj, ifg_space=True)[0]
         point2_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point2_obj.writeToFile()
@@ -1049,6 +1149,42 @@ class Processing:
         point_obj.phase = phase_ts
 
         point_obj.writeToFile()
+
+         # saving wrapped residual phase because is so suspicious
+        wr_phase_ts = ut.invertIfgNetwork(
+            phase=wr_res_phase,
+            num_points=point2_obj.num_points,
+            ifg_net_obj=point2_obj.ifg_net_obj,
+            num_cores=1,  # self.config.general.num_cores,
+            ref_idx=0,
+            logger=self.logger)
+        
+        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_wr_res_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj_res.open(
+            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+            input_path=self.config.general.input_path
+        )
+        point_obj_res.phase = wr_phase_ts
+
+        point_obj_res.writeToFile()
+
+        # saving predicted phase
+        phase_pred_ts = ut.invertIfgNetwork(
+            phase=pred_phase,
+            num_points=point2_obj.num_points,
+            ifg_net_obj=point2_obj.ifg_net_obj,
+            num_cores=1,  # self.config.general.num_cores,
+            ref_idx=0,
+            logger=self.logger)
+        
+        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_pred_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj_res.open(
+            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+            input_path=self.config.general.input_path
+        )
+        point_obj_res.phase = phase_pred_ts
+
+        point_obj_res.writeToFile()
 
     def runDensificationSpace(self):
         """RunDensification."""

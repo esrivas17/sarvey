@@ -48,7 +48,7 @@ from mintpy.utils import ptime
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
 from sarvey.objects import Network, NetworkParameter, AmplitudeImage
-
+import pdb
 
 def objFuncTemporalCoherence(x, *args):
     """Compute temporal coherence from parameters and phase. To be used as objective function for optimization.

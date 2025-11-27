@@ -197,7 +197,13 @@ class IfgNetwork:
             temp_ifg_date = _query_date(tmp_series, date)
             ifg_temperatures.append(temp_ifg_date)
 
-        self.temperatures = np.array(ifg_temperatures)
+        # normalize
+        ifg_temperatures = np.array(ifg_temperatures)
+        #ifg_normalized_temperatures = (ifg_temperatures - ifg_temperatures.mean()) / ifg_temperatures.std() # it takes negtive values too
+        ifg_normalized_temperatures = (ifg_temperatures - ifg_temperatures.min()) / (ifg_temperatures.max() - ifg_temperatures.min()) # goes from 0 to 1
+        self.temperatures = ifg_normalized_temperatures
+        
+
 
     def set_ifg_temperature(self, nettype, ref_idx):
         # interferogram temperature

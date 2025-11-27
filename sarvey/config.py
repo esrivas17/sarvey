@@ -359,6 +359,12 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=100.0
     )
 
+    tcoef_bound: float = Field(
+        title="Bounds on temperature coefficient",
+        description="Set the bound (symmetric) temperature coefficient",
+        default=1
+    )
+
     num_optimization_samples: int = Field(
         title="Number of samples in the search space for temporal unwrapping",
         description="Set the number of samples evaluated along the search space for temporal unwrapping.",
@@ -587,6 +593,12 @@ class Densification(BaseModel, extra="forbid"):
         default=100.0
     )
 
+    tcoef_bound: float = Field(
+        title="Bounds on temperature coefficient",
+        description="Set the bound (symmetric) temperature coefficient",
+        default=1
+    )
+    
     num_optimization_samples: int = Field(
         title="Number of samples in the search space for temporal unwrapping",
         description="Set the number of samples evaluated along the search space for temporal unwrapping.",
