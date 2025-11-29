@@ -150,6 +150,8 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
         val_range=tcoef_range
     )
 
+
+
     if gamma_vel > gamma_demerr:
         demerr, gamma_demerr, pred_phase_demerr = findOptimum(
             obs_phase=obs_phase - pred_phase_vel,
@@ -162,8 +164,13 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
             val_range=vel_range
         )
 
+        # refine temp coef search
+        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(
+            obs_phase=obs_phase - (pred_phase_demerr),
+            design_mat=design_mat[:, 2],
+            val_range=tcoef_range)
         
-    else:
+    elif gamma_demerr < gamma_vel:
         vel, gamma_vel, pred_phase_vel = findOptimum(
             obs_phase=obs_phase - pred_phase_demerr,
             design_mat=design_mat[:, 1],
@@ -175,11 +182,11 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
             val_range=demerr_range
         )
 
-    # refine temp coef search
-    tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(
-        obs_phase=obs_phase - (pred_phase_demerr+pred_phase_vel),
-        design_mat=design_mat[:, 2],
-        val_range=tcoef_range)
+        # refine temp coef search
+        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(
+            obs_phase=obs_phase - (pred_phase_vel),
+            design_mat=design_mat[:, 2],
+            val_range=tcoef_range)
     
 
     # improve initial estimate with gradient descent approach
@@ -229,7 +236,7 @@ def gradientSearchTemporalCoherence_t(*, scale_vel: float, scale_demerr: float, 
         objFuncTemporalCoherence_t,
         x0,
         args=(design_mat, obs_phase, scale_vel, scale_demerr, scale_tcoef),
-        bounds=((-1, 1), (-1, 1), (-1,1)),
+        bounds=((-1, 1), (-1, 1), (-1, 1)),
         method='L-BFGS-B'
     )
     gamma = 1 - opt_res.fun
@@ -330,7 +337,7 @@ def temporalUnwrapping_t(*, ifg_net_obj: IfgNetwork, net_obj: Network,  waveleng
         args = (
             np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
             net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, coef_bound, num_samples)
-        arc_idx_range, demerr, vel, gamma = launchAmbiguityFunctionSearch_t(parameters=args)
+        arc_idx_range, demerr, vel, tcoef, gamma = launchAmbiguityFunctionSearch_t(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
 

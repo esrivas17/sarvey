@@ -207,7 +207,7 @@ class IfgNetwork:
 
     def set_ifg_temperature(self, nettype, ref_idx):
         # interferogram temperature
-        if nettype in ["stb", "sb"]:
+        if nettype in ["stb", "sb", "stb_year"]:
             self.temperatures_ifg = np.array([self.temperatures[idx[1]] - self.temperatures[idx[0]] for idx in self.ifg_list])
         elif nettype == "star":
             if ref_idx is None:

@@ -426,7 +426,7 @@ class Processing:
         #                                               max_rm_fraction=0.001)
         fig = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
@@ -446,7 +446,7 @@ class Processing:
         #                                            max_rm_fraction=0.001)
         fig = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
@@ -464,7 +464,7 @@ class Processing:
 
         fig = viewer.plotScatter(value=-tcoef, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: temperature coefficient",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
         plt.close(fig)
@@ -510,7 +510,7 @@ class Processing:
 
         # adjust reference to peak of histogram
         point_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+        #vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
         vel = ut.estimateParameters_t(obj=point_obj, ifg_space=True)[0]
 
         point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
@@ -626,6 +626,7 @@ class Processing:
             auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
         else:
             # remove DEM error, but not velocity before estimating the temporal autocorrelation
+            raise Exception("edit this")
             pred_phase_demerr = ut.predictPhase(
                 obj=point1_obj, vel=vel, demerr=demerr, ifg_space=False, logger=self.logger)[0]
             phase_wo_demerr = point1_obj.phase - pred_phase_demerr
@@ -1103,7 +1104,7 @@ class Processing:
 
 
         pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(
-            obj=point2_obj, vel=vel[mask_gamma], demerr=demerr[mask_gamma], tcoef=tcoef,
+            obj=point2_obj, vel=vel[mask_gamma], demerr=demerr[mask_gamma], tcoef=tcoef[mask_gamma],
             ifg_space=True, logger=self.logger
         )
         pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_tcoef
