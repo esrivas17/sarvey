@@ -1126,6 +1126,7 @@ class Processing:
         self.logger.info(msg="Add phase contributions from mean velocity "
                              "and DEM correction back to spatially unwrapped residual phase.")
         unw_phase = unw_res_phase + pred_phase
+        unw_phase_without_tcoef = unw_res_phase + (pred_phase_demerr+pred_phase_vel)
 
         point2_obj.phase = unw_phase
         #vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
@@ -1151,21 +1152,21 @@ class Processing:
 
         point_obj.writeToFile()
 
-         # saving wrapped residual phase because is so suspicious
-        wr_phase_ts = ut.invertIfgNetwork(
-            phase=wr_res_phase,
+         # saving unwrapped residual phase
+        phase_res_ts = ut.invertIfgNetwork(
+            phase=unw_res_phase,
             num_points=point2_obj.num_points,
             ifg_net_obj=point2_obj.ifg_net_obj,
             num_cores=1,  # self.config.general.num_cores,
             ref_idx=0,
             logger=self.logger)
         
-        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_wr_res_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_res_ts.h5".format(coh_value)), logger=self.logger)
         point_obj_res.open(
             other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
             input_path=self.config.general.input_path
         )
-        point_obj_res.phase = wr_phase_ts
+        point_obj_res.phase = phase_res_ts
 
         point_obj_res.writeToFile()
 
@@ -1202,6 +1203,24 @@ class Processing:
             input_path=self.config.general.input_path
         )
         point_obj_res.phase = phase_pred_tcoef_ts
+
+        point_obj_res.writeToFile()
+
+        # saving time series without tcoef
+        phase_without_tcoef = ut.invertIfgNetwork(
+            phase=unw_phase_without_tcoef,
+            num_points=point2_obj.num_points,
+            ifg_net_obj=point2_obj.ifg_net_obj,
+            num_cores=1,  # self.config.general.num_cores,
+            ref_idx=0,
+            logger=self.logger)
+        
+        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_without_tcoef_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj_res.open(
+            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+            input_path=self.config.general.input_path
+        )
+        point_obj_res.phase = phase_without_tcoef
 
         point_obj_res.writeToFile()
 
