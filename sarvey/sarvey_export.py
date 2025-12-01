@@ -81,7 +81,8 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     # todo: add corrected height to output
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
 
-    vel, demerr, _, coherence, omega, _ = ut.estimateParameters(obj=point_obj, ifg_space=False)
+    #vel, demerr, _, coherence, omega, _ = ut.estimateParameters(obj=point_obj, ifg_space=False)
+    vel, demerr, tcoef, _, coherence, omega, residuals = ut.estimateParameters_t(obj=point_obj, ifg_space=False)
 
     stc = ut.spatiotemporalConsistency(coord_utm=point_obj.coord_utm, phase=point_obj.phase,
                                        wavelength=point_obj.wavelength)
@@ -140,11 +141,12 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     df_points['coord'] = df_points['coord'].apply(Point)
     df_points.insert(0, 'point_id', point_obj.point_id.tolist())
     df_points.insert(1, 'velocity', vel * 1000)  # in [mm]
-    df_points.insert(2, 'coherence', coherence)
-    df_points.insert(3, 'omega', omega)
-    df_points.insert(4, 'st_consistency', stc * 1000)  # in [mm]
-    df_points.insert(5, 'dem_error', demerr)  # in [m]
-    df_points.insert(6, 'dem', point_obj.height)  # in [m]
+    df_points.insert(2, 'tcoef', tcoef)
+    df_points.insert(3, 'coherence', coherence)
+    df_points.insert(4, 'omega', omega)
+    df_points.insert(5, 'st_consistency', stc * 1000)  # in [mm]
+    df_points.insert(6, 'dem_error', demerr)  # in [m]
+    df_points.insert(7, 'dem', point_obj.height)  # in [m]
 
     df_points.columns = [col[:10] for col in df_points.columns]
 
