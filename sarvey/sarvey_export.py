@@ -141,7 +141,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     df_points['coord'] = df_points['coord'].apply(Point)
     df_points.insert(0, 'point_id', point_obj.point_id.tolist())
     df_points.insert(1, 'velocity', vel * 1000)  # in [mm]
-    df_points.insert(2, 'tcoef', tcoef)
+    df_points.insert(2, 'tcoef', tcoef*1000)
     df_points.insert(3, 'coherence', coherence)
     df_points.insert(4, 'omega', omega)
     df_points.insert(5, 'st_consistency', stc * 1000)  # in [mm]

@@ -1052,7 +1052,7 @@ class Processing:
         # histogram
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 2)
-        axs[0].hist(-tcoef[mask_gamma], bins=200)
+        axs[0].hist(-tcoef[mask_gamma]*1000, bins=200)
         axs[0].set_ylabel('Absolute frequency')
         axs[0].set_xlabel('Temp Coeff [rad]')
 
@@ -1084,8 +1084,8 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
-        fig = viewer.plotScatter(value=-tcoef[mask_gamma], coord=point2_obj.coord_xy, ttl="Temperature coef in [-]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=False,
+        fig = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy, ttl="Temperature coef in [-]",
+                                 bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=False,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
