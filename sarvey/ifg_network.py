@@ -151,7 +151,7 @@ class IfgNetwork:
             if hasattr(self, "temperatures"):
                 f.create_dataset("temperatures_ifg", data=self.temperatures_ifg)
 
-    def set_temperature(self, path):
+    def set_temperature(self, path, normalized=True):
         import pandas as pd
         temperature = np.load(path, allow_pickle=True)
         
@@ -201,8 +201,10 @@ class IfgNetwork:
         ifg_temperatures = np.array(ifg_temperatures)
         #ifg_normalized_temperatures = (ifg_temperatures - ifg_temperatures.mean()) / ifg_temperatures.std() # it takes negtive values too
         ifg_normalized_temperatures = (ifg_temperatures - ifg_temperatures.min()) / (ifg_temperatures.max() - ifg_temperatures.min()) # goes from 0 to 1
-        self.temperatures = ifg_normalized_temperatures
-        
+        if normalized:
+            self.temperatures = ifg_normalized_temperatures
+        else:
+            self.temperatures = ifg_temperatures
 
 
     def set_ifg_temperature(self, nettype, ref_idx):

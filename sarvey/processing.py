@@ -146,7 +146,8 @@ class Processing:
 
         if self.config.general.temperature_file:
             log.info(msg=f"INTEGRATING TEMPERATURE FILE TO IFG NETWORK")
-            ifg_net_obj.set_temperature(path=self.config.general.temperature_file)
+            normflag = self.config.general.normalize_temperature
+            ifg_net_obj.set_temperature(path=self.config.general.temperature_file, normalized=normflag)
             ifg_net_obj.set_ifg_temperature(nettype=self.config.preparation.ifg_network_type, ref_idx=int(np.floor(num_slc/2)))
         
         ifg_net_obj.writeToFile(path=join(self.path, "ifg_network.h5"), logger=log)
