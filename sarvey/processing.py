@@ -959,6 +959,7 @@ class Processing:
 
                 vel_p1 = vel_p1[mask]
                 demerr_p1 = demerr_p1[mask]
+                tcoef_p1 = tcoef_p1[mask]
 
                 # remove unstable p1 from p1
                 point1_obj.removePoints(
@@ -1190,40 +1191,40 @@ class Processing:
         point_obj_res.writeToFile()
 
         # saving tcoef phase
-        phase_pred_tcoef_ts = ut.invertIfgNetwork(
-            phase=pred_phase_tcoef,
-            num_points=point2_obj.num_points,
-            ifg_net_obj=point2_obj.ifg_net_obj,
-            num_cores=1,  # self.config.general.num_cores,
-            ref_idx=0,
-            logger=self.logger)
+       # phase_pred_tcoef_ts = ut.invertIfgNetwork(
+        #    phase=pred_phase_tcoef,
+        #    num_points=point2_obj.num_points,
+        #    ifg_net_obj=point2_obj.ifg_net_obj,
+        #    num_cores=1,  # self.config.general.num_cores,
+        #    ref_idx=0,
+        #    logger=self.logger)
         
-        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_tcoef_ts.h5".format(coh_value)), logger=self.logger)
-        point_obj_res.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )
-        point_obj_res.phase = phase_pred_tcoef_ts
+        #point_obj_res = Points(file_path=join(self.path, "p2_coh{}_tcoef_ts.h5".format(coh_value)), logger=self.logger)
+        #point_obj_res.open(
+        #    other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+        #    input_path=self.config.general.input_path
+        #)
+        #point_obj_res.phase = phase_pred_tcoef_ts
 
-        point_obj_res.writeToFile()
+        #point_obj_res.writeToFile()
 
         # saving time series without tcoef
-        phase_without_tcoef = ut.invertIfgNetwork(
-            phase=unw_phase_without_tcoef,
-            num_points=point2_obj.num_points,
-            ifg_net_obj=point2_obj.ifg_net_obj,
-            num_cores=1,  # self.config.general.num_cores,
-            ref_idx=0,
-            logger=self.logger)
+       # phase_without_tcoef = ut.invertIfgNetwork(
+        #    phase=unw_phase_without_tcoef,
+        #    num_points=point2_obj.num_points,
+        #    ifg_net_obj=point2_obj.ifg_net_obj,
+        #    num_cores=1,  # self.config.general.num_cores,
+        #    ref_idx=0,
+        #    logger=self.logger)
         
-        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_without_tcoef_ts.h5".format(coh_value)), logger=self.logger)
-        point_obj_res.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )
-        point_obj_res.phase = phase_without_tcoef
+       # point_obj_res = Points(file_path=join(self.path, "p2_coh{}_without_tcoef_ts.h5".format(coh_value)), logger=self.logger)
+       # point_obj_res.open(
+       #     other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+       #     input_path=self.config.general.input_path
+       # )
+       # point_obj_res.phase = phase_without_tcoef
 
-        point_obj_res.writeToFile()
+       # point_obj_res.writeToFile()
 
     def runDensificationSpace(self):
         """RunDensification."""
