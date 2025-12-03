@@ -39,7 +39,7 @@ from logging import Logger
 
 from mintpy.utils import ptime
 
-from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage
+from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage,NetworkParameter_Temp
 from sarvey.ifg_network import IfgNetwork
 
 
@@ -886,7 +886,7 @@ def predictPhase_t(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, d
             loc_inc=obj.loc_inc,
             ifg_space=ifg_space
         )
-    elif isinstance(obj, NetworkParameter):
+    elif isinstance(obj, NetworkParameter) or isinstance(obj, NetworkParameter_Temp):
         pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = predictPhaseCore_t(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
