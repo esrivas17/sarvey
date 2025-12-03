@@ -449,10 +449,12 @@ class TimeSeriesViewer:
         else:  # backwards compatible, if ifg_net_obj does not contain dates
             self.times = point_obj.ifg_net_obj.tbase
 
-        vel, demerr, ref_atmo, coherence, omega, v_hat = ut.estimateParameters(obj=self.point_obj, ifg_space=False)
+        #vel, demerr, ref_atmo, coherence, omega, v_hat = ut.estimateParameters(obj=self.point_obj, ifg_space=False)
+        vel, demerr, tcoef, ref_atmo, coherence, omega, v_hat = ut.estimateParameters_t(obj=self.point_obj, ifg_space=False)
         self.vel = vel
         self.demerr = demerr
         self.ref_atmo = ref_atmo
+        self.tcoef = tcoef
 
         self.bmap_obj = AmplitudeImage(file_path=os.path.join(os.path.dirname(self.point_obj.file_path),
                                                               "background_map.h5"))

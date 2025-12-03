@@ -367,7 +367,7 @@ def densifyNetwork_temp(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np
         densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1,
                 velocity_bound, demerr_bound, tcoef_bound, num_samples)
-        idx_range, demerr_p2, vel_p2, gamma_p2 = launchDensifyNetworkConsistencyCheck_temp(args)
+        idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkConsistencyCheck_temp(args)
     else:
         with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))

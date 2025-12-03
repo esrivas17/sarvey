@@ -1094,7 +1094,7 @@ class Processing:
 
 
         self.logger.info(msg="Remove phase contributions from mean velocity "
-                             "and DEM correction from wrapped phase of points.")
+                             "and DEM correction and temperature from wrapped phase of points.")
         #pred_phase_demerr, pred_phase_vel = ut.predictPhase(
         #    obj=point2_obj,
         #    vel=vel[mask_gamma],
