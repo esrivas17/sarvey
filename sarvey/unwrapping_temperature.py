@@ -164,7 +164,7 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
 
         # refine temp coef search
         tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(
-            obs_phase=obs_phase - (pred_phase_vel+pred_phase_demer),
+            obs_phase=obs_phase - (pred_phase_vel+pred_phase_demerr),
             design_mat=design_mat[:, 2],
             val_range=tcoef_range)
         
