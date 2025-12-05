@@ -220,22 +220,16 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
         demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseresvel, design_mat=design_mat[:, 0],val_range=demerr_range)
         vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseresdemerr,design_mat=design_mat[:, 1],val_range=vel_range)
 
-        # refine temp coef search
-        phaserestcoef = obs_phase - (pred_phase_vel+pred_phase_demerr)
-        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=phaserestcoef,design_mat=design_mat[:, 2], val_range=tcoef_range)
-        
     else:
-        #elif gamma_demerr < gamma_vel:
         phaseresdemerr = obs_phase - pred_phase_demerr
         phaseresvel = obs_phase - pred_phase_vel
 
         vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseresdemerr,design_mat=design_mat[:, 1],val_range=vel_range)
         demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseresvel,design_mat=design_mat[:, 0],val_range=demerr_range        )
 
-        # refine temp coef search
-        phaserestcoef = obs_phase - (pred_phase_vel+pred_phase_demerr)
-        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=phaserestcoef,design_mat=design_mat[:, 2], val_range=tcoef_range)
-    
+    # refine temp coef search
+    ph_res_t = obs_phase - (pred_phase_vel + pred_phase_demerr)
+    tcoef, gamma_tcoef, pred_tcoef = findOptimum(obs_phase=ph_res_t, design_mat=design_mat[:, 2], val_range=tcoef_range)
 
     # improve initial estimate with gradient descent approach
     scale_demerr = (demerr_range.max() - demerr_range.min()) / 2 #demerr_range.max()
