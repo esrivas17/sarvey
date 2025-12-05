@@ -75,16 +75,10 @@ class General(BaseModel, extra="forbid"):
         default='puma'
     )
 
-    temperature_file: Optional[str] = Field(
+    rainfall_file: Optional[str] = Field(
         title="Path to information about temperature",
         description="Set the path temperature in npy format.",
         default=""
-    )
-
-    normalize_temperature: bool = Field(
-        title="Normalize temperature values",
-        description="Normalized temperature values to keep them between 0 and 1",
-        default=True
     )
 
     logging_level: str = Field(

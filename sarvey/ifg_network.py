@@ -111,11 +111,11 @@ class IfgNetwork:
                 self.dates = None
                 print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
 
-            if "temperatures" in f.keys():
-                self.temperatures = f["temperatures"][:]
+            if "rainfall" in f.keys():
+                self.rainfall = f["rainfall"][:]
             
-            if "temperatures_ifg" in f.keys():
-                self.temperatures_ifg = f["temperatures_ifg"][:]
+            if "rainfall_ifg" in f.keys():
+                self.rainfall_ifg = f["rainfall_ifg"][:]
 
             f.close()
 
@@ -146,29 +146,27 @@ class IfgNetwork:
             f.create_dataset('pbase', data=self.pbase)
             f.create_dataset('ifg_list', data=self.ifg_list)
             f.create_dataset('dates', data=dates)
-            if hasattr(self, "temperatures"):
-                f.create_dataset("temperatures", data=self.temperatures)
-            if hasattr(self, "temperatures"):
-                f.create_dataset("temperatures_ifg", data=self.temperatures_ifg)
+            if hasattr(self, "rainfall"):
+                f.create_dataset("rainfall", data=self.rainfall)
+            if hasattr(self, "rainfall"):
+                f.create_dataset("rainfall_ifg", data=self.rainfall_ifg)
 
-    def set_temperature(self, path, normalized=True):
+    def set_rainfall(self, path):
         import pandas as pd
-        temperature = np.load(path, allow_pickle=True)
+        from Rainfall.Rainfall import Rainfall
+        rainfall = Rainfall.fromh5f(path)
         
-        def _prepare_temperature(arr):
-            df = pd.DataFrame(arr.tolist(), columns=['date','temp'])
-            df['date'] = pd.to_datetime(df['date']).dt.date
-            # drop missing flags and convert strings to float
-            df = df[df['temp'] != "--"].copy()
-            df['temp'] = pd.to_numeric(df['temp'], errors='coerce')  # non-numeric -> NaN
-            df = df.dropna(subset=['temp'])
+        def _prepare_rainfall(df):
+            df['date'] = pd.to_datetime(df['time']).dt.date
+            df['rainfall'] = pd.to_numeric(df['rainfall'], errors='coerce')  # non-numeric -> NaN
+            df = df.dropna(subset=['rainfall'])
             df = df.sort_values('date').drop_duplicates('date', keep='first')
             # set index as datetime64 for interpolation
             df.index = pd.to_datetime(df['date'])
-            series = df['temp'].astype(float)
+            series = df['rainfall'].astype(float)
             return series
         
-        tmp_series = _prepare_temperature(temperature)
+        tmp_series = _prepare_rainfall(rainfall.df)
 
         def _query_date(series, date_str):
             if series is None or series.empty:
@@ -191,34 +189,37 @@ class IfgNetwork:
             s_interp = s2.interpolate(method='time')  # time-aware linear interpolation
             return float(s_interp.loc[q_ts])
 
-        ifg_temperatures = list()
+        ifg_rainfall = list()
 
         for date in self.dates:
             temp_ifg_date = _query_date(tmp_series, date)
-            ifg_temperatures.append(temp_ifg_date)
+            ifg_rainfall.append(temp_ifg_date)
 
         # normalize
-        ifg_temperatures = np.array(ifg_temperatures)
-        #ifg_normalized_temperatures = (ifg_temperatures - ifg_temperatures.mean()) / ifg_temperatures.std() # it takes negtive values too
-        ifg_normalized_temperatures = (ifg_temperatures - ifg_temperatures.min()) / (ifg_temperatures.max() - ifg_temperatures.min()) # goes from 0 to 1
-        if normalized:
-            self.temperatures = ifg_normalized_temperatures
-        else:
-            self.temperatures = ifg_temperatures
+        ifg_rainfall = np.array(ifg_rainfall)
+        self.rainfall = ifg_rainfall
 
 
-    def set_ifg_temperature(self, nettype, ref_idx):
+    def set_ifg_rainfall(self, nettype, ref_idx):
         # interferogram temperature
         if nettype in ["stb", "sb", "stb_year"]:
-            self.temperatures_ifg = np.array([self.temperatures[idx[1]] - self.temperatures[idx[0]] for idx in self.ifg_list])
+            import pdb
+            pdb.set_trace()
+            self.rainfall_ifg = np.array([self.rainfall[idx[1]] - self.rainfall[idx[0]] for idx in self.ifg_list])
         elif nettype == "star":
             if ref_idx is None:
                 raise Exception("Pass refix for star network")
             else:
-                self.temperatures_ifg = np.delete(self.temperatures - self.temperatures[ref_idx], ref_idx)
+                self.rainfall_ifg = np.delete(self.rainfall - self.rainfall[ref_idx], ref_idx)
         else:
             raise Exception("Ifg network not supported")
 
+    def plot_rainfall(self):
+        import pandas as pd
+        q_ts = pd.to_datetime(self.dates)
+        plt.plot(q_ts, self.rainfall)
+        plt.title("rainfall")
+        plt.show()
 
 class StarNetwork(IfgNetwork):
     """Star network of interferograms (single-reference)."""
