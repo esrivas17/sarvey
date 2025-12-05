@@ -464,7 +464,7 @@ class Processing:
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
         fig = viewer.plotScatter(value=-tcoef, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: temperature coefficient",
+                                 ttl="Parameter integration: temperature coefficient [m / C]",
                                  bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
@@ -1056,7 +1056,7 @@ class Processing:
         axs = fig.subplots(1, 2)
         axs[0].hist(-tcoef[mask_gamma]*1000, bins=200)
         axs[0].set_ylabel('Absolute frequency')
-        axs[0].set_xlabel('Temp Coeff [rad]')
+        axs[0].set_xlabel('Temp Coeff [mm/C]')
 
         axs[1].hist(-demerr[mask_gamma], bins=200)
         axs[1].set_ylabel('Absolute frequency')
@@ -1086,7 +1086,7 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
-        fig = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy, ttl="Temperature coef in [-]",
+        fig = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy, ttl="Temperature coef in [mm/C]",
                                  bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=False,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_coh{}.png".format(coh_value)), dpi=300)
@@ -1155,40 +1155,40 @@ class Processing:
         point_obj.writeToFile()
 
          # saving unwrapped residual phase
-        phase_res_ts = ut.invertIfgNetwork(
-            phase=unw_res_phase,
-            num_points=point2_obj.num_points,
-            ifg_net_obj=point2_obj.ifg_net_obj,
-            num_cores=1,  # self.config.general.num_cores,
-            ref_idx=0,
-            logger=self.logger)
+        #phase_res_ts = ut.invertIfgNetwork(
+        #    phase=unw_res_phase,
+        #    num_points=point2_obj.num_points,
+        #    ifg_net_obj=point2_obj.ifg_net_obj,
+        #    num_cores=1,  # self.config.general.num_cores,
+        #    ref_idx=0,
+        #    logger=self.logger)
         
-        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_res_ts.h5".format(coh_value)), logger=self.logger)
-        point_obj_res.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )
-        point_obj_res.phase = phase_res_ts
+        #point_obj_res = Points(file_path=join(self.path, "p2_coh{}_res_ts.h5".format(coh_value)), logger=self.logger)
+        #point_obj_res.open(
+        #    other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+        #    input_path=self.config.general.input_path
+        #)
+        #point_obj_res.phase = phase_res_ts
 
-        point_obj_res.writeToFile()
+        #point_obj_res.writeToFile()
 
         # saving predicted phase
-        phase_pred_ts = ut.invertIfgNetwork(
-            phase=pred_phase,
-            num_points=point2_obj.num_points,
-            ifg_net_obj=point2_obj.ifg_net_obj,
-            num_cores=1,  # self.config.general.num_cores,
-            ref_idx=0,
-            logger=self.logger)
+        #phase_pred_ts = ut.invertIfgNetwork(
+        #    phase=pred_phase,
+        #    num_points=point2_obj.num_points,
+        #    ifg_net_obj=point2_obj.ifg_net_obj,
+        #    num_cores=1,  # self.config.general.num_cores,
+        #    ref_idx=0,
+        #    logger=self.logger)
         
-        point_obj_res = Points(file_path=join(self.path, "p2_coh{}_pred_ts.h5".format(coh_value)), logger=self.logger)
-        point_obj_res.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )
-        point_obj_res.phase = phase_pred_ts
+        #point_obj_res = Points(file_path=join(self.path, "p2_coh{}_pred_ts.h5".format(coh_value)), logger=self.logger)
+        #point_obj_res.open(
+        #    other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+        #    input_path=self.config.general.input_path
+        #)
+        #point_obj_res.phase = phase_pred_ts
 
-        point_obj_res.writeToFile()
+        #point_obj_res.writeToFile()
 
         # saving tcoef phase
        # phase_pred_tcoef_ts = ut.invertIfgNetwork(

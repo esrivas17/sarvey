@@ -67,15 +67,90 @@ def objFuncTemporalCoherence_t(x, *args):
     (design_mat, obs_phase, scale_vel, scale_demerr, scale_tcoef) = args
 
     # equalize the gradients in both directions
-    x[0] *= scale_demerr
-    x[1] *= scale_vel
-    x[2] *= scale_tcoef
+    demerr = x[0] * scale_demerr
+    vel = x[1] * scale_vel
+    tcoef = x[2] * scale_tcoef
 
-    pred_phase = np.matmul(design_mat, x)
+    p = np.array([demerr, vel, tcoef])
+
+    pred_phase = design_mat @ p
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
     return 1 - gamma
 
+
+def objFuncTemporalCoherence_tc(x, design_mat, obs_phase, scales, centers):
+    """
+    Objective: 1 - gamma, where gamma is temporal coherence.
+
+    Parameters
+    ----------
+    x : array-like, shape (3,)
+        Scaled optimization variables for [demerr, vel, tcoef].
+    scales : array-like (3,)
+        Scaling factors to convert scaled x -> physical units.
+    centers : array-like (3,)
+        Centering (offset) values for physical parameters.
+
+    Returns
+    -------
+    float
+        The value 1 - gamma to minimize.
+    """
+
+    # Convert optimizer variables x into PHYSICAL parameters p
+    p = x * scales + centers   # do NOT modify x in place
+
+    # Predict phase
+    pred_phase = design_mat @ p
+    res = (obs_phase - pred_phase).ravel()
+
+    # Temporal coherence
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return 1 - gamma
+
+
+def gradientSearchTemporalCoherence_tc(*, scales, centers, obs_phase, design_mat, x0):
+    """
+    Gradient-based parameter refinement in scaled space.
+
+    Parameters
+    ----------
+    scales : array-like (3,)
+        Scaling factors for parameters.
+    centers : array-like (3,)
+        Centers of parameters.
+    x0 : array-like (3,)
+        Initial guess in scaled space.
+
+    Returns
+    -------
+    (demerr, vel, tcoef, gamma)
+        Physical parameter estimates and their temporal coherence.
+    """
+
+    # Bounds in scaled space: keep search within [-1, 1] or whatever you want
+    bounds = [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)]
+
+    opt_res = minimize(
+        objFuncTemporalCoherence_tc,
+        x0,
+        args=(design_mat, obs_phase, scales, centers),
+        bounds=bounds,
+        method='L-BFGS-B'
+    )
+
+    # Convert scaled solution back to physical parameters
+    p_est = opt_res.x * scales + centers
+    demerr, vel, tcoef = p_est
+
+    # Compute gamma at optimum
+    pred_phase = design_mat @ p_est
+    res = (obs_phase - pred_phase).ravel()
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return demerr, vel, tcoef, gamma
 
 def findOptimum(*, obs_phase: np.ndarray, design_mat: np.ndarray, val_range: np.ndarray):
     """Find optimal value within a one dimensional search space that fits to the observed phase.
@@ -132,75 +207,71 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
     vel: float
     gamma: float
     """
-    demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 0],
-        val_range=demerr_range
-    )
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
 
-    vel, gamma_vel, pred_phase_vel = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 1],
-        val_range=vel_range
-    )
+    vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
 
-    tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 2],
-        val_range=tcoef_range
-    )
+    tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 2], val_range=tcoef_range)
 
     if gamma_vel > gamma_demerr:
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
+        phaseresvel = obs_phase - pred_phase_vel
+        phaseresdemerr = obs_phase - pred_phase_demerr
+
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseresvel, design_mat=design_mat[:, 0],val_range=demerr_range)
+        vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseresdemerr,design_mat=design_mat[:, 1],val_range=vel_range)
 
         # refine temp coef search
-        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(
-            obs_phase=obs_phase - (pred_phase_vel+pred_phase_demerr),
-            design_mat=design_mat[:, 2],
-            val_range=tcoef_range)
+        phaserestcoef = obs_phase - (pred_phase_vel+pred_phase_demerr)
+        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=phaserestcoef,design_mat=design_mat[:, 2], val_range=tcoef_range)
         
     else:
         #elif gamma_demerr < gamma_vel:
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
+        phaseresdemerr = obs_phase - pred_phase_demerr
+        phaseresvel = obs_phase - pred_phase_vel
+
+        vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseresdemerr,design_mat=design_mat[:, 1],val_range=vel_range)
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseresvel,design_mat=design_mat[:, 0],val_range=demerr_range        )
 
         # refine temp coef search
-        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(
-            obs_phase=obs_phase - (pred_phase_vel+pred_phase_demerr),
-            design_mat=design_mat[:, 2],
-            val_range=tcoef_range)
+        phaserestcoef = obs_phase - (pred_phase_vel+pred_phase_demerr)
+        tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=phaserestcoef,design_mat=design_mat[:, 2], val_range=tcoef_range)
     
 
     # improve initial estimate with gradient descent approach
-    scale_demerr = demerr_range.max()
-    scale_vel = vel_range.max()
-    scale_tcoef = tcoef_range.max()
+    scale_demerr = (demerr_range.max() - demerr_range.min()) / 2 #demerr_range.max()
+    scale_vel = (vel_range.max() - vel_range.min()) / 2 #vel_range.max()
+    scale_tcoef = (tcoef_range.max() - tcoef_range.min()) / 2 # tcoef_range.max()
 
-    demerr, vel, tcoef, gamma = gradientSearchTemporalCoherence_t(
-        scale_vel=scale_vel,
-        scale_demerr=scale_demerr,
-        scale_tcoef=scale_tcoef,
+    scales = np.array([
+        (demerr_range.max() - demerr_range.min()) / 2.0,
+        (vel_range.max()     - vel_range.min())     / 2.0,
+        (tcoef_range.max()   - tcoef_range.min())   / 2.0])
+
+    centers = np.array([
+        (demerr_range.max() + demerr_range.min()) / 2.0,
+        (vel_range.max()     + vel_range.min())     / 2.0,
+        (tcoef_range.max()   + tcoef_range.min())   / 2.0])
+
+    # Initial physical guess
+    p0 = np.array([demerr, vel, tcoef])
+    # Convert to scaled space for L-BFGS-B
+    x0 = (p0 - centers) / scales
+
+    #demerr, vel, tcoef, gamma = gradientSearchTemporalCoherence_t(
+    #    scale_vel=scale_vel,
+    #    scale_demerr=scale_demerr,
+    #    scale_tcoef=scale_tcoef,
+    #    obs_phase=obs_phase,
+    #    design_mat=design_mat,
+    #    x0=np.array([demerr/scale_demerr, vel/scale_vel, tcoef/scale_tcoef]).T
+    #)
+
+    demerr, vel, tcoef, gamma = gradientSearchTemporalCoherence_tc(
+        scales=scales,
+        centers=centers,
         obs_phase=obs_phase,
         design_mat=design_mat,
-        x0=np.array([demerr/scale_demerr, vel/scale_vel, tcoef/scale_tcoef]).T
-    )
+        x0=x0)
 
     pred_phase = np.matmul(design_mat, np.array([demerr, vel, tcoef]))
     res = (obs_phase - pred_phase.T).ravel()
@@ -482,7 +553,7 @@ def parameterBasedNoisyPointRemoval_t(*, net_par_obj: NetworkParameter, point_id
         max_rmse = np.max(rmse.ravel())
         logger.info(msg="Maximum RMSE DEM correction: {:.2f} m".format(np.max(rmse_demerr.ravel())))
         logger.info(msg="Maximum RMSE velocity: {:.4f} m / year".format(np.max(rmse_vel.ravel())))
-        logger.info(msg="Maximum RMSE Temp Coefficient: {:.4f}".format(np.max(rmse_tcoef.ravel())))
+        logger.info(msg="Maximum RMSE Temp Coefficient: {:.4f} m/C".format(np.max(rmse_tcoef.ravel())))
 
         if bool_plot:
             # vel
@@ -515,7 +586,7 @@ def parameterBasedNoisyPointRemoval_t(*, net_par_obj: NetworkParameter, point_id
             sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_tcoef, s=3.5,
                             cmap=cmc.cm.cmaps["lajolla"])
             plt.colorbar(sc, pad=0.03, shrink=0.5)
-            ax.set_title("{}. iteration\nTemp Coef - RMSE per point in [m]".format(it_count))
+            ax.set_title("{}. iteration\nTemp Coef - RMSE per point in [m/C]".format(it_count))
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(dirname(net_par_obj.file_path), "pic",
