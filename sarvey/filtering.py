@@ -244,10 +244,10 @@ def estimateAtmosphericPhaseScreen(*, residuals: np.ndarray, coord_utm1: np.ndar
             for arg in args:
                 futures.append(executor.submit(launchSpatialFiltering, arg))
 
-            for fut in as_completed(futures):
-                i, aps1_i, aps2_i = fut.result()
-                aps1[:, i] = aps1_i
-                aps2[:, i] = aps2_i
+        for fut in as_completed(futures):
+            i, aps1_i, aps2_i = fut.result()
+            aps1[:, i] = aps1_i
+            aps2[:, i] = aps2_i
 
         # concurrent
         #with ProcessPoolExecutor(max_workers=num_cores) as executor:
