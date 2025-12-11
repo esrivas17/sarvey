@@ -78,7 +78,7 @@ def launchSpatialFiltering(parameters: tuple):
         atmospheric phase screen for the new points (size: num_points_p2 x num_ifgs)
     """
     # Unpack the parameters
-    (idx_range, num_time, residuals, coord_utm1, coord_utm2, bins, bool_plot, logger) = parameters
+    (idx_range, num_time, residuals, coord_utm1, coord_utm2, bins, bool_plot) = parameters
 
     x = coord_utm1[:, 1]
     y = coord_utm1[:, 0]
@@ -101,7 +101,8 @@ def launchSpatialFiltering(parameters: tuple):
         try:
             model.fit_variogram(x_data=bin_center, y_data=vario, nugget=True, max_eval=1500)
         except RuntimeError as err:
-            logger.error(msg="\nIMAGE {}: Not able to fit variogram! {}".format(idx_range[i], err))
+            print("\nIMAGE {}: Not able to fit variogram! {}".format(idx_range[i], err))
+            #logger.error(msg="\nIMAGE {}: Not able to fit variogram! {}".format(idx_range[i], err))
             if bool_plot:
                 fig, ax = plt.subplots(2, figsize=[10, 5])
                 sca1 = ax[0].scatter(x, y, c=field)
@@ -210,7 +211,7 @@ def estimateAtmosphericPhaseScreen(*, residuals: np.ndarray, coord_utm1: np.ndar
                                       dim=2, latlon=False, mesh_type='unstructured', bin_no=30, max_dist=None)
 
     if num_cores == 1:
-        args = (np.arange(0, num_time), num_time, residuals, coord_utm1, coord_utm2, bins, bool_plot, logger)
+        args = (np.arange(0, num_time), num_time, residuals, coord_utm1, coord_utm2, bins, bool_plot)
         _, aps1, aps2 = launchSpatialFiltering(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
@@ -228,11 +229,14 @@ def estimateAtmosphericPhaseScreen(*, residuals: np.ndarray, coord_utm1: np.ndar
             coord_utm1,
             coord_utm2,
             bins,
-            False,
-            logger) for idx_range in idx]
-
-        with multiprocessing.Pool(processes=num_cores) as pool:
+            False) for idx_range in idx]
+        
+        ctx = multiprocessing.get_context('spawn')
+        with ctx.Pool(processes=num_cores) as pool:
             results = pool.map(func=launchSpatialFiltering, iterable=args)
+
+        #with multiprocessing.Pool(processes=num_cores) as pool:
+        #    results = pool.map(func=launchSpatialFiltering, iterable=args)
 
         # retrieve results
         for i, aps1_i, aps2_i in results:
