@@ -35,7 +35,8 @@ import numpy as np
 from scipy.interpolate import griddata
 import gstools as gs
 from logging import Logger
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
 from mintpy.utils import ptime
 
 import sarvey.utils as ut
@@ -238,14 +239,24 @@ def estimateAtmosphericPhaseScreen(*, residuals: np.ndarray, coord_utm1: np.ndar
         #with multiprocessing.Pool(processes=num_cores) as pool:
         #    results = pool.map(func=launchSpatialFiltering, iterable=args)
 
-        # concurrent
+        futures = []
         with ProcessPoolExecutor(max_workers=num_cores) as executor:
-            results = executor.map(launchSpatialFiltering, args)
+            for arg in args:
+                futures.append(executor.submit(launchSpatialFiltering, arg))
+
+            for fut in as_completed(futures):
+                i, aps1_i, aps2_i = fut.result()
+                aps1[:, i] = aps1_i
+                aps2[:, i] = aps2_i
+
+        # concurrent
+        #with ProcessPoolExecutor(max_workers=num_cores) as executor:
+        #    results = executor.map(launchSpatialFiltering, args)
 
         # retrieve results
-        for i, aps1_i, aps2_i in results:
-            aps1[:, i] = aps1_i
-            aps2[:, i] = aps2_i
+        #for i, aps1_i, aps2_i in results:
+        #    aps1[:, i] = aps1_i
+        #    aps2[:, i] = aps2_i
 
     m, s = divmod(time.time() - start_time, 60)
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
