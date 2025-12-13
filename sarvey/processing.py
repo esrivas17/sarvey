@@ -845,7 +845,7 @@ class Processing:
                     residuals=phase_for_aps_filtering,
                     coord_utm1=point1_obj.coord_utm,
                     coord_utm2=aps2_obj.coord_utm,
-                    num_cores=self.config.general.num_cores,
+                    num_cores=1, #there is a problem with multiprocessing
                     bool_plot=False,
                     logger=self.logger
                 )

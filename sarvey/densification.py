@@ -37,7 +37,7 @@ from logging import Logger
 from mintpy.utils import ptime
 
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
-from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_t
+from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_t, oneDimSearchTemporalCoherence_3variables
 from sarvey.objects import Points
 import sarvey.utils as ut
 
@@ -314,7 +314,7 @@ def launchDensifyNetworkConsistencyCheck_temp(args: tuple):
         design_mat[:, 2] = factor * global_point2_obj.ifg_net_obj.temperatures_ifg
 
 
-        demerr_p2[idx], vel_p2[idx], tcoef_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence_t(
+        demerr_p2[idx], vel_p2[idx], tcoef_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence_3variables(
             demerr_range=demerr_range,
             vel_range=vel_range,
             tcoef_range=tcoef_range,
