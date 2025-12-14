@@ -28,6 +28,9 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Processing module for SARvey."""
+import matplotlib
+matplotlib.use('Agg')
+
 from os.path import join
 import matplotlib.pyplot as plt
 import numpy as np
