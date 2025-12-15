@@ -185,6 +185,37 @@ def findOptimum(*, obs_phase: np.ndarray, design_mat: np.ndarray, val_range: np.
     opt_val = val_range[max_idx]
     return opt_val, gamma[max_idx], pred_phase[:, max_idx]
 
+def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, range1: np.ndarray, range2: np.ndarray):
+    """
+    Finds optimum in a 2d search space
+    """
+
+    # meshgrid of candidate coefficients 
+    range_vals1, range_vals2 = np.meshgrid(range1, range2, indexing='ij') 
+    
+    pred_phase = design_mat[:,0] * range_vals1[:,np.newaxis] + design_mat[:,1] * range_vals2[:,np.newaxis]
+
+    # finding maximum coherence
+    if len(obs_phase.shape) == 2:
+        # step densification
+        A, P = obs_phase.shape 
+        N = pred_phase.shape[0]
+        res = obs_phase[:, None, :] - pred_phase[None, :, :]
+        res = res.transpose(1, 0, 2)
+        res = res.reshape(N, A * P)
+        #res = obs_phase[:, np.newaxis, :] - pred_phase
+        #res = np.moveaxis(res, 0, 1)
+        #res = res.reshape((pred_phase.shape[1], -1))  # combine residuals from all arcs
+    else:
+        # step consistency check
+        res = pred_phase - obs_phase
+
+    gamma = np.abs(np.mean(np.exp(1j * res), axis=1))
+    idx_max = np.argmax(gamma)
+    idx_r, idx_c = np.unravel_index(idx_max, range_vals1.shape)
+
+    return range_vals1[idx_r, idx_c], range_vals2[idx_r, idx_c], gamma[idx_max], pred_phase[idx_max]
+
 
 def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.ndarray, tcoef_range: np.ndarray, obs_phase: np.ndarray,
                                   design_mat: np.ndarray):
@@ -425,6 +456,69 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
     gamma = np.abs(np.mean(np.exp(1j * res)))
     return demerr, vel, tcoef, gamma
 
+
+def twoDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.ndarray, tcoef_range: np.ndarray, obs_phase: np.ndarray,
+                                  design_mat: np.ndarray):
+
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
+    vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
+    tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 2], val_range=tcoef_range)
+
+    #vel1, tcoef1, gamma_veltcoef1, pred_phase_veltcoef = findOptimum2D(obs_phase=obs_phase, design_mat=design_mat[:, 1:],  range1=vel_range, range2=tcoef_range)
+
+    if gamma_demerr < gamma_vel and gamma_demerr < gamma_tcoef:
+        # case when gamma demerr is the lowest
+        vel, tcoef, gamma_veltcoef1, pred_phase_veltcoef = findOptimum2D(obs_phase=obs_phase, design_mat=design_mat[:, 1:],  range1=vel_range, range2=tcoef_range)
+        phaseres = obs_phase - pred_phase_veltcoef
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+
+    elif gamma_demerr > gamma_vel and gamma_demerr > gamma_tcoef:
+        # case when gamma demerr is the highest
+        phaseres = obs_phase - pred_phase_demerr
+        vel, tcoef, gamma_veltcoef1, pred_phase_veltcoef = findOptimum2D(obs_phase=phaseres, design_mat=design_mat[:, 1:],  range1=vel_range, range2=tcoef_range)
+
+    else:
+        if gamma_vel > gamma_tcoef:
+            phaseres = obs_phase - pred_phase_vel
+            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres = obs_phase - pred_phase_vel - pred_phase_demerr
+            tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 2], val_range=tcoef_range)
+
+        else:
+            phaseres = obs_phase - pred_phase_tcoef
+            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres = obs_phase - pred_phase_tcoef - pred_phase_demerr
+            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+
+
+    scales = np.array([
+        (demerr_range.max() - demerr_range.min()) / 2.0,
+        (vel_range.max()     - vel_range.min())     / 2.0,
+        (tcoef_range.max()   - tcoef_range.min())   / 2.0])
+
+    centers = np.array([
+        (demerr_range.max() + demerr_range.min()) / 2.0,
+        (vel_range.max()     + vel_range.min())     / 2.0,
+        (tcoef_range.max()   + tcoef_range.min())   / 2.0])
+
+    # Initial physical guess
+    p0 = np.array([demerr, vel, tcoef])
+    # Convert to scaled space for L-BFGS-B
+    x0 = (p0 - centers) / scales
+
+    demerr, vel, tcoef, gamma = gradientSearchTemporalCoherence_tc(
+        scales=scales,
+        centers=centers,
+        obs_phase=obs_phase,
+        design_mat=design_mat,
+        x0=x0)
+
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, tcoef]))
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+    return demerr, vel, tcoef, gamma
+
+
 def gradientSearchTemporalCoherence_t(*, scale_vel: float, scale_demerr: float, scale_tcoef: float, obs_phase: np.ndarray,
                                     design_mat: np.ndarray, x0: np.ndarray):
     """GradientSearchTemporalCoherence.
@@ -508,7 +602,7 @@ def launchAmbiguityFunctionSearch_t(parameters: tuple):
         #    design_mat=design_mat
         #)
 
-        demerr[k], vel[k], tcoef[k], gamma[k] = oneDimSearchTemporalCoherence_3variables(
+        demerr[k], vel[k], tcoef[k], gamma[k] = twoDimSearchTemporalCoherence(
             demerr_range=demerr_range,
             vel_range=vel_range,
             tcoef_range=tcoef_range,
