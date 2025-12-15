@@ -28,8 +28,6 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Viewer Module for SARvey."""
-import matplotlib
-matplotlib.use('Agg')
 import os
 from typing import Any, Optional
 from logging import Logger

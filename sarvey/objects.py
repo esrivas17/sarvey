@@ -28,8 +28,6 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Objects module for SARvey."""
-import matplotlib
-matplotlib.use('Agg')
 import os
 from os.path import join, dirname, exists, basename
 from typing import Optional
