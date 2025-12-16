@@ -57,7 +57,8 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 
 def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, ref: list,
-                          correct_geolocation: bool = False, no_timeseries: bool = False, logger: Logger):
+                          correct_geolocation: bool = False, no_timeseries: bool = False, 
+                          no_tcoef=False, logger: Logger):
     """Export data to GIS format (shp or gpkg).
 
     Parameters
@@ -97,10 +98,18 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
 
     # extract displacement
     defo_ts = np.zeros_like(point_obj.phase, dtype=np.float32)
+    logger.info("Extract displacement")
+    if no_tcoef:
+        logger.info("Removing temperature related displacement from time series")
+        
     for i in range(point_obj.num_points):
         phase_topo = (point_obj.ifg_net_obj.pbase / (point_obj.slant_range[i] * np.sin(point_obj.loc_inc[i])) *
                       demerr[i])
         defo_ts[i, :] = point_obj.phase[i, :] - phase_topo
+        if no_tcoef:
+            tcoef_ts = point_obj.ifg_net_obj.temperatures * tcoef[i]
+            defo_ts[i,:] -= tcoef_ts
+
 
     # transform into meters
     defo_ts *= 1000  # in [mm]
@@ -197,7 +206,10 @@ def createParser():
 
     parser.add_argument('-t', '--no-time-series', default=False, action="store_true", dest="no_timeseries",
                         help='Do not export time series (default: False).')
+    
     parser.add_argument("-r", "--ref", default=None, dest='reference', type=float, nargs=2, help='Reference in lon and lat')
+
+    parser.add_argument("--notcoef", dest="notcoef", default=False, action="store_true", help="When set, it removes the tcoef component")
 
 
     return parser
@@ -292,7 +304,8 @@ def main(iargs=None):
 
     exportDataToGisFormat(file_path=args.file_path, output_path=args.output_path,
                           input_path=config.general.input_path, ref=args.reference,
-                          correct_geolocation=args.correct_geolocation, no_timeseries=args.no_timeseries,
+                          correct_geolocation=args.correct_geolocation, 
+                          no_timeseries=args.no_timeseries, no_tcoef=args.notcoef,
                           logger=logger)
 
 
