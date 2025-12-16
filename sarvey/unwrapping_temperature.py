@@ -193,7 +193,7 @@ def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, range1: np.n
     # meshgrid of candidate coefficients 
     range_vals1, range_vals2 = np.meshgrid(range1, range2, indexing='ij') 
     
-    pred_phase = design_mat[:,0] * range_vals1[:,np.newaxis] + design_mat[:,1] * range_vals2[:,np.newaxis]
+    pred_phase = design_mat[:,0] * range_vals1.ravel()[:,np.newaxis] + design_mat[:,1] * range_vals2.ravel()[:,np.newaxis]
 
     # finding maximum coherence
     if len(obs_phase.shape) == 2:
