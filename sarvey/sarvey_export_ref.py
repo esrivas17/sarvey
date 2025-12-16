@@ -197,7 +197,7 @@ def createParser():
 
     parser.add_argument('-t', '--no-time-series', default=False, action="store_true", dest="no_timeseries",
                         help='Do not export time series (default: False).')
-    parser.add_argument('--ref', default=None, dest='reference', type=float, nargs=2, help='Reference in lon and lat')
+    parser.add_argument("-r", "--ref", default=None, dest='reference', type=float, nargs=2, help='Reference in lon and lat')
 
 
     return parser
