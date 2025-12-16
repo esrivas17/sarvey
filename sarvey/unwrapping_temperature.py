@@ -594,21 +594,21 @@ def launchAmbiguityFunctionSearch_t(parameters: tuple):
         design_mat[:, 1] = factor * ifg_net_obj.tbase_ifg
         design_mat[:, 2] = factor * ifg_net_obj.temperatures_ifg
 
-        demerr[k], vel[k], tcoef[k], gamma[k] = oneDimSearchTemporalCoherence_t(
-            demerr_range=demerr_range,
-            vel_range=vel_range,
-            tcoef_range=tcoef_range,
-            obs_phase=phase[k, :],
-            design_mat=design_mat
-        )
-
-        #demerr[k], vel[k], tcoef[k], gamma[k] = twoDimSearchTemporalCoherence(
+        #demerr[k], vel[k], tcoef[k], gamma[k] = oneDimSearchTemporalCoherence_t(
         #    demerr_range=demerr_range,
         #    vel_range=vel_range,
         #    tcoef_range=tcoef_range,
         #    obs_phase=phase[k, :],
         #    design_mat=design_mat
         #)
+
+        demerr[k], vel[k], tcoef[k], gamma[k] = twoDimSearchTemporalCoherence(
+            demerr_range=demerr_range,
+            vel_range=vel_range,
+            tcoef_range=tcoef_range,
+            obs_phase=phase[k, :],
+            design_mat=design_mat
+        )
 
     return arc_idx_range, demerr, vel, tcoef, gamma
 
