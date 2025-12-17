@@ -101,7 +101,6 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     # extract displacement
     #defo_ts = np.zeros_like(point_obj.phase, dtype=np.float32)
     logger.info("Extract displacement")
-    logger.info("Saving temperature coefficient component")
 
     amp = np.zeros_like(tcoef, dtype=np.float32)
     phi = np.zeros_like(tcoef, dtype=np.float32)
@@ -115,17 +114,19 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
 
     logger.info("Saving temperature coefficient component")
     tcoef_ts = np.zeros_like(point_obj.phase, dtype=np.float32)
-        
+
     for i in range(point_obj.num_points):
         temp_comp = point_obj.ifg_net_obj.temperatures * tcoef[i]
         tcoef_ts[i,:] = temp_comp
         initial = [(np.max(temp_comp)-np.min(temp_comp))/2, 0.5, 0]
         params, cov = curve_fit(sine_function, point_obj.ifg_net_obj.tbase, temp_comp, p0=initial)
-        amp[i] = params[0]
+        amp[i] = params[0] * point_obj.wavelength / (4 * np.pi) * 1000
         phi[i] = params[1]
-        offset[i] = params[2]
+        offset[i] = params[2] * point_obj.wavelength / (4 * np.pi) * 1000
 
+    logger.info("Sinusoidal parameteres calculated")
 
+    
     utm_crs_list = query_utm_crs_info(
         datum_name="WGS 84",
         area_of_interest=AreaOfInterest(
@@ -170,7 +171,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     df_points.insert(0, 'point_id', point_obj.point_id.tolist())
     df_points.insert(1, 'amp', amp)  # in [mm]
     df_points.insert(2, 'phi', phi)  # in [yr]
-    df_points.insert(3, 'offset', offset)  # in [yr]
+    df_points.insert(3, 'offset', offset)  # in [mm]
     df_points.insert(4, 'velocity', vel * 1000)  # in [mm]
     df_points.insert(5, 'tcoef', tcoef*1000)
     df_points.insert(6, 'coherence', coherence)
