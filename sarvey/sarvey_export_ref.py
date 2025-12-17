@@ -188,6 +188,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     gdf_points.to_file(output_path)
 
     if savetcoef:
+         tcoef_ts *= 1000 # in[mm]
          df_tcoef_points = df_points
          for i, date in enumerate(dates):
             df_tcoef_points[date] = tcoef_ts[:, i]
