@@ -85,7 +85,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
 
     # reference
     REF_point_idx = tree.query([reflat, reflon])[-1]
-    point_obj.phase -= point_obj.phase[REF_point_idx,:]
+    #point_obj.phase -= point_obj.phase[REF_point_idx,:]
 
     # todo: add corrected height to output
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
