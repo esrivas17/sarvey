@@ -106,6 +106,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     if savetcoef:
         logger.info("Saving temperature coefficient component")
         tcoef_ts = np.zeros_like(point_obj.phase, dtype=np.float32)
+        amp = np.zeros_like(tcoef, dtype=np.float32)
         
     for i in range(point_obj.num_points):
         phase_topo = (point_obj.ifg_net_obj.pbase / (point_obj.slant_range[i] * np.sin(point_obj.loc_inc[i])) *
@@ -119,10 +120,13 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
             if savetcoef:
                 tcoef_ts[i,:] = tcoef_part
                 tcoef_ts[i,:] -= tcoef_ts[i,0]
+                amp[i] = (np.max(tcoef_part)-np.min(tcoef_part))/2
         else:
             if savetcoef:
-                tcoef_ts[i,:] = point_obj.ifg_net_obj.temperatures * tcoef[i]
+                tcoef_part = point_obj.ifg_net_obj.temperatures * tcoef[i]
+                tcoef_ts[i,:] = tcoef_part
                 tcoef_ts[i,:] -= tcoef_ts[i,0]
+                amp[i] = (np.max(tcoef_part)-np.min(tcoef_part))/2
 
 
     # transform into meters
@@ -191,6 +195,8 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     if savetcoef:
          tcoef_ts *= 1000 # in[mm]
          df_tcoef_points = df_points.copy()
+        
+         df_tcoef_points.insert(7, 'amplitude', amp*1000)
 
          for i, date in enumerate(dates):
             df_tcoef_points[date] = tcoef_ts[:, i]
