@@ -116,17 +116,18 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     tcoef_ts = np.zeros_like(point_obj.phase, dtype=np.float32)
 
     for i in range(point_obj.num_points):
-        temp_comp = point_obj.ifg_net_obj.temperatures * tcoef[i]
+        temp_comp = point_obj.wavelength / (4 * np.pi) * point_obj.ifg_net_obj.temperatures * tcoef[i] * 1000 [mm]
         tcoef_ts[i,:] = temp_comp
         initial = [(np.max(temp_comp)-np.min(temp_comp))/2, 0.5, 0]
         params, cov = curve_fit(sine_function, point_obj.ifg_net_obj.tbase, temp_comp, p0=initial)
-        amp[i] = params[0] * point_obj.wavelength / (4 * np.pi) * 1000
+        amp[i] = params[0] 
         phi[i] = params[1]
-        offset[i] = params[2] * point_obj.wavelength / (4 * np.pi) * 1000
+        offset[i] = params[2] 
+        print(f"amp: {params[0]}")
 
     logger.info("Sinusoidal parameteres calculated")
 
-    
+
     utm_crs_list = query_utm_crs_info(
         datum_name="WGS 84",
         area_of_interest=AreaOfInterest(
