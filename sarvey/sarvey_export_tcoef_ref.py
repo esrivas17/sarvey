@@ -59,7 +59,7 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, ref: list,
                           correct_geolocation: bool = False, no_timeseries: bool = False, 
-                          no_tcoef=False, savetcoef=False, logger: Logger):
+                          logger: Logger):
     """Export data to GIS format (shp or gpkg).
 
     Parameters
@@ -319,8 +319,7 @@ def main(iargs=None):
     exportDataToGisFormat(file_path=args.file_path, output_path=args.output_path,
                           input_path=config.general.input_path, ref=args.reference,
                           correct_geolocation=args.correct_geolocation, 
-                          no_timeseries=args.no_timeseries, no_tcoef=args.notcoef,
-                          savetcoef=args.savetcoef,
+                          no_timeseries=args.no_timeseries,
                           logger=logger)
 
 
