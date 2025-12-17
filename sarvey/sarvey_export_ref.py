@@ -85,7 +85,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     # reference
     REF_point_idx = tree.query([reflat, reflon])[-1]
     point_obj.phase -= point_obj.phase[REF_point_idx,:]
-    
+
     # todo: add corrected height to output
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
 
@@ -192,14 +192,14 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
          for i, date in enumerate(dates):
             df_tcoef_points[date] = tcoef_ts[:, i]
 
-        gdf_tcoef = gpd.GeoDataFrame(df_tcoef_points, geometry='coord')
-        gdf_tcoef = gdf_tcoef.set_crs(CRS.from_epsg(utm_epsg))
+         gdf_tcoef = gpd.GeoDataFrame(df_tcoef_points, geometry='coord')
+         gdf_tcoef = gdf_tcoef.set_crs(CRS.from_epsg(utm_epsg))
 
-        name_splitted = output_path.split(".")
-        stem_name = name_splitted[0] + "_onlytcoef"
-        output_name = stem_name + "." + name_splitted[-1]
-        logger.info(msg=f"write to file to: {output_name}")
-        gdf_tcoef.to_file(output_name)
+         name_splitted = output_path.split(".")
+         stem_name = name_splitted[0] + "_onlytcoef"
+         output_name = stem_name + "." + name_splitted[-1]
+         logger.info(msg=f"write to file to: {output_name}")
+         gdf_tcoef.to_file(output_name)
 
 
 def createParser():
