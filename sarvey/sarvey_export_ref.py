@@ -109,6 +109,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
         if no_tcoef:
             tcoef_ts = point_obj.ifg_net_obj.temperatures * tcoef[i]
             defo_ts[i,:] -= tcoef_ts
+            defo_ts[i,:] -= defo_ts[i,0]
 
 
     # transform into meters
