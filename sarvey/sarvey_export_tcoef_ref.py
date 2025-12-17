@@ -123,7 +123,6 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
         amp[i] = params[0] 
         phi[i] = params[1]
         offset[i] = params[2] 
-        print(f"amp: {params[0]}")
 
     logger.info("Sinusoidal parameteres calculated")
 
