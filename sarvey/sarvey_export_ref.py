@@ -58,7 +58,7 @@ warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
 
 def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, ref: list,
                           correct_geolocation: bool = False, no_timeseries: bool = False, 
-                          no_tcoef=False, logger: Logger):
+                          no_tcoef=False, savetcoef=False, logger: Logger):
     """Export data to GIS format (shp or gpkg).
 
     Parameters
@@ -85,6 +85,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     # reference
     REF_point_idx = tree.query([reflat, reflon])[-1]
     point_obj.phase -= point_obj.phase[REF_point_idx,:]
+    
     # todo: add corrected height to output
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
 
@@ -101,15 +102,26 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     logger.info("Extract displacement")
     if no_tcoef:
         logger.info("Removing temperature related displacement from time series")
+
+    if savetcoef:
+        logger.info("Saving temperature coefficient component")
+        tcoef_ts = np.zeros_like(point_obj.phase, dtype=np.float32)
         
     for i in range(point_obj.num_points):
         phase_topo = (point_obj.ifg_net_obj.pbase / (point_obj.slant_range[i] * np.sin(point_obj.loc_inc[i])) *
                       demerr[i])
         defo_ts[i, :] = point_obj.phase[i, :] - phase_topo
         if no_tcoef:
-            tcoef_ts = point_obj.ifg_net_obj.temperatures * tcoef[i]
-            defo_ts[i,:] -= tcoef_ts
+            tcoef_part = point_obj.ifg_net_obj.temperatures * tcoef[i]
+            defo_ts[i,:] -= tcoef_part
             defo_ts[i,:] -= defo_ts[i,0]
+            if savetcoef:
+                tcoef_ts[i,:] = tcoef_part
+                tcoef_ts[i,:] -= tcoef_ts[i,0]
+        else:
+            if savetcoef:
+                tcoef_ts[i,:] = point_obj.ifg_net_obj.temperatures * tcoef[i]
+                tcoef_ts[i,:] -= tcoef_ts[i,0]
 
 
     # transform into meters
@@ -172,8 +184,22 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
 
     gdf_points = gpd.GeoDataFrame(df_points, geometry='coord')
     gdf_points = gdf_points.set_crs(CRS.from_epsg(utm_epsg))
-    logger.info(msg="write to file.")
+    logger.info(msg=f"write to file: {output_path}")
     gdf_points.to_file(output_path)
+
+    if savetcoef:
+         df_tcoef_points = df_points
+         for i, date in enumerate(dates):
+            df_tcoef_points[date] = tcoef_ts[:, i]
+
+        gdf_tcoef = gpd.GeoDataFrame(df_tcoef_points, geometry='coord')
+        gdf_tcoef = gdf_tcoef.set_crs(CRS.from_epsg(utm_epsg))
+
+        name_splitted = output_path.split(".")
+        stem_name = name_splitted[0] + "_onlytcoef"
+        output_name = stem_name + "." + name_splitted[-1]
+        logger.info(msg=f"write to file to: {output_name}")
+        gdf_tcoef.to_file(output_name)
 
 
 def createParser():
@@ -211,7 +237,7 @@ def createParser():
     parser.add_argument("-r", "--ref", default=None, dest='reference', type=float, nargs=2, help='Reference in lon and lat')
 
     parser.add_argument("--notcoef", dest="notcoef", default=False, action="store_true", help="When set, it removes the tcoef component")
-
+    parser.add_argument("--savetcoef", dest="savetcoef", default=False, action="store_true", help="When set, it return as a separate file the tcoef component")
 
     return parser
 
@@ -307,6 +333,7 @@ def main(iargs=None):
                           input_path=config.general.input_path, ref=args.reference,
                           correct_geolocation=args.correct_geolocation, 
                           no_timeseries=args.no_timeseries, no_tcoef=args.notcoef,
+                          savetcoef=args.savetcoef,
                           logger=logger)
 
 
