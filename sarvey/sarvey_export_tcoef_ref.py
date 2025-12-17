@@ -116,7 +116,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     tcoef_ts = np.zeros_like(point_obj.phase, dtype=np.float32)
 
     for i in range(point_obj.num_points):
-        temp_comp = point_obj.wavelength / (4 * np.pi) * point_obj.ifg_net_obj.temperatures * tcoef[i] * 1000 [mm]
+        temp_comp = point_obj.wavelength / (4 * np.pi) * point_obj.ifg_net_obj.temperatures * tcoef[i] * 1000 # [mm]
         tcoef_ts[i,:] = temp_comp
         initial = [(np.max(temp_comp)-np.min(temp_comp))/2, 0.5, 0]
         params, cov = curve_fit(sine_function, point_obj.ifg_net_obj.tbase, temp_comp, p0=initial)
