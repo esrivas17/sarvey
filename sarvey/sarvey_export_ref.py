@@ -111,6 +111,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
         phase_topo = (point_obj.ifg_net_obj.pbase / (point_obj.slant_range[i] * np.sin(point_obj.loc_inc[i])) *
                       demerr[i])
         defo_ts[i, :] = point_obj.phase[i, :] - phase_topo
+        
         if no_tcoef:
             tcoef_part = point_obj.ifg_net_obj.temperatures * tcoef[i]
             defo_ts[i,:] -= tcoef_part
@@ -189,7 +190,8 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
 
     if savetcoef:
          tcoef_ts *= 1000 # in[mm]
-         df_tcoef_points = df_points
+         df_tcoef_points = df_points.copy()
+
          for i, date in enumerate(dates):
             df_tcoef_points[date] = tcoef_ts[:, i]
 
