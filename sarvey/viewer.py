@@ -151,6 +151,8 @@ def plotScatter(*, value: np.ndarray, coord: np.ndarray, bmap_obj: AmplitudeImag
     cb = plt.colorbar(sc, ax=ax, pad=0.03, shrink=0.5)
     cb.ax.set_title(unit)
     ax.set_title(ttl)
+    # Set the aspect ratio
+    ax.set_aspect("auto")
     plt.tight_layout()
     return fig, ax, cb
 
@@ -207,6 +209,9 @@ def plotColoredPointNetwork(*, x: np.ndarray, y: np.ndarray, arcs: np.ndarray, v
     ]
     line_collection = LineCollection(line_segments, colors=colors, linewidths=linewidth)
     ax.add_collection(line_collection)
+    
+    # Set the aspect ratio
+    ax.set_aspect("auto")
 
     cbar = fig.colorbar(mapper, ax=ax, pad=0.03, shrink=0.5)
 
