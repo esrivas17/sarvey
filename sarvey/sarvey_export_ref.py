@@ -120,13 +120,13 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
             if savetcoef:
                 tcoef_ts[i,:] = tcoef_part
                 tcoef_ts[i,:] -= tcoef_ts[i,0]
-                amp[i] = (np.max(tcoef_part)-np.min(tcoef_part))/2
+                amp[i] = np.abs((np.max(tcoef_part)-np.min(tcoef_part))/2)
         else:
             if savetcoef:
                 tcoef_part = point_obj.ifg_net_obj.temperatures * tcoef[i]
                 tcoef_ts[i,:] = tcoef_part
                 tcoef_ts[i,:] -= tcoef_ts[i,0]
-                amp[i] = (np.max(tcoef_part)-np.min(tcoef_part))/2
+                amp[i] = np.abs((np.max(tcoef_part)-np.min(tcoef_part))/2)
 
 
     # transform into meters
