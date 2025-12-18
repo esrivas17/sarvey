@@ -82,10 +82,6 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
     point_obj.open(input_path=input_path)
     tree = KDTree(point_obj.coord_lalo)
 
-    # reference
-    REF_point_idx = tree.query([reflat, reflon])[-1]
-    point_obj.phase -= point_obj.phase[REF_point_idx,:]
-
     # todo: add corrected height to output
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
 
@@ -131,6 +127,10 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str, 
 
     # transform into meters
     defo_ts *= 1000  # in [mm]
+
+    # reference
+    REF_point_idx = tree.query([reflat, reflon])[-1]
+    defo_ts -= defo_ts[REF_point_idx,:]
 
     utm_crs_list = query_utm_crs_info(
         datum_name="WGS 84",
