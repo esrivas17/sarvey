@@ -443,7 +443,7 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength
     return demerr, vel, gamma
 
 # delete this
-def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength: float, demerr: np.ndarray, 
+def seasonalUnwrapping_delete(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength: float, demerr: np.ndarray, 
                        vel: np.ndarray, plotflag: bool, num_cores: int = 1, logger: Logger):
     msg = "#" * 10
     msg += " SEASONAL ARC MODELLING "
@@ -496,7 +496,7 @@ def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength:
     return a_sin, a_cos, gamma
 
 # delete this    
-def launchSeasonalModelling(parameters: tuple, plot=False):
+def launchSeasonalModelling_delete(parameters: tuple, plot=False):
     (arc_idx_range, num_arcs, phase, wavelength, ifg_net_obj, yearsRg, nyears, logger) = parameters
     #plot: False
     nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years 

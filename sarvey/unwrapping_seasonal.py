@@ -231,6 +231,10 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
         val_range=vel_range
     )
 
+    amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=obs_phase,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+
+
     if gamma_vel > gamma_demerr:
         demerr, gamma_demerr, pred_phase_demerr = findOptimum(
             obs_phase=obs_phase - pred_phase_vel,
@@ -242,8 +246,8 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
             design_mat=design_mat[:, 1],
             val_range=vel_range
         )
-        #res = np.angle(np.exp(1j * (obs_phase - (pred_phase_demerr+pred_phase_vel))))
-        res = obs_phase-(pred_phase_demerr+pred_phase_vel)
+
+        #res = obs_phase-(pred_phase_demerr+pred_phase_vel)
         amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=res,
                                                                          design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
     else:
@@ -302,6 +306,201 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
     return demerr, vel, amp, offset, gamma
 
 
+def oneDimSearchTemporalCoherence_4variables(*, demerr_range: np.ndarray, vel_range: np.ndarray, 
+                                             amp_range: np.ndarray, offset_range: np.ndarray, obs_phase: np.ndarray,
+                                  design_mat: np.ndarray):
+    """One dimensional search for maximum temporal coherence that fits the observed arc phase.
+
+    Parameters
+    ----------
+    demerr_range: np.ndarray
+        Search space for the DEM error in a 1D grid.
+    vel_range: np.ndarray
+        Search space for the velocity in a 1D grid.
+    design_mat: np.ndarray
+        Design matrix for estimating parameters from arc phase.
+    obs_phase: np.ndarray
+        Observed phase of the arc.
+
+    Returns
+    -------
+    demerr: float
+    vel: float
+    amp: float
+    offset: float
+    gamma: float
+    """
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+    space_cos = amp_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:]
+    space_sin = amp_range[:,np.newaxis] * np.sin(omega*offset_range)[np.newaxis,:]
+
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
+    vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
+    amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=obs_phase,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+
+    if gamma_vel > gamma_demerr and gamma_vel > gamma_seasonal:
+        # case when gamma vel is the highest
+        phaseres = obs_phase - pred_phase_vel
+        if gamma_demerr > gamma_seasonal:
+            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres = obs_phase - pred_phase_vel - pred_phase_demerr
+            amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=phaseres,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+        else:
+            vel1 = vel
+            amp1, offset1, gamma_seasonal1, pred_phase_seasonal1 = findOptimum2D(obs_phase=phaseres,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+  
+            phaseres1 = obs_phase - pred_phase_vel - pred_phase_seasonal1
+            demerr1, gamma_demerr1, pred_phase_demerr1 = findOptimum(obs_phase=phaseres1, design_mat=design_mat[:, 0],val_range=demerr_range)
+            
+            # check
+            cos_term1 = amp1 * np.cos(omega*offset1)
+            sin_term1 = amp1 * np.sin(omega*offset1)
+            pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, cos_term1, sin_term1]))
+            res = (obs_phase - pred_phase.T).ravel()
+            gamma1 = np.abs(np.mean(np.exp(1j * res)))
+
+            # estimating seasonal first
+            amp2, offset2, gamma_seasonal2, pred_phase_seasonal2 = findOptimum2D(obs_phase=obs_phase,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+
+            phaseres2 = obs_phase - pred_phase_seasonal2
+            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres2,design_mat=design_mat[:, 1],val_range=vel_range)
+            phaseres2 = obs_phase - pred_phase_vel2 - pred_phase_seasonal2
+            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=phaseres2, design_mat=design_mat[:, 0],val_range=demerr_range)
+            
+            # check
+            cos_term2 = amp2 * np.cos(omega*offset2)
+            sin_term2 = amp2 * np.sin(omega*offset2)
+            pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, cos_term2, sin_term2]))
+            res = (obs_phase - pred_phase.T).ravel()
+            gamma2 = np.abs(np.mean(np.exp(1j * res)))
+
+            if gamma1 > gamma2:
+                vel = vel1
+                demerr = demerr1
+                amp = amp1
+                offset = offset1
+            else:
+                vel = vel2
+                demerr = demerr2
+                amp = amp2
+                offset = offset2
+
+    elif gamma_demerr > gamma_vel and gamma_demerr > gamma_seasonal:
+        # case when gamma demerr is the highest
+        phaseres = obs_phase - pred_phase_demerr
+        if gamma_vel > gamma_seasonal:
+            demerr1 = demerr
+            vel1, gamma_vel1, pred_phase_vel1 = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+            phaseres1 = obs_phase - pred_phase_demerr - pred_phase_vel1
+            amp1, offset1, gamma_seasonal1, pred_phase_seasonal1 = findOptimum2D(obs_phase=phaseres1,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+            # check
+            cos_term1 = amp1 * np.cos(omega*offset1)
+            sin_term1 = amp1 * np.sin(omega*offset1)
+            pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, cos_term1, sin_term1]))
+            res = (obs_phase - pred_phase.T).ravel()
+            gamma1 = np.abs(np.mean(np.exp(1j * res)))
+
+            # estimating seasonal first
+            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres2 = obs_phase - pred_phase_demerr2
+            amp2, offset2, gamma_seasonal2, pred_phase_seasonal2 = findOptimum2D(obs_phase=phaseres2,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+            
+            phaseres2 = obs_phase - pred_phase_demerr2 - pred_phase_seasonal2
+            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres2,design_mat=design_mat[:, 1],val_range=vel_range)
+            # check
+            cos_term2 = amp2 * np.cos(omega*offset2)
+            sin_term2 = amp2 * np.sin(omega*offset2)
+            pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, cos_term2, sin_term2]))
+            res = (obs_phase - pred_phase.T).ravel()
+            gamma2 = np.abs(np.mean(np.exp(1j * res)))
+
+            if gamma1 > gamma2:
+                vel = vel1
+                demerr = demerr1
+                amp = amp1
+                offset = offset1
+            else:
+                vel = vel2
+                demerr = demerr2
+                amp = amp2
+                offset = offset2
+        else:
+            amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=phaseres,
+                                                            design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+            phaseres = obs_phase - pred_phase_demerr - pred_phase_seasonal
+            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+
+    elif gamma_seasonal > gamma_vel and gamma_seasonal > gamma_demerr:
+        # case when seasonal is the highest
+        phaseres = obs_phase - pred_phase_seasonal
+        if gamma_vel > gamma_demerr:
+            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+            phaseres = obs_phase - pred_phase_seasonal - pred_phase_vel
+            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+        else:
+            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres = obs_phase - pred_phase_seasonal - pred_phase_demerr
+            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+
+    # improve initial estimate with gradient descent approach
+    scale_demerr = (demerr_range.max() - demerr_range.min()) / 2 #demerr_range.max()
+    scale_vel = (vel_range.max() - vel_range.min()) / 2 #vel_range.max()
+    scale_amp = (amp_range.max() - amp_range.min()) / 2 # amp_range.max()
+    scale_offset = (offset_range.max() - offset_range.min()) / 2
+
+    C0 = amp * np.cos(omega * offset)
+    S0 = amp * np.sin(omega * offset)
+    A0 = np.sqrt(C0**2 + S0**2)
+    frac = 0.3
+    delta_CS = max(frac * A0, 1e-6)
+
+    scales = np.array([
+        (demerr_range.max() - demerr_range.min()) / 2.0,
+        (vel_range.max()     - vel_range.min())     / 2.0,
+        delta_CS,
+        delta_CS])
+
+    centers = np.array([
+        (demerr_range.max() + demerr_range.min()) / 2.0,
+        (vel_range.max()     + vel_range.min())     / 2.0,
+        C0,
+        S0])
+
+    # Initial physical guess
+    sinpart = amp * np.sin(omega*offset)
+    cospart = amp * np.cos(omega*offset)
+    p0 = np.array([demerr, vel, cospart, sinpart])
+    # Convert to scaled space for L-BFGS-B
+    x0 = (p0 - centers) / scales
+
+
+    demerr, vel, cospart, sinpart, gamma = gradientSearchTemporalCoherence_seasonal(
+        scales=scales,
+        centers=centers,
+        obs_phase=obs_phase,
+        design_mat=design_mat,
+        x0=x0)
+
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cospart, sinpart]))
+    res = (obs_phase - pred_phase.T).ravel()
+
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    amp = np.sqrt(cospart**2 + sinpart**2)
+        
+    phi = np.arctan2(sinpart,cospart)
+    phi = (phi + 2*np.pi) % (2*np.pi)
+    offset = phi/omega
+
+    return demerr, vel, amp, offset, gamma
+
 def gradientSearchTemporalCoherenceLinear(*, scale_vel: float, scale_demerr: float, scale_cosine: float, scale_sine, obs_phase: np.ndarray,
                                     design_mat: np.ndarray, omega: float, x0: np.ndarray):
     bounds = ((-1, 1), (-1, 1), (0, 1), (0,1))
@@ -312,12 +511,6 @@ def gradientSearchTemporalCoherenceLinear(*, scale_vel: float, scale_demerr: flo
     vel = opt_res.x[1] * scale_vel
     cosine_part = opt_res.x[2] * scale_cosine
     sine_part = opt_res.x[3]*scale_sine
-
-    #if abs(vel) > 0.01:
-    #    pdb.set_trace()
-
-    #amp = np.sqrt(cosine_part**2+sine_part**2)
-    #offset = np.arctan2(sine_part, cosine_part)/omega
 
     return demerr, vel, cosine_part, sine_part, gamma
 
@@ -340,6 +533,37 @@ def objFuncTempCohLinear(x, *args):
     gamma = np.abs(np.mean(np.exp(1j*res)))
     return 1-gamma
 
+def objFuncTemporalCoherence_seasonal(x, design_mat, obs_phase, scales, centers):
+    """
+    Objective: 1 - gamma, where gamma is temporal coherence.
+
+    Parameters
+    ----------
+    x : array-like, shape (3,)
+        Scaled optimization variables for [demerr, vel, tcoef].
+    scales : array-like (3,)
+        Scaling factors to convert scaled x -> physical units.
+    centers : array-like (3,)
+        Centering (offset) values for physical parameters.
+
+    Returns
+    -------
+    float
+        The value 1 - gamma to minimize.
+    """
+
+    # Convert optimizer variables x into PHYSICAL parameters p
+    p = x * scales + centers   # do NOT modify x in place
+
+    # Predict phase
+    pred_phase = design_mat @ p
+    res = (obs_phase - pred_phase).ravel()
+
+    # Temporal coherence
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return 1 - gamma
+
 
 def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, scale_amp: float, scale_offset, obs_phase: np.ndarray,
                                     design_mat: np.ndarray, omega: float, x0: np.ndarray):
@@ -355,6 +579,33 @@ def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, s
     offset = opt_res.x[3]*scale_offset
 
     return demerr, vel, amp, offset, gamma
+
+def gradientSearchTemporalCoherence_seasonal(*, scales, centers, obs_phase, design_mat, x0):
+
+    #f = 1 # frequency cycles per years
+    #omega = 2.0 * np.pi * f
+
+    # Bounds in scaled space: keep search within [-1, 1] or whatever you want
+    bounds = [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)]
+
+    opt_res = minimize(
+        objFuncTemporalCoherence_seasonal,
+        x0,
+        args=(design_mat, obs_phase, scales, centers),
+        bounds=bounds,
+        method='L-BFGS-B'
+    )
+
+    # Convert scaled solution back to physical parameters
+    p_est = opt_res.x * scales + centers
+    demerr, vel, cospart, sinpart = p_est
+
+    # Compute gamma at optimum
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cospart, sinpart]))
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return demerr, vel, cospart, sinpart, gamma
 
 def objFuncTempCoh2(x, *args):
     (design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega) = args
@@ -539,7 +790,7 @@ def Jacobian2(x, *args):
     return jac
 
 
-def launchAmbiguityFunctionSearch2(parameters: tuple):
+def launchAmbiguityFunctionSearch_seasonal(parameters: tuple):
     """Wrap for launching ambiguity function for temporal unwrapping in parallel.
 
     Parameters
@@ -567,8 +818,8 @@ def launchAmbiguityFunctionSearch2(parameters: tuple):
 
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
-    amplitude_range = np.linspace(0, amp_bound, num_samples)
-    offset_range = np.linspace(0, offset_bound, num_samples)
+    amplitude_range = np.linspace(0, amp_bound, num_samples/2)
+    offset_range = np.linspace(0, offset_bound, num_samples/2)
     
     # prog_bar = ptime.progressBar(maxValue=num_arcs)
 
@@ -578,8 +829,8 @@ def launchAmbiguityFunctionSearch2(parameters: tuple):
     # model A*np.cos(2*np.pi(t-T0)) which is equal to A[np.cos(2*np.pi*t)*np.cos(2*np.pi*T0) + np.sin(2*np.pi*t)*np.sin(2*np.pi*T0)]
     f = 1 # frequency cycles per years
     omega = 2.0 * np.pi * f
-    space_cos = amplitude_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:] 
-    space_sin = amplitude_range[:,np.newaxis] * np.sin(omega*offset_range)[np.newaxis,:]
+    #space_cos = amplitude_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:] 
+    #space_sin = amplitude_range[:,np.newaxis] * np.sin(omega*offset_range)[np.newaxis,:]
 
     for k in range(num_arcs):
         design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
@@ -587,19 +838,19 @@ def launchAmbiguityFunctionSearch2(parameters: tuple):
         design_mat[:, 2] = factor * np.cos(omega * ifg_net_obj.tbase_ifg)
         design_mat[:, 3] = factor * np.sin(omega * ifg_net_obj.tbase_ifg)
 
-        demerr[k], vel[k], amplitude[k], offset[k], gamma[k] = oneDimSearchTemporalCoherence2(demerr_range=demerr_range, vel_range=vel_range, amp_range=amplitude_range,
+        demerr[k], vel[k], amplitude[k], offset[k], gamma[k] = oneDimSearchTemporalCoherence_4variables(demerr_range=demerr_range, vel_range=vel_range, amp_range=amplitude_range,
                                                                                      offset_range=offset_range, obs_phase=phase[k, :], design_mat=design_mat)
 
     return arc_idx_range, demerr, vel, amplitude, offset, gamma
 
 
-def seasonalUnwrapping2(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength: float, velocity_bound: float,
+def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength: float, velocity_bound: float,
                        demerr_bound: float, amp_bound: float, offset_bound: float, num_samples: int, 
                        num_cores: int = 1, logger: Logger)-> \
         tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     msg = "#" * 10
-    msg += " TEMPORAL UNWRAPPING2: AMBIGUITY FUNCTION "
+    msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION WITH SEASONAL COMPONENT"
     msg += "#" * 10
     logger.info(msg=msg)
 
@@ -610,7 +861,7 @@ def seasonalUnwrapping2(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelengt
             net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, 
             demerr_bound, amp_bound, offset_bound, num_samples)
 
-        arc_idx_range, demerr, vel, amplitude, offset, gamma = launchAmbiguityFunctionSearch2(parameters=args)
+        arc_idx_range, demerr, vel, amplitude, offset, gamma = launchAmbiguityFunctionSearch_seasonal(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
 
@@ -638,7 +889,7 @@ def seasonalUnwrapping2(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelengt
             num_samples) for idx_range in idx]
         
         with multiprocessing.Pool(processes=num_cores) as pool:
-            results = pool.map(func=launchAmbiguityFunctionSearch2, iterable=args)
+            results = pool.map(func=launchAmbiguityFunctionSearch_seasonal, iterable=args)
 
         # retrieve results
         for i, demerr_i, vel_i, amp_i, offset_i, gamma_i in results:
@@ -654,7 +905,7 @@ def seasonalUnwrapping2(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelengt
     return demerr, vel, amplitude, offset, gamma
 
 
-def seasonalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength: float, demerr: np.ndarray, 
+def seasonalUnwrapping_old(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength: float, demerr: np.ndarray, 
                        vel: np.ndarray, plotflag: bool, num_cores: int = 1, logger: Logger):
     msg = "#" * 10
     msg += " SEASONAL ARC MODELLING "

@@ -38,7 +38,7 @@ from mintpy.utils import ptime
 from scipy import stats
 
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
-from sarvey.unwrapping_seasonal import oneDimSearchTemporalCoherence2
+from sarvey.unwrapping_seasonal import oneDimSearchTemporalCoherence_4variables
 from sarvey.objects import Points
 import sarvey.utils as ut
 from tqdm import tqdm
@@ -151,7 +151,7 @@ def launchDensifyNetworkConsistencyCheck(args: tuple):
     return idx_range, demerr_p2, vel_p2, gamma_p2
 
 
-def launchDensifyStarNetworkConsistencyCheck(args: tuple):
+def launchDensifyNetworkConsistencyCheck_seasonal(args: tuple):
 
     (idx_range, num_points, num_conn_p1, max_dist_p1, velocity_bound, 
      demerr_bound, amplitude_bound, offset_bound, num_samples) = args
@@ -175,8 +175,8 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
 
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
-    amplitude_range = np.linspace(0, amplitude_bound, num_samples)
-    offset_range = np.linspace(0, offset_bound, num_samples)
+    amplitude_range = np.linspace(0, amplitude_bound, num_samples/2)
+    offset_range = np.linspace(0, offset_bound, num_samples/2)
 
     for idx in range(num_points):
         p2 = idx_range[idx]
@@ -198,7 +198,7 @@ def launchDensifyStarNetworkConsistencyCheck(args: tuple):
         design_mat[:, 2] = factor * np.cos(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
         design_mat[:, 3] = factor * np.sin(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
 
-        demerr_p2[idx], vel_p2[idx], amplitude_p2[idx], offset_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence2(demerr_range=demerr_range, 
+        demerr_p2[idx], vel_p2[idx], amplitude_p2[idx], offset_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence_4variables(demerr_range=demerr_range, 
                                                                                               vel_range=vel_range, 
                                                                                               amp_range=amplitude_range,
                                                                                      offset_range=offset_range, 
@@ -367,7 +367,7 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
         densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1,
                 velocity_bound, demerr_bound, amplitude_bound, offset_bound,num_samples)
-        idx_range, demerr_p2, vel_p2, amplitude_p2, offset_p2, gamma_p2 = launchDensifyStarNetworkConsistencyCheck(args)
+        idx_range, demerr_p2, vel_p2, amplitude_p2, offset_p2, gamma_p2 = launchDensifyNetworkConsistencyCheck_seasonal(args)
     else:
         with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))
@@ -386,7 +386,7 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
                 num_samples
             ) for idx_range in idx]
 
-            results = pool.map_async(launchDensifyStarNetworkConsistencyCheck, args, chunksize=1)
+            results = pool.map_async(launchDensifyNetworkConsistencyCheck_seasonal, args, chunksize=1)
             while True:
                 time.sleep(5)
                 if results.ready():

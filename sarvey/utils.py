@@ -229,7 +229,7 @@ def predictPhase(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, dem
         raise TypeError
     return pred_phase_demerr, pred_phase_vel
 
-def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, demerr: np.ndarray = None, 
+def predictPhaseSeasonal(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, demerr: np.ndarray = None, 
                      amplitude: np.ndarray = None, offset: np.ndarray = None,
                  ifg_space: bool = True, logger: Logger):
     """Predicts the phase time series based on the estimated parameters DEM error and mean velocity.
@@ -269,7 +269,7 @@ def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None,
         if (vel is None) or (demerr is None):
             logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
             raise ValueError
-        pred_phase_demerr, pred_phase_vel, pred_phase_seasonal =predictPhaseCoreStar(
+        pred_phase_demerr, pred_phase_vel, pred_phase_seasonal =predictPhaseCoreSeasonal(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
             vel=vel,
@@ -281,7 +281,7 @@ def predictPhaseStar(*, obj: [NetworkParameter, Points], vel: np.ndarray = None,
             ifg_space=ifg_space
         )
     elif isinstance(obj, Network): #NetworkParameter):
-        pred_phase_demerr, pred_phase_vel, pred_phase_seasonal =predictPhaseCoreStar(
+        pred_phase_demerr, pred_phase_vel, pred_phase_seasonal =predictPhaseCoreSeasonal(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
             vel=vel,
@@ -346,7 +346,7 @@ def predictPhaseCore(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndar
 
     return pred_phase_demerr.T, pred_phase_vel.T
 
-def predictPhaseCoreStar(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,
+def predictPhaseCoreSeasonal(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,
                      demerr: np.ndarray, amplitude: np.ndarray, offset: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
     """Predicts the phase time series based on the estimated parameters DEM error and mean velocity.
 
@@ -531,7 +531,7 @@ def estimateParameters(*, obj: Union[Points, Network], estimate_ref_atmo: bool =
 
     return vel, demerr, ref_atmo, coherence, omega, v_hat
 
-def estimateParametersStar(*, obj: Union[Points, Network], estimate_ref_atmo: bool = True, ifg_space: bool = True):
+def estimateParametersSeasonal(*, obj: Union[Points, Network], estimate_ref_atmo: bool = True, ifg_space: bool = True):
     """Estimate the parameters either per point or per arc.
 
     Parameters are velocity and DEM error (or additionally reference APS).
