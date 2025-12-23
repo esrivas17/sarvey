@@ -175,8 +175,8 @@ def launchDensifyNetworkConsistencyCheck_seasonal(args: tuple):
 
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
-    amplitude_range = np.linspace(0, amplitude_bound, num_samples/2)
-    offset_range = np.linspace(0, offset_bound, num_samples/2)
+    amplitude_range = np.linspace(0, amplitude_bound, int(num_samples/2))
+    offset_range = np.linspace(0, offset_bound, int(num_samples/2))
 
     for idx in range(num_points):
         p2 = idx_range[idx]
@@ -348,7 +348,7 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     tree_p1 = KDTree(data=point1_obj.coord_utm)
 
     # remove parameters from wrapped phase
-    pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseStar(obj=point1_obj, vel=vel_p1, demerr=demerr_p1, 
+    pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseSeasonal(obj=point1_obj, vel=vel_p1, demerr=demerr_p1, 
                                                                                  amplitude=amplitude_p1, offset=offset_p1, 
                                                                                  ifg_space=True, logger=logger)
     pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
@@ -358,8 +358,8 @@ def densifyNetworkSeasonal(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1:
     # the arc double differences to be able to test the ambiguities. Kampes (2006) does re-wrap, but is testing based
     # on the estimated parameters. Hence, it doesn't make a difference for him. Not re-wrapping can be a starting point
     # for triangle-based temporal unwrapping.
-    demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
-    #demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
+    #demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
+    demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
     # initialize output
     init_args = (tree_p1, point2_obj, demod_phase1)
 

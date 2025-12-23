@@ -45,7 +45,7 @@ from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, Sma
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameterSeasonal
 from sarvey.unwrapping import spatialParameterIntegration, \
-    parameterBasedNoisyPointRemoval, seasonalParameterBasedNoisyPointRemoval,temporalUnwrapping, spatialUnwrapping, removeGrossOutliers, seasonalUnwrapping
+    parameterBasedNoisyPointRemoval, seasonalParameterBasedNoisyPointRemoval, spatialUnwrapping, removeGrossOutliers
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, selectPixels_DemErr
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsAndTemporalCoherence2
@@ -455,7 +455,7 @@ class Processing:
         #                                            max_rm_fraction=0.001)
         fig = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
-                                 bmap_obj=bmap_obj, s=5, cmap="viridis", symmetric=True,
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
@@ -476,7 +476,7 @@ class Processing:
 
         fig = viewer.plotScatter(value=amplitude, coord=point_obj.coord_xy,
                                 ttl="Parameter integration: amplitude coeff [m]",
-                                bmap_obj=bmap_obj, s=5, cmap="rainbow", symmetric=False,
+                                bmap_obj=bmap_obj, s=5, cmap="vik", symmetric=False,
                                 logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_seasonal_amplitude.png"), dpi=300)
         plt.close(fig)
@@ -1087,13 +1087,13 @@ class Processing:
 
         fig = viewer.plotScatter(value=amplitude[mask_gamma]*100, coord=point2_obj.coord_xy,
                                 ttl="Seasonal amplitude in [cm]",
-                                bmap_obj=bmap_obj, s=5, cmap="viridis", symmetric=False,
+                                bmap_obj=bmap_obj, s=5, cmap="vik", symmetric=False,
                                 logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_4_estimation_seasonal_amplitude_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
         fig = viewer.plotScatter(value=offset[mask_gamma], coord=point2_obj.coord_xy, ttl="Offset in [yr]",
-                                bmap_obj=bmap_obj, s=5, cmap="rainbow", symmetric=False,
+                                bmap_obj=bmap_obj, s=5, cmap="batlow", symmetric=False,
                                 logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_4_estimation_seasonal_phase_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
@@ -1125,7 +1125,7 @@ class Processing:
         unw_phase = unw_res_phase + pred_phase
 
         point2_obj.phase = unw_phase
-        vel = ut.estimateParametersStar(obj=point2_obj, ifg_space=True)[0]
+        vel = ut.estimateParametersSeasonal(obj=point2_obj, ifg_space=True)[0]
         point2_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point2_obj.writeToFile()

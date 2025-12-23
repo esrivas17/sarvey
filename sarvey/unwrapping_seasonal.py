@@ -101,10 +101,14 @@ def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: 
     amps_vals, offset_vals = np.meshgrid(amps_range, offset_range, indexing='ij') 
 
     # pred phase
-    cosine_part = amps_vals.ravel() * np.cos(omega*offset_vals.ravel())
-    sine_part = amps_vals.ravel() * np.sin(omega*offset_vals.ravel())
+    C = amps_vals.ravel() * np.cos(omega * offset_vals.ravel())
+    S = amps_vals.ravel() * np.sin(omega * offset_vals.ravel())
     
-    pred_phase = design_mat[:,0] * cosine_part[:,np.newaxis] + design_mat[:,1] * sine_part[:,np.newaxis]
+    #cosine_part = amps_vals.ravel() * np.cos(omega*offset_vals.ravel())
+    #sine_part = amps_vals.ravel() * np.sin(omega*offset_vals.ravel())
+    pred_phase = (design_mat[:, 0] * C[:, None] + design_mat[:, 1] * S[:, None])
+    
+    #pred_phase = design_mat[:,0] * cosine_part[:,np.newaxis] + design_mat[:,1] * sine_part[:,np.newaxis]
 
     # finding maximum coherence
     if len(obs_phase.shape) == 2:
@@ -119,7 +123,7 @@ def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: 
         #res = res.reshape((pred_phase.shape[1], -1))  # combine residuals from all arcs
     else:
         # step consistency check
-        res = pred_phase - obs_phase
+        res = obs_phase - pred_phase
 
     gamma = np.abs(np.mean(np.exp(1j * res), axis=1))
     idx_max = np.argmax(gamma)
@@ -818,8 +822,8 @@ def launchAmbiguityFunctionSearch_seasonal(parameters: tuple):
 
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
-    amplitude_range = np.linspace(0, amp_bound, num_samples/2)
-    offset_range = np.linspace(0, offset_bound, num_samples/2)
+    amplitude_range = np.linspace(0, amp_bound, int(num_samples/2))
+    offset_range = np.linspace(0, offset_bound, int(num_samples/2))
     
     # prog_bar = ptime.progressBar(maxValue=num_arcs)
 
