@@ -238,6 +238,7 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
     vel: float
     gamma: float
     """
+    ###  WITH THIS METHOD I ESTIMATE TEMPORAL COEFFICIENT AFTER VEL AND DEM ERROR
     demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
 
     vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
@@ -327,19 +328,25 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
     demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
     vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
     tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 2], val_range=tcoef_range)
-
+    
+    """
+    THREE CASE: 1.- GAMMAVEL IS HIGHEST 2.- GAMMADEMERR IS THE HIGHEST 3.- GAMMA TEMP COEFF IS THE HIGHEST
+    """
+     
     if gamma_vel > gamma_demerr and gamma_vel > gamma_tcoef:
         # case when gamma vel is the highest
         phaseres = obs_phase - pred_phase_vel
+        
         if gamma_demerr > gamma_tcoef:
             demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
             phaseres = obs_phase - pred_phase_vel - pred_phase_demerr
             tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 2], val_range=tcoef_range)
         else:
+            # IF TCOEF IS 2nd HIGHEST, TRY TCOEF FIRST AND SECOND
             vel1 = vel
             tcoef1, gamma_tcoef1, pred_phase_tcoef1 = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 2], val_range=tcoef_range)
-            phaseres1 = obs_phase - pred_phase_vel - pred_phase_tcoef1
-            demerr1, gamma_demerr1, pred_phase_demerr1 = findOptimum(obs_phase=phaseres1, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres_1 = obs_phase - pred_phase_vel - pred_phase_tcoef1
+            demerr1, gamma_demerr1, pred_phase_demerr1 = findOptimum(obs_phase=phaseres_1, design_mat=design_mat[:, 0],val_range=demerr_range)
             # check
             pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, tcoef1]))
             res = (obs_phase - pred_phase.T).ravel()
@@ -347,10 +354,10 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
 
             # estimating tcoef first
             tcoef2, gamma_tcoef2, pred_phase_tcoef2 = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 2], val_range=tcoef_range)
-            phaseres2 = obs_phase - pred_phase_tcoef2
-            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres2,design_mat=design_mat[:, 1],val_range=vel_range)
-            phaseres2 = obs_phase - pred_phase_vel2 - pred_phase_tcoef2
-            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres_2 = obs_phase - pred_phase_tcoef2
+            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres_2,design_mat=design_mat[:, 1],val_range=vel_range)
+            phaseres_2 = obs_phase - pred_phase_vel2 - pred_phase_tcoef2
+            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=phaseres_2, design_mat=design_mat[:, 0],val_range=demerr_range)
             # check
             pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, tcoef2]))
             res = (obs_phase - pred_phase.T).ravel()
@@ -368,22 +375,60 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
     elif gamma_demerr > gamma_vel and gamma_demerr > gamma_tcoef:
         # case when gamma demerr is the highest
         phaseres = obs_phase - pred_phase_demerr
-        if gamma_vel > gamma_tcoef:
-            demerr1 = demerr
+        
+        # estimating vel after removing demerr
+        vel1, gamma_vel1, pred_phase_vel1 = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+        phaseres_vel1 = obs_phase - pred_phase_demerr - pred_phase_vel1
+        # estimating tcoef after removing vel and demerr
+        tcoef1, gamma_tcoef1, pred_phase_tcoef1 = findOptimum(obs_phase=phaseres_vel1, design_mat=design_mat[:, 2], val_range=tcoef_range)
+        # getting GAMMA
+        pred_phase = np.matmul(design_mat, np.array([demerr, vel1, tcoef1]))
+        res = (obs_phase - pred_phase.T).ravel()
+        gamma1 = np.abs(np.mean(np.exp(1j * res)))
+
+        # estimating tcoef first - it calculates dem err again from obs_phase
+        tcoef2, gamma_tcoef2, pred_phase_tcoef2 = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 2], val_range=tcoef_range)
+        phaseres_tcoef2 = obs_phase - pred_phase_demerr - pred_phase_tcoef2
+        vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres_tcoef2,design_mat=design_mat[:, 1],val_range=vel_range)
+        # getting GAMMA
+        pred_phase = np.matmul(design_mat, np.array([demerr, vel2, tcoef2]))
+        res = (obs_phase - pred_phase.T).ravel()
+        gamma2 = np.abs(np.mean(np.exp(1j * res)))
+
+        if gamma1 > gamma2:
+            vel = vel1
+            tcoef = tcoef1
+        else:
+            vel = vel2
+            tcoef = tcoef2
+
+    elif gamma_tcoef > gamma_vel and gamma_tcoef > gamma_demerr:
+        # case when temperature coefficient is the highest
+        phaseres = obs_phase - pred_phase_tcoef
+
+        if gamma_demerr > gamma_vel:
+            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres_2 = obs_phase - pred_phase_tcoef - pred_phase_demerr
+            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres_2,design_mat=design_mat[:, 1],val_range=vel_range)
+        else:
+            # vel is the second highest, then try both
+            tcoef1 = tcoef
             vel1, gamma_vel1, pred_phase_vel1 = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
-            phaseres1 = obs_phase - pred_phase_demerr - pred_phase_vel1
-            tcoef1, gamma_tcoef1, pred_phase_tcoef1 = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 2], val_range=tcoef_range)
+            phaseres_2 = obs_phase - pred_phase_tcoef - pred_phase_vel1
+            demerr1, gamma_demerr1, pred_phase_demerr1 = findOptimum(obs_phase=phaseres_2, design_mat=design_mat[:, 0],val_range=demerr_range)
+
             # check
             pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, tcoef1]))
             res = (obs_phase - pred_phase.T).ravel()
             gamma1 = np.abs(np.mean(np.exp(1j * res)))
 
-            # estimating tcoef first
-            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
-            phaseres2 = obs_phase - pred_phase_demerr2
-            tcoef2, gamma_tcoef2, pred_phase_tcoef2 = findOptimum(obs_phase=phaseres2, design_mat=design_mat[:, 2], val_range=tcoef_range)
-            phaseres2 = obs_phase - pred_phase_demerr2 - pred_phase_tcoef2
-            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres2,design_mat=design_mat[:, 1],val_range=vel_range)
+            # doing vel first then tcoef
+            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
+            phaseres_2 = obs_phase - pred_phase_vel2
+            tcoef2, gamma_tcoef2, pred_phase_tcoef2 = findOptimum(obs_phase=phaseres_2, design_mat=design_mat[:, 2], val_range=tcoef_range)
+            phaseres_2 = obs_phase - pred_phase_vel2 - pred_phase_demerr2
+            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=phaseres_2, design_mat=design_mat[:, 0],val_range=demerr_range)
+
             # check
             pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, tcoef2]))
             res = (obs_phase - pred_phase.T).ravel()
@@ -397,23 +442,6 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
                 vel = vel2
                 demerr = demerr2
                 tcoef = tcoef2
-
-        else:
-            tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 2], val_range=tcoef_range)
-            phaseres = obs_phase - pred_phase_demerr - pred_phase_tcoef
-            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
-
-    elif gamma_tcoef > gamma_vel and gamma_tcoef > gamma_demerr:
-        # case when temperature coefficient is the highest
-        phaseres = obs_phase - pred_phase_tcoef
-        if gamma_vel > gamma_demerr:
-            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
-            phaseres = obs_phase - pred_phase_tcoef - pred_phase_vel
-            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
-        else:
-            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
-            phaseres = obs_phase - pred_phase_tcoef - pred_phase_demerr
-            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
 
     # improve initial estimate with gradient descent approach
     scale_demerr = (demerr_range.max() - demerr_range.min()) / 2 #demerr_range.max()
@@ -655,7 +683,7 @@ def temporalUnwrapping_t(*, ifg_net_obj: IfgNetwork, net_obj: Network,  waveleng
         args = (
             np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
             net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, coef_bound, num_samples)
-        arc_idx_range, demerr, vel, tcoef, gamma = launchAmbiguityFunctionSearch_t(parameters=args)
+        arc_idx_range, demerr, vel, tcoef, gamma = oneDimSearchTemporalCoherence_3variables(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
 
@@ -683,7 +711,7 @@ def temporalUnwrapping_t(*, ifg_net_obj: IfgNetwork, net_obj: Network,  waveleng
             num_samples) for idx_range in idx]
 
         with multiprocessing.Pool(processes=num_cores) as pool:
-            results = pool.map(func=launchAmbiguityFunctionSearch_t, iterable=args)
+            results = pool.map(func=oneDimSearchTemporalCoherence_3variables, iterable=args)
 
         # retrieve results
         for i, demerr_i, vel_i, tcoef_i, gamma_i in results:
