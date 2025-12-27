@@ -622,7 +622,7 @@ def launchAmbiguityFunctionSearch_t(parameters: tuple):
         design_mat[:, 1] = factor * ifg_net_obj.tbase_ifg
         design_mat[:, 2] = factor * ifg_net_obj.temperatures_ifg
 
-        demerr[k], vel[k], tcoef[k], gamma[k] = oneDimSearchTemporalCoherence_t(
+        demerr[k], vel[k], tcoef[k], gamma[k] = oneDimSearchTemporalCoherence_3variables(
             demerr_range=demerr_range,
             vel_range=vel_range,
             tcoef_range=tcoef_range,
@@ -683,7 +683,7 @@ def temporalUnwrapping_t(*, ifg_net_obj: IfgNetwork, net_obj: Network,  waveleng
         args = (
             np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
             net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, coef_bound, num_samples)
-        arc_idx_range, demerr, vel, tcoef, gamma = oneDimSearchTemporalCoherence_3variables(parameters=args)
+        arc_idx_range, demerr, vel, tcoef, gamma = launchAmbiguityFunctionSearch_t(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
 
@@ -711,7 +711,7 @@ def temporalUnwrapping_t(*, ifg_net_obj: IfgNetwork, net_obj: Network,  waveleng
             num_samples) for idx_range in idx]
 
         with multiprocessing.Pool(processes=num_cores) as pool:
-            results = pool.map(func=oneDimSearchTemporalCoherence_3variables, iterable=args)
+            results = pool.map(func=launchAmbiguityFunctionSearch_t, iterable=args)
 
         # retrieve results
         for i, demerr_i, vel_i, tcoef_i, gamma_i in results:
