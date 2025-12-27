@@ -426,7 +426,7 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
             vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
             phaseres_2 = obs_phase - pred_phase_vel2
             tcoef2, gamma_tcoef2, pred_phase_tcoef2 = findOptimum(obs_phase=phaseres_2, design_mat=design_mat[:, 2], val_range=tcoef_range)
-            phaseres_2 = obs_phase - pred_phase_vel2 - pred_phase_demerr2
+            phaseres_2 = obs_phase - pred_phase_vel2 - pred_phase_tcoef2
             demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=phaseres_2, design_mat=design_mat[:, 0],val_range=demerr_range)
 
             # check
