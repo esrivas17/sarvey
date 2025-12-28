@@ -845,7 +845,7 @@ class Processing:
                     residuals=phase_for_aps_filtering,
                     coord_utm1=point1_obj.coord_utm,
                     coord_utm2=aps2_obj.coord_utm,
-                    num_cores=1, #there is a problem with multiprocessing
+                    num_cores=16, #there is a problem with multiprocessing
                     bool_plot=False,
                     logger=self.logger
                 )
@@ -1013,8 +1013,7 @@ class Processing:
             tcoef_bound=self.config.densification.tcoef_bound,
             num_samples=self.config.densification.num_optimization_samples,
             num_cores=self.config.general.num_cores,
-            logger=self.logger
-        )
+            logger=self.logger)
 
         # store combined set of first and second-order points
         point2_obj.addPointsFromObj(
@@ -1087,7 +1086,7 @@ class Processing:
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy, ttl="Temperature coef in [mm/C]",
-                                 bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=False,
+                                 bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)

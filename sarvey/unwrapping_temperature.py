@@ -303,6 +303,49 @@ def oneDimSearchTemporalCoherence_t(*, demerr_range: np.ndarray, vel_range: np.n
     gamma = np.abs(np.mean(np.exp(1j * res)))
     return demerr, vel, tcoef, gamma
 
+def threeDSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.ndarray, tcoef_range: np.ndarray, obs_phase: np.ndarray,
+                                  design_mat: np.ndarray):
+    
+    search = []
+    for demerr in demerr_range:
+        for vel in vel_range:
+            for tcoef in tcoef_range:
+                pred = design_mat @ np.array([demerr, vel, tcoef])
+                res = obs_phase - pred
+                gamma = np.abs(np.mean(np.exp(1j * res)))
+                search.append((gamma, demerr, vel, tcoef))
+
+    search.sort(reverse=True)
+    p0 = np.array(search[0][1:])
+
+    # improve initial estimate with gradient descent approach
+    scales = np.array([
+        (demerr_range.max() - demerr_range.min()) / 2.0,
+        (vel_range.max()     - vel_range.min())     / 2.0,
+        (tcoef_range.max()   - tcoef_range.min())   / 2.0])
+
+    centers = np.array([
+        (demerr_range.max() + demerr_range.min()) / 2.0,
+        (vel_range.max()     + vel_range.min())     / 2.0,
+        (tcoef_range.max()   + tcoef_range.min())   / 2.0])
+
+    # Initial physical guess
+    p0 = np.array([demerr, vel, tcoef])
+    # Convert to scaled space for L-BFGS-B
+    x0 = (p0 - centers) / scales
+
+    demerr, vel, tcoef, gamma = gradientSearchTemporalCoherence_tc(
+        scales=scales,
+        centers=centers,
+        obs_phase=obs_phase,
+        design_mat=design_mat,
+        x0=x0)
+
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, tcoef]))
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+    return demerr, vel, tcoef, gamma
+
 
 def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_range: np.ndarray, tcoef_range: np.ndarray, obs_phase: np.ndarray,
                                   design_mat: np.ndarray):
@@ -462,15 +505,6 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
     p0 = np.array([demerr, vel, tcoef])
     # Convert to scaled space for L-BFGS-B
     x0 = (p0 - centers) / scales
-
-    #demerr, vel, tcoef, gamma = gradientSearchTemporalCoherence_t(
-    #    scale_vel=scale_vel,
-    #    scale_demerr=scale_demerr,
-    #    scale_tcoef=scale_tcoef,
-    #    obs_phase=obs_phase,
-    #    design_mat=design_mat,
-    #    x0=np.array([demerr/scale_demerr, vel/scale_vel, tcoef/scale_tcoef]).T
-    #)
 
     demerr, vel, tcoef, gamma = gradientSearchTemporalCoherence_tc(
         scales=scales,
