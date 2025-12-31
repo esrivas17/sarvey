@@ -362,12 +362,31 @@ def densifyNetwork_temp(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np
 
     # initialize output
     init_args = (tree_p1, point2_obj, demod_phase1)
-
+    import pdb
+    
     if num_cores == 1:
         densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
+
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1,
                 velocity_bound, demerr_bound, tcoef_bound, num_samples)
+        
+        lp1= [8134, 26409, 26411, 6139, 26412, 6141, 8225, 26533, 6310, 6479, 6480, 6481, 6482, 6640]
+        lp2= [26996, 8781, 27212, 11021, 11023, 11025, 21181, 11127, 11425, 11434, 13693, 25890, 25891]
+        lp3 = [13782, 27996, 32031, 32032, 32041, 32042, 32058, 32060, 25972, 25973, 25982, 7791, 25983, 13859]
+        lp4 = [13860, 28087, 28089, 28183, 28186, 28187, 26104, 28275, 28276, 28277, 8026, 26214, 8028, 26218, 26298, 26300, 26302]
+        goodlp = [8029, 8030]
+        
+        numpoints = lp1 + lp2 + lp3 + lp4 + goodlp
+        numpoints = [8026, 8028, 8029, 8030]
+        lenpoints = len(numpoints)
+        args = (numpoints, lenpoints, num_conn_p1, max_dist_p1,
+                velocity_bound, demerr_bound, tcoef_bound, num_samples)
         idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkConsistencyCheck_temp(args)
+        print("\n")
+        for p, g, v2, d2, tc2 in zip(numpoints, gamma_p2, vel_p2, demerr_p2, tcoef_p2):
+            print(f"idx: {p} - gamma: {g:.2f} - vel: {v2*1000:.2f} - demerr: {d2:.2f} - tcoef: {tc2*100:.2f}")
+        pdb.set_trace()
+        print("here")
     else:
         with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))

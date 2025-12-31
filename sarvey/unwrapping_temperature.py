@@ -48,7 +48,7 @@ from mintpy.utils import ptime
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
 from sarvey.objects import Network, NetworkParameter, AmplitudeImage
-
+import matplotlib.pyplot as plt
 
 def objFuncTemporalCoherence_t(x, *args):
     """Compute temporal coherence from parameters and phase. To be used as objective function for optimization.
@@ -184,6 +184,25 @@ def findOptimum(*, obs_phase: np.ndarray, design_mat: np.ndarray, val_range: np.
     max_idx = np.argmax(gamma)
     opt_val = val_range[max_idx]
     return opt_val, gamma[max_idx], pred_phase[:, max_idx]
+
+
+def findOptimum_wrapped_ls(*, obs_phase, design_mat, val_range):
+    pred_phase = design_mat[:, None] * val_range[None, :]
+
+    if obs_phase.ndim == 2:
+        res = obs_phase[:, None, :] - pred_phase.T
+        res = np.moveaxis(res, 0, 1)
+        res = res.reshape(pred_phase.shape[1], -1)
+    else:
+        res = obs_phase - pred_phase.T
+
+    # wrapped residuals
+    res_wrapped = np.angle(np.exp(1j * res))
+
+    cost = np.sum(res_wrapped**2, axis=1)
+    min_idx = np.argmin(cost)
+
+    return val_range[min_idx], cost[min_idx], pred_phase[:, min_idx]
 
 def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, range1: np.ndarray, range2: np.ndarray):
     """
@@ -375,11 +394,12 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
     """
     THREE CASE: 1.- GAMMAVEL IS HIGHEST 2.- GAMMADEMERR IS THE HIGHEST 3.- GAMMA TEMP COEFF IS THE HIGHEST
     """
-     
+    import pdb
+
     if gamma_vel > gamma_demerr and gamma_vel > gamma_tcoef:
         # case when gamma vel is the highest
         phaseres = obs_phase - pred_phase_vel
-        
+        #pdb.set_trace()
         if gamma_demerr > gamma_tcoef:
             demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
             phaseres = obs_phase - pred_phase_vel - pred_phase_demerr
@@ -491,6 +511,14 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
     scale_vel = (vel_range.max() - vel_range.min()) / 2 #vel_range.max()
     scale_tcoef = (tcoef_range.max() - tcoef_range.min()) / 2 # tcoef_range.max()
 
+    # check
+    #pred_phase = np.matmul(design_mat, np.array([demerr, vel, tcoef]))
+    #for x in range(obs_phase.shape[0]):
+    #    plt.plot(obs_phase[x,:])
+    #plt.plot(pred_phase, c='red', linewidth=2)
+    #plt.show()
+
+
     scales = np.array([
         (demerr_range.max() - demerr_range.min()) / 2.0,
         (vel_range.max()     - vel_range.min())     / 2.0,
@@ -516,6 +544,13 @@ def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_ra
     pred_phase = np.matmul(design_mat, np.array([demerr, vel, tcoef]))
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    #for x in range(obs_phase.shape[0]):
+    #    plt.plot(obs_phase[x,:])
+    #plt.plot(pred_phase, c='red', linewidth=2)
+    #plt.title("After fine optimization")
+    #plt.show()
+
     return demerr, vel, tcoef, gamma
 
 
