@@ -132,6 +132,44 @@ def findOptimum2D(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: 
     return amps_vals[idx_r, idx_c], offset_vals[idx_r, idx_c], gamma[idx_max], pred_phase[idx_max]
 
 
+def findOptimum2D_sinusoidal(*, obs_phase: np.ndarray, design_mat: np.ndarray, amps_range: np.ndarray, time_shift_range: np.ndarray):
+    """
+    Finds optimum for amp and offset in a 2d search space
+    """
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+
+    # meshgrid of candidate coefficients 
+    amps_vals, shift_vals = np.meshgrid(amps_range, time_shift_range , indexing='ij') 
+
+    # pred phase
+    Cos_end = amps_vals.ravel() * np.cos(omega * shift_vals.ravel())
+    Sin_end = amps_vals.ravel() * np.sin(omega * shift_vals.ravel())
+    
+    pred_phase = (design_mat[:, 0] * Cos_end[:, None] + design_mat[:, 1] * Sin_end[:, None])
+    
+    # finding maximum coherence
+    if len(obs_phase.shape) == 2:
+        # step densification
+        A, P = obs_phase.shape 
+        N = pred_phase.shape[0]
+        res = obs_phase[:, None, :] - pred_phase[None, :, :]
+        res = res.transpose(1, 0, 2)
+        res = res.reshape(N, A * P)
+        #res = obs_phase[:, np.newaxis, :] - pred_phase
+        #res = np.moveaxis(res, 0, 1)
+        #res = res.reshape((pred_phase.shape[1], -1))  # combine residuals from all arcs
+    else:
+        # step consistency check
+        res = obs_phase - pred_phase
+
+    gamma = np.abs(np.mean(np.exp(1j * res), axis=1))
+    idx_max = np.argmax(gamma)
+    #idx_r, idx_c = np.unravel_index(idx_max, amps_vals.shape)
+
+    return Cos_end[idx_max], Sin_end[idx_max], gamma[idx_max], pred_phase[idx_max]
+
+
 def oneDimSearchTemporalCoherence3(*, demerr_range: np.ndarray, vel_range: np.ndarray, amp_range: np.ndarray, offset_range: np.ndarray, obs_phase: np.ndarray,
                                   design_mat: np.ndarray):
     """One dimensional search for maximum temporal coherence that fits the observed arc phase.
@@ -336,13 +374,11 @@ def oneDimSearchTemporalCoherence_4variables(*, demerr_range: np.ndarray, vel_ra
     """
     f = 1 # frequency cycles per years
     omega = 2.0 * np.pi * f
-    space_cos = amp_range[:,np.newaxis] * np.cos(omega*offset_range)[np.newaxis,:]
-    space_sin = amp_range[:,np.newaxis] * np.sin(omega*offset_range)[np.newaxis,:]
 
     demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
     vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
-    amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=obs_phase,
-                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+    cos_part, sin_part, gamma_seasonal, pred_phase_seasonal = findOptimum2D_sinusoidal(obs_phase=obs_phase,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
 
     if gamma_vel > gamma_demerr and gamma_vel > gamma_seasonal:
         # case when gamma vel is the highest
@@ -350,160 +386,166 @@ def oneDimSearchTemporalCoherence_4variables(*, demerr_range: np.ndarray, vel_ra
         if gamma_demerr > gamma_seasonal:
             demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
             phaseres = obs_phase - pred_phase_vel - pred_phase_demerr
-            amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=phaseres,
-                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+            cos_part, sin_part, gamma_seasonal, pred_phase_seasonal = findOptimum2D_sinusoidal(obs_phase=phaseres,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
         else:
             vel1 = vel
-            amp1, offset1, gamma_seasonal1, pred_phase_seasonal1 = findOptimum2D(obs_phase=phaseres,
-                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
-  
+            cos_part1, sin_part1, gamma_seasonal, pred_phase_seasonal1 = findOptimum2D_sinusoidal(obs_phase=phaseres,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
+
             phaseres1 = obs_phase - pred_phase_vel - pred_phase_seasonal1
             demerr1, gamma_demerr1, pred_phase_demerr1 = findOptimum(obs_phase=phaseres1, design_mat=design_mat[:, 0],val_range=demerr_range)
             
             # check
-            cos_term1 = amp1 * np.cos(omega*offset1)
-            sin_term1 = amp1 * np.sin(omega*offset1)
-            pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, cos_term1, sin_term1]))
+            pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, cos_part1, sin_part1]))
             res = (obs_phase - pred_phase.T).ravel()
             gamma1 = np.abs(np.mean(np.exp(1j * res)))
 
             # estimating seasonal first
-            amp2, offset2, gamma_seasonal2, pred_phase_seasonal2 = findOptimum2D(obs_phase=obs_phase,
-                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
-
+            cos_part2, sin_part2, gamma_seasonal2, pred_phase_seasonal2 = findOptimum2D_sinusoidal(obs_phase=obs_phase,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
             phaseres2 = obs_phase - pred_phase_seasonal2
             vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres2,design_mat=design_mat[:, 1],val_range=vel_range)
             phaseres2 = obs_phase - pred_phase_vel2 - pred_phase_seasonal2
             demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=phaseres2, design_mat=design_mat[:, 0],val_range=demerr_range)
             
             # check
-            cos_term2 = amp2 * np.cos(omega*offset2)
-            sin_term2 = amp2 * np.sin(omega*offset2)
-            pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, cos_term2, sin_term2]))
+            pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, cos_part2, sin_part2]))
             res = (obs_phase - pred_phase.T).ravel()
             gamma2 = np.abs(np.mean(np.exp(1j * res)))
 
             if gamma1 > gamma2:
                 vel = vel1
                 demerr = demerr1
-                amp = amp1
-                offset = offset1
+                cos_part = cos_part1
+                sin_part = sin_part1
             else:
                 vel = vel2
                 demerr = demerr2
-                amp = amp2
-                offset = offset2
+                cos_part = cos_part2
+                sin_part = sin_part2
 
     elif gamma_demerr > gamma_vel and gamma_demerr > gamma_seasonal:
         # case when gamma demerr is the highest
         phaseres = obs_phase - pred_phase_demerr
-        if gamma_vel > gamma_seasonal:
-            demerr1 = demerr
+
+        demerr1 = demerr
+        vel1, gamma_vel1, pred_phase_vel1 = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+        phaseres1 = obs_phase - pred_phase_demerr - pred_phase_vel1
+        cos_part1, sin_part1, gamma_seasonal1, pred_phase_seasonal1 = findOptimum2D_sinusoidal(obs_phase=phaseres1,
+                                                                        design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
+
+        # check
+        pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, cos_part1, sin_part1]))
+        res = (obs_phase - pred_phase.T).ravel()
+        gamma1 = np.abs(np.mean(np.exp(1j * res)))
+
+        # estimating all again
+        demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
+        phaseres2 = obs_phase - pred_phase_demerr2
+        cos_part2, sin_part2, gamma_seasonal2, pred_phase_seasonal2 = findOptimum2D_sinusoidal(obs_phase=phaseres2,
+                                                                        design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
+
+        phaseres2 = obs_phase - pred_phase_demerr2 - pred_phase_seasonal2
+        vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres2,design_mat=design_mat[:, 1],val_range=vel_range)
+        # check
+        pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, cos_part2, sin_part2]))
+        res = (obs_phase - pred_phase.T).ravel()
+        gamma2 = np.abs(np.mean(np.exp(1j * res)))
+
+        if gamma1 > gamma2:
+            vel = vel1
+            demerr = demerr1
+            cos_part = cos_part2
+            sin_part = sin_part2
+        else:
+            vel = vel2
+            demerr = demerr2
+            cos_part = cos_part2
+            sin_part = sin_part2
+
+
+    elif gamma_seasonal > gamma_vel and gamma_seasonal > gamma_demerr:
+        # case when seasonal is the highest
+        phaseres = obs_phase - pred_phase_seasonal
+
+        if gamma_demerr > gamma_vel:
+            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
+            phaseres = obs_phase - pred_phase_seasonal - pred_phase_demerr
+            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+        else:
+            # vel is the second highest, then try both
+            cos_part1 = cos_part
+            sin_part1 = sin_part
             vel1, gamma_vel1, pred_phase_vel1 = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
-            phaseres1 = obs_phase - pred_phase_demerr - pred_phase_vel1
-            amp1, offset1, gamma_seasonal1, pred_phase_seasonal1 = findOptimum2D(obs_phase=phaseres1,
-                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
+            phaseres_1 = obs_phase - pred_phase_seasonal - pred_phase_vel1
+            demerr1, gamma_demerr1, pred_phase_demerr1 = findOptimum(obs_phase=phaseres_1, design_mat=design_mat[:, 0],val_range=demerr_range)
+
             # check
-            cos_term1 = amp1 * np.cos(omega*offset1)
-            sin_term1 = amp1 * np.sin(omega*offset1)
-            pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, cos_term1, sin_term1]))
+            pred_phase = np.matmul(design_mat, np.array([demerr1, vel1, cos_part1, sin_part1]))
             res = (obs_phase - pred_phase.T).ravel()
             gamma1 = np.abs(np.mean(np.exp(1j * res)))
 
-            # estimating seasonal first
-            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
-            phaseres2 = obs_phase - pred_phase_demerr2
-            amp2, offset2, gamma_seasonal2, pred_phase_seasonal2 = findOptimum2D(obs_phase=phaseres2,
-                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
-            
-            phaseres2 = obs_phase - pred_phase_demerr2 - pred_phase_seasonal2
-            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=phaseres2,design_mat=design_mat[:, 1],val_range=vel_range)
+            # doing vel first then tcoef
+            vel2, gamma_vel2, pred_phase_vel2 = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
+            phaseres_2 = obs_phase - pred_phase_vel2
+            cos_part2, sin_part2, gamma_seasonal2, pred_phase_seasonal2 = findOptimum2D_sinusoidal(obs_phase=phaseres_2,
+                                                                        design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
+
+            phaseres_2 = obs_phase - pred_phase_vel2 - pred_phase_seasonal2
+            demerr2, gamma_demerr2, pred_phase_demerr2 = findOptimum(obs_phase=phaseres_2, design_mat=design_mat[:, 0],val_range=demerr_range)
+
             # check
-            cos_term2 = amp2 * np.cos(omega*offset2)
-            sin_term2 = amp2 * np.sin(omega*offset2)
-            pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, cos_term2, sin_term2]))
+            pred_phase = np.matmul(design_mat, np.array([demerr2, vel2, cos_part2, sin_part2]))
             res = (obs_phase - pred_phase.T).ravel()
             gamma2 = np.abs(np.mean(np.exp(1j * res)))
 
             if gamma1 > gamma2:
                 vel = vel1
                 demerr = demerr1
-                amp = amp1
-                offset = offset1
+                cos_part = cos_part2
+                sin_part = sin_part2
             else:
                 vel = vel2
                 demerr = demerr2
-                amp = amp2
-                offset = offset2
-        else:
-            amp, offset, gamma_seasonal, pred_phase_seasonal = findOptimum2D(obs_phase=phaseres,
-                                                            design_mat=design_mat[:, 2:], amps_range=amp_range, offset_range=offset_range)
-            phaseres = obs_phase - pred_phase_demerr - pred_phase_seasonal
-            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
+                cos_part = cos_part2
+                sin_part = sin_part2
 
-    elif gamma_seasonal > gamma_vel and gamma_seasonal > gamma_demerr:
-        # case when seasonal is the highest
-        phaseres = obs_phase - pred_phase_seasonal
-        if gamma_vel > gamma_demerr:
-            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
-            phaseres = obs_phase - pred_phase_seasonal - pred_phase_vel
-            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
-        else:
-            demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=phaseres, design_mat=design_mat[:, 0],val_range=demerr_range)
-            phaseres = obs_phase - pred_phase_seasonal - pred_phase_demerr
-            vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=phaseres,design_mat=design_mat[:, 1],val_range=vel_range)
 
     # improve initial estimate with gradient descent approach
-    scale_demerr = (demerr_range.max() - demerr_range.min()) / 2 #demerr_range.max()
-    scale_vel = (vel_range.max() - vel_range.min()) / 2 #vel_range.max()
-    scale_amp = (amp_range.max() - amp_range.min()) / 2 # amp_range.max()
-    scale_offset = (offset_range.max() - offset_range.min()) / 2
+    scale_demerr = demerr_range.max()
+    scale_vel = vel_range.max()
+    scale_cos = max(abs(cos_part), 1e-6)
+    scale_sin = max(abs(sin_part), 1e-6)
 
-    C0 = amp * np.cos(omega * offset)
-    S0 = amp * np.sin(omega * offset)
-    A0 = np.sqrt(C0**2 + S0**2)
-    frac = 0.3
-    delta_CS = max(frac * A0, 1e-6)
+    scales = np.array([scale_demerr, scale_vel, scale_cos, scale_sin])
 
-    scales = np.array([
-        (demerr_range.max() - demerr_range.min()) / 2.0,
-        (vel_range.max()     - vel_range.min())     / 2.0,
-        delta_CS,
-        delta_CS])
-
-    centers = np.array([
-        (demerr_range.max() + demerr_range.min()) / 2.0,
-        (vel_range.max()     + vel_range.min())     / 2.0,
-        C0,
-        S0])
-
-    # Initial physical guess
-    sinpart = amp * np.sin(omega*offset)
-    cospart = amp * np.cos(omega*offset)
-    p0 = np.array([demerr, vel, cospart, sinpart])
-    # Convert to scaled space for L-BFGS-B
-    x0 = (p0 - centers) / scales
-
-
-    demerr, vel, cospart, sinpart, gamma = gradientSearchTemporalCoherence_seasonal(
-        scales=scales,
-        centers=centers,
-        obs_phase=obs_phase,
-        design_mat=design_mat,
-        x0=x0)
+    x0 = np.array([demerr/scale_demerr, vel/scale_vel,  cos_part/scale_cos, sin_part/scale_sin])
+    
+    demerr, vel, cospart, sinpart, gamma = gradientSearchTemporalCoherence_seasonal(obs_phase=obs_phase, design_mat=design_mat, x0=x0, scales=scales)
 
     pred_phase = np.matmul(design_mat, np.array([demerr, vel, cospart, sinpart]))
     res = (obs_phase - pred_phase.T).ravel()
-
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
-    amp = np.sqrt(cospart**2 + sinpart**2)
-        
+    # parameters from sinusoid
+    amp = np.sqrt(cospart**2 + sinpart**2)  
     phi = np.arctan2(sinpart,cospart)
-    phi = (phi + 2*np.pi) % (2*np.pi)
-    offset = phi/omega
+    shift = phi/omega
 
-    return demerr, vel, amp, offset, gamma
+    test = False
+    if test:
+        if obs_phase.ndim > 1:
+            for n in range(obs_phase.shape[0]):
+                plt.plot(obs_phase[n], c='blue', linewidth=0.8)
+        else:
+            plt.plot(obs_phase, c='blue', linewidth=1.8)
+        plt.plot(pred_phase, c='red', linewidth=1.2)
+        plt.title(f"Obs vs Pred - gamma {gamma:.2f} - amp (cm): {amp*100:.2f} - vel (mm): {vel*1000:.2f} - deme: {demerr:.2f}")
+        plt.tight_layout()
+        plt.show()
+
+    return demerr, vel, amp, shift, gamma
 
 def gradientSearchTemporalCoherenceLinear(*, scale_vel: float, scale_demerr: float, scale_cosine: float, scale_sine, obs_phase: np.ndarray,
                                     design_mat: np.ndarray, omega: float, x0: np.ndarray):
@@ -537,7 +579,7 @@ def objFuncTempCohLinear(x, *args):
     gamma = np.abs(np.mean(np.exp(1j*res)))
     return 1-gamma
 
-def objFuncTemporalCoherence_seasonal(x, design_mat, obs_phase, scales, centers):
+def objFuncTemporalCoherence_seasonal_centers(x, design_mat, obs_phase, scales, centers):
     """
     Objective: 1 - gamma, where gamma is temporal coherence.
 
@@ -569,6 +611,34 @@ def objFuncTemporalCoherence_seasonal(x, design_mat, obs_phase, scales, centers)
     return 1 - gamma
 
 
+def objFuncTemporalCoherence_seasonal(x, design_mat, obs_phase, scales):
+    """
+    Objective: 1 - temporal coherence gamma.
+
+    Parameters
+    ----------
+    x : array-like (4,)
+        Scaled optimizer variables.
+    scales : array-like (4,)
+        Scaling factors (physical = x * scales)
+
+    Returns
+    -------
+    float
+        1 - gamma
+    """
+
+    # Convert to physical parameters
+    p = x * scales
+
+    pred_phase = design_mat @ p
+    res = (obs_phase - pred_phase).ravel()
+
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return 1.0 - gamma
+
+
 def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, scale_amp: float, scale_offset, obs_phase: np.ndarray,
                                     design_mat: np.ndarray, omega: float, x0: np.ndarray):
     bounds = ((-1, 1), (-1, 1), (0, 1), (0,1))
@@ -584,7 +654,7 @@ def gradientSearchTemporalCoherence2(*, scale_vel: float, scale_demerr: float, s
 
     return demerr, vel, amp, offset, gamma
 
-def gradientSearchTemporalCoherence_seasonal(*, scales, centers, obs_phase, design_mat, x0):
+def gradientSearchTemporalCoherence_seasonal_centers(*, scales, centers, obs_phase, design_mat, x0):
 
     #f = 1 # frequency cycles per years
     #omega = 2.0 * np.pi * f
@@ -593,7 +663,7 @@ def gradientSearchTemporalCoherence_seasonal(*, scales, centers, obs_phase, desi
     bounds = [(-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)]
 
     opt_res = minimize(
-        objFuncTemporalCoherence_seasonal,
+        objFuncTemporalCoherence_seasonal_centers,
         x0,
         args=(design_mat, obs_phase, scales, centers),
         bounds=bounds,
@@ -610,6 +680,45 @@ def gradientSearchTemporalCoherence_seasonal(*, scales, centers, obs_phase, desi
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
     return demerr, vel, cospart, sinpart, gamma
+
+
+def gradientSearchTemporalCoherence_seasonal(*, obs_phase, design_mat, x0, scales):
+    """
+    Gradient optimization using scaled parameters only.
+
+    Parameters
+    ----------
+    x0 : array-like (4,)
+        Initial guess in scaled space.
+    scales : array-like (4,)
+        Physical scales for parameters.
+
+    Returns
+    -------
+    demerr, vel, cospart, sinpart, gamma
+    """
+
+    bounds = [(-1.0, 1.0)] * 4
+
+    opt_res = minimize(
+        objFuncTemporalCoherence_seasonal,
+        x0,
+        args=(design_mat, obs_phase, scales),
+        bounds=bounds,
+        method="L-BFGS-B"
+    )
+
+    # Back to physical space
+    p_est = opt_res.x * scales
+    demerr, vel, cospart, sinpart = p_est
+
+    # Compute final coherence
+    pred_phase = design_mat @ p_est
+    res = (obs_phase - pred_phase).ravel()
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return demerr, vel, cospart, sinpart, gamma
+
 
 def objFuncTempCoh2(x, *args):
     (design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega) = args
