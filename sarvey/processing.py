@@ -857,7 +857,7 @@ class Processing:
                     coord_utm1=point1_obj.coord_utm,
                     coord_utm2=aps2_obj.coord_utm,
                     num_cores=self.config.general.num_cores,
-                    bool_plot=True,
+                    bool_plot=False,
                     logger=self.logger
                 )
             else:

@@ -233,6 +233,8 @@ def estimateAtmosphericPhaseScreen(*, residuals: np.ndarray, coord_utm1: np.ndar
 
         with multiprocessing.Pool(processes=num_cores) as pool:
             results = pool.map(func=launchSpatialFiltering, iterable=args)
+        
+        logger.info(msg="Multiprocessing finished")
 
         # retrieve results
         for i, aps1_i, aps2_i in results:
