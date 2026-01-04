@@ -606,13 +606,13 @@ def estimateParametersSeasonal(*, obj: Union[Points, Network], estimate_ref_atmo
         demerr[p] = x_hat[0]
         vel[p] = x_hat[1]
         amp = np.sqrt(x_hat[2]**2 + x_hat[3]**2)
-        
-        angle = np.arctan2(x_hat[3],x_hat[2])
-        angle_pos = (angle + 2*np.pi) % (2*np.pi)
-        off = angle_pos/omg
+        phi = np.arctan2(x_hat[3],x_hat[2])
+        #angle_pos = (phi + 2*np.pi) % (2*np.pi)
+        shift = phi/omega
+        #off = angle_pos/omg
 
         amplitude[p] = amp
-        offset[p] = off
+        offset[p] = shift
         pred_phase_demerr = a[:,0] * x_hat[0]
         pred_phase_vel = a[:,1] * x_hat[1]
         sine_part = x_hat[3]
@@ -627,8 +627,8 @@ def estimateParametersSeasonal(*, obj: Union[Points, Network], estimate_ref_atmo
         else:
             pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
 
-        v_hat[p, :] = np.angle(np.exp(1j *(obv_vec - pred_phase)))
-        #v_hat[p, :] = obv_vec - pred_phase
+        #v_hat[p, :] = np.angle(np.exp(1j *(obv_vec - pred_phase)))
+        v_hat[p, :] = obv_vec - pred_phase
         coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
 
     if not estimate_ref_atmo:
