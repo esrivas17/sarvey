@@ -608,7 +608,7 @@ def estimateParametersSeasonal(*, obj: Union[Points, Network], estimate_ref_atmo
         amp = np.sqrt(x_hat[2]**2 + x_hat[3]**2)
         phi = np.arctan2(x_hat[3],x_hat[2])
         #angle_pos = (phi + 2*np.pi) % (2*np.pi)
-        shift = phi/omega
+        shift = phi/omg
         #off = angle_pos/omg
 
         amplitude[p] = amp
