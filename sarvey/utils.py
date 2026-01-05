@@ -606,13 +606,13 @@ def estimateParametersSeasonal(*, obj: Union[Points, Network], estimate_ref_atmo
         demerr[p] = x_hat[0]
         vel[p] = x_hat[1]
         amp = np.sqrt(x_hat[2]**2 + x_hat[3]**2)
-        phi = np.arctan2(x_hat[3],x_hat[2])
+        phi = np.arctan2(x_hat[3],x_hat[2])/omg
         #angle_pos = (phi + 2*np.pi) % (2*np.pi)
-        shift = phi/omg
+        #shift = phi/omg
         #off = angle_pos/omg
 
         amplitude[p] = amp
-        offset[p] = shift
+        offset[p] = phi
         #pred_phase_demerr = a[:,0] * x_hat[0]
         #pred_phase_vel = a[:,1] * x_hat[1]
         #sine_part = x_hat[3]

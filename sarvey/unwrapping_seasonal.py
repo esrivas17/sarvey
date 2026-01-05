@@ -530,8 +530,10 @@ def oneDimSearchTemporalCoherence_4variables(*, demerr_range: np.ndarray, vel_ra
 
     # parameters from sinusoid
     amp = np.sqrt(cospart**2 + sinpart**2)  
-    phi = np.arctan2(sinpart,cospart)
-    shift = phi/omega
+    phi = np.arctan2(sinpart,cospart)/omega
+    #angle_pos = (angle + 2*np.pi) % (2*np.pi)
+    #shift = phi/omg
+    #phi = angle_pos/omega
 
     test = False
     if test:
@@ -545,7 +547,7 @@ def oneDimSearchTemporalCoherence_4variables(*, demerr_range: np.ndarray, vel_ra
         plt.tight_layout()
         plt.show()
 
-    return demerr, vel, amp, shift, gamma
+    return demerr, vel, amp, phi, gamma
 
 def gradientSearchTemporalCoherenceLinear(*, scale_vel: float, scale_demerr: float, scale_cosine: float, scale_sine, obs_phase: np.ndarray,
                                     design_mat: np.ndarray, omega: float, x0: np.ndarray):
