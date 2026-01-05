@@ -613,22 +613,23 @@ def estimateParametersSeasonal(*, obj: Union[Points, Network], estimate_ref_atmo
 
         amplitude[p] = amp
         offset[p] = shift
-        pred_phase_demerr = a[:,0] * x_hat[0]
-        pred_phase_vel = a[:,1] * x_hat[1]
-        sine_part = x_hat[3]
-        cosine_part = x_hat[2]
-        pred_phase_seasonal = a[:,2] * cosine_part + a[:,3] * sine_part
-
+        #pred_phase_demerr = a[:,0] * x_hat[0]
+        #pred_phase_vel = a[:,1] * x_hat[1]
+        #sine_part = x_hat[3]
+        #cosine_part = x_hat[2]
+        #pred_phase_seasonal = a[:,2] * cosine_part + a[:,3] * sine_part
+        
         if estimate_ref_atmo:
             ref_atmo[p] = x_hat[4]
-            atmosphere = a[:,4] * x_hat[4]
-            pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal + atmosphere
+            #atmosphere = a[:,4] * x_hat[4]
+            #pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal + atmosphere
 
-        else:
-            pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
+        #else:
+         #   pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_seasonal
 
         #v_hat[p, :] = np.angle(np.exp(1j *(obv_vec - pred_phase)))
-        v_hat[p, :] = obv_vec - pred_phase
+        #v_hat[p, :] = obv_vec - pred_phase
+        v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
         coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
 
     if not estimate_ref_atmo:

@@ -111,6 +111,7 @@ def launchSpatialFiltering(parameters: tuple):
                 ax[1].set_xlabel("distance in [m]")
                 ax[1].set_ylabel("semi-variogram")
                 plt.close(fig)
+                
             prog_bar.update(value=i + 1, every=1, suffix='{}/{} images'.format(i + 1, num_time))
             continue
 
