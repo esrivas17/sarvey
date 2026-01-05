@@ -635,7 +635,7 @@ class Processing:
             auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
         else:
             # remove DEM error, but not velocity before estimating the temporal autocorrelation
-
+            raise Exception("edit this")
             pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseSeasonal(
             obj=point1_obj, vel=vel, demerr=demerr, amplitude=amplitude, offset=offset,
             ifg_space=False, logger=self.logger)

@@ -630,6 +630,7 @@ def estimateParametersSeasonal(*, obj: Union[Points, Network], estimate_ref_atmo
         #v_hat[p, :] = np.angle(np.exp(1j *(obv_vec - pred_phase)))
         #v_hat[p, :] = obv_vec - pred_phase
         v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
+        
         coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
 
     if not estimate_ref_atmo:
