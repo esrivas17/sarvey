@@ -359,14 +359,14 @@ def searchTemporalCoherence_seasonal(*, demerr_range: np.ndarray, vel_range: np.
     demerr, vel, gamma = unw.gradientSearchTemporalCoherence(scale_vel=scale_vel,
         scale_demerr=scale_demerr, obs_phase=obs_phase, design_mat=design_mat[:,:2], x0=np.array([demerr / scale_demerr,vel / scale_vel]).T)
 
-    pred_phase = np.matmul(design_mat[:,:2], np.array([demerr, vel]))
-    res = (obs_phase - pred_phase.T).ravel()
+    pred_phase1 = np.matmul(design_mat[:,:2], np.array([demerr, vel]))
+    res = (obs_phase - pred_phase1.T).ravel()
     gamma_bef = np.abs(np.mean(np.exp(1j * res)))
 
     #print(f'Gamma before seasonal fitting: {gamma_bef}')
     
     # estimate seasonality
-    cos_part, sin_part, gamma_seasonal, pred_phase_seasonal = findOptimum2D_sinusoidal(obs_phase=res,
+    cos_part, sin_part, gamma_seasonal, pred_phase_seasonal = findOptimum2D_sinusoidal(obs_phase=obs_phase - pred_phase1,
                                                                          design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
     scale_cos = max(abs(cos_part), 1e-6)
     scale_sin = max(abs(sin_part), 1e-6)

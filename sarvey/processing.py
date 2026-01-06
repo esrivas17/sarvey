@@ -493,11 +493,11 @@ class Processing:
         axs = fig.subplots(1, 2)
         axs[0].hist(-amplitude * 100, bins=200)
         axs[0].set_ylabel('Absolute frequency')
-        axs[0].set_xlabel('Mean velocity [cm / year]')
+        axs[0].set_xlabel('Amplitude [cm / year]')
 
         axs[1].hist(-offset, bins=200)
         axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('DEM error [m]')
+        axs[1].set_xlabel('Phi [yr]')
         fig.savefig(join(self.path, "pic", "step_2_parameters_p1.png"),
                     dpi=300)
         plt.close(fig)
