@@ -474,14 +474,14 @@ class Processing:
                                         weights=net_par_obj.gamma,
                                         spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=amplitude, coord=point_obj.coord_xy,
+        fig = viewer.plotScatter(value=-amplitude, coord=point_obj.coord_xy,
                                 ttl="Parameter integration: amplitude coeff [m]",
                                 bmap_obj=bmap_obj, s=5, cmap="vik", symmetric=False,
                                 logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_seasonal_amplitude.png"), dpi=300)
         plt.close(fig)
 
-        fig = viewer.plotScatter(value=offset, coord=point_obj.coord_xy,
+        fig = viewer.plotScatter(value=-offset, coord=point_obj.coord_xy,
                                 ttl="Parameter integration: seasonal phase [rad]",
                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=False,
                                 logger=self.logger)[0]

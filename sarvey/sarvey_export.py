@@ -83,7 +83,7 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
 
     #vel, demerr, _, coherence, omega, _ = ut.estimateParameters(obj=point_obj, ifg_space=False)
-    vel, demerr, amplitude, offset, ref_atmo, coherence, omega, v_hat = ut.estimateParametersStar(obj=point_obj, ifg_space=False)
+    vel, demerr, amplitude, offset, ref_atmo, coherence, omega, v_hat = ut.estimateParametersSeasonal(obj=point_obj, ifg_space=False)
     #vel, demerr, _, coherence, omega, _ = ut.estimateParametersStar(obj=point_obj, ifg_space=False)
     stc = ut.spatiotemporalConsistency(coord_utm=point_obj.coord_utm, phase=point_obj.phase,
                                        wavelength=point_obj.wavelength)
