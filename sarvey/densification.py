@@ -38,7 +38,7 @@ from mintpy.utils import ptime
 from scipy import stats
 
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
-from sarvey.unwrapping_seasonal import oneDimSearchTemporalCoherence_4variables
+from sarvey.unwrapping_seasonal import oneDimSearchTemporalCoherence_4variables, searchTemporalCoherence_seasonal
 from sarvey.objects import Points
 import sarvey.utils as ut
 from tqdm import tqdm
@@ -198,7 +198,7 @@ def launchDensifyNetworkConsistencyCheck_seasonal(args: tuple):
         design_mat[:, 2] = factor * np.cos(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
         design_mat[:, 3] = factor * np.sin(omega * global_point2_obj.ifg_net_obj.tbase_ifg)
 
-        demerr_p2[idx], vel_p2[idx], amplitude_p2[idx], offset_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence_4variables(demerr_range=demerr_range, 
+        demerr_p2[idx], vel_p2[idx], amplitude_p2[idx], offset_p2[idx], gamma_p2[idx] = searchTemporalCoherence_seasonal(demerr_range=demerr_range, 
                                                                                               vel_range=vel_range, 
                                                                                               amp_range=amplitude_range,
                                                                                      offset_range=offset_range, 

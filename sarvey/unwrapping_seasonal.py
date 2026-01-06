@@ -46,14 +46,12 @@ import cmcrameri as cmc
 
 from mintpy.utils import ptime
 import datetime as dt
-
+import unwrapping as unw
 import pdb
 
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
 from sarvey.objects import Network, NetworkParameter, AmplitudeImage
-
-
 
 
 def findOptimum(*, obs_phase: np.ndarray, design_mat: np.ndarray, val_range: np.ndarray):
@@ -244,7 +242,7 @@ def oneDimSearchTemporalCoherence3(*, demerr_range: np.ndarray, vel_range: np.nd
     scale_demerr = demerr_range.max()
     scale_vel = vel_range.max()
     
-    demerr, vel, gamma = gradientSearchTemporalCoherence(scale_vel=scale_vel, scale_demerr=scale_demerr, obs_phase=obs_phase, 
+    demerr, vel, gamma = unw.gradientSearchTemporalCoherence(scale_vel=scale_vel, scale_demerr=scale_demerr, obs_phase=obs_phase, 
                                                          design_mat=design_mat, x0=np.array([demerr / scale_demerr,vel / scale_vel]).T)
 
     pred_phase = np.matmul(design_mat, np.array([demerr, vel]))
@@ -331,21 +329,91 @@ def oneDimSearchTemporalCoherence2(*, demerr_range: np.ndarray, vel_range: np.nd
     cos_term = amp * np.cos(omega*offset)
     sin_term = amp * np.sin(omega*offset)
 
-    #pred_phase2 = np.matmul(design_mat, np.array([demerr2, vel2, cosine, sine]))
-
-    #amp = np.sqrt(cosine**2+sine**2)
-    #offset = np.arctan2(sine, cosine)/omega
-
-    #angle = np.arctan2(sine,cosine)
-    #angle_pos = (angle + 2*np.pi) % (2*np.pi)
-    #offset = angle_pos/omega
-
     pred_phase = np.matmul(design_mat, np.array([demerr, vel, cos_term, sin_term]))
     res = (obs_phase - pred_phase)
     res = res.ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
     return demerr, vel, amp, offset, gamma
+
+
+def searchTemporalCoherence_seasonal(*, demerr_range: np.ndarray, vel_range: np.ndarray, amp_range: np.ndarray, offset_range: np.ndarray, obs_phase: np.ndarray, design_mat: np.ndarray):
+    
+    f = 1 # frequency cycles per years
+    omega = 2.0 * np.pi * f
+
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
+    vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
+
+    if gamma_vel > gamma_demerr:
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase - pred_phase_vel, design_mat=design_mat[:, 0], val_range=demerr_range)
+        vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase - pred_phase_demerr, design_mat=design_mat[:, 1], val_range=vel_range)
+    else:
+        vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase - pred_phase_demerr, design_mat=design_mat[:, 1], val_range=vel_range)
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase - pred_phase_vel, design_mat=design_mat[:, 0], val_range=demerr_range)
+
+    # improve initial estimate with gradient descent approach
+    scale_demerr = demerr_range.max()
+    scale_vel = vel_range.max()
+
+    demerr, vel, gamma = unw.gradientSearchTemporalCoherence(scale_vel=scale_vel,
+        scale_demerr=scale_demerr, obs_phase=obs_phase, design_mat=design_mat[:,:2], x0=np.array([demerr / scale_demerr,vel / scale_vel]).T)
+
+    pred_phase = np.matmul(design_mat[:,:2], np.array([demerr, vel]))
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma_bef = np.abs(np.mean(np.exp(1j * res)))
+
+    print(f'Gamma before seasonal fitting: {gamma_bef}')
+    
+    # estimate seasonality
+    cos_part, sin_part, gamma_seasonal, pred_phase_seasonal = findOptimum2D_sinusoidal(obs_phase=res,
+                                                                         design_mat=design_mat[:, 2:], amps_range=amp_range, time_shift_range=offset_range)
+    scale_cos = max(abs(cos_part), 1e-6)
+    scale_sin = max(abs(sin_part), 1e-6)
+    scales = np.array([scale_cos, scale_sin])
+
+    x0 = np.array([cos_part/scale_cos, sin_part/scale_sin])
+    
+    cospart, sinpart, gamma_seasonal = gradientSearchTemporalCoherence_JustSeasonal(obs_phase=obs_phase, design_mat=design_mat[:, 2:], x0=x0, scales=scales)
+
+
+    # gamma
+    pred_phase = np.matmul(design_mat, np.array([demerr, vel, cospart, sinpart]))
+    res = (obs_phase - pred_phase.T).ravel()
+    gamma_aft = np.abs(np.mean(np.exp(1j * res)))
+
+    print(f'Gamma after seasonal fitting: {gamma_aft}')
+
+    # parameters from sinusoid
+    amplitude = np.sqrt(cospart**2 + sinpart**2)  
+    phi = np.arctan2(sinpart,cospart)/omega
+
+    # testing
+    # full model
+    RSS1 = np.sum((res)**2)
+
+    # Reduced model (mean only)
+    phase_mean = np.mean(res)
+    RSS0 = np.sum((res - phase_mean)**2)
+    p0 = 1
+
+    # degrees of freedom
+    n, p1 = design_mat[:, 2:].shape
+    df_num = p1 - p0
+    df_den = n - p1
+
+    # F-test
+    RSS_diff = max(RSS0 - RSS1, 0.0)
+    F_stat = (RSS_diff / df_num) / (RSS1 / df_den)
+    p_value = 1.0 - stats.f.cdf(F_stat, df_num, df_den)
+
+    if p_value < 0.05:
+        # model is significant, there is a periodic signal
+        return demerr, vel, amplitude, phi, gamma_aft
+    else:
+        amplitude = 0
+        phi = 0
+        return demerr, vel, amplitude, phi, gamma_bef
 
 
 def oneDimSearchTemporalCoherence_4variables(*, demerr_range: np.ndarray, vel_range: np.ndarray, 
@@ -722,6 +790,43 @@ def gradientSearchTemporalCoherence_seasonal(*, obs_phase, design_mat, x0, scale
     return demerr, vel, cospart, sinpart, gamma
 
 
+def gradientSearchTemporalCoherence_JustSeasonal(*, obs_phase, design_mat, x0, scales):
+    """
+    Gradient optimization using scaled parameters only.
+
+    Parameters
+    ----------
+    x0 : array-like (2,)
+        Initial guess in scaled space.
+    scales : array-like (2,)
+        Physical scales for parameters.
+
+    Returns
+    -------
+    cospart, sinpart, gamma
+    """
+
+    bounds = [(-1.0, 1.0)] * 2
+
+    opt_res = minimize(
+        objFuncTemporalCoherence_seasonal,
+        x0,
+        args=(design_mat, obs_phase, scales),
+        bounds=bounds,
+        method="L-BFGS-B"
+    )
+
+    # Back to physical space
+    p_est = opt_res.x * scales
+    cospart, sinpart = p_est
+
+    # Compute final coherence
+    pred_phase = design_mat @ p_est
+    res = (obs_phase - pred_phase).ravel()
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return cospart, sinpart, gamma
+
 def objFuncTempCoh2(x, *args):
     (design_mat, obs_phase, scale_vel, scale_demerr, scale_amp, scale_offset, omega) = args
     
@@ -953,7 +1058,7 @@ def launchAmbiguityFunctionSearch_seasonal(parameters: tuple):
         design_mat[:, 2] = factor * np.cos(omega * ifg_net_obj.tbase_ifg)
         design_mat[:, 3] = factor * np.sin(omega * ifg_net_obj.tbase_ifg)
 
-        demerr[k], vel[k], amplitude[k], offset[k], gamma[k] = oneDimSearchTemporalCoherence_4variables(demerr_range=demerr_range, vel_range=vel_range, amp_range=amplitude_range,
+        demerr[k], vel[k], amplitude[k], offset[k], gamma[k] = searchTemporalCoherence_seasonal(demerr_range=demerr_range, vel_range=vel_range, amp_range=amplitude_range,
                                                                                      offset_range=offset_range, obs_phase=phase[k, :], design_mat=design_mat)
 
     return arc_idx_range, demerr, vel, amplitude, offset, gamma
@@ -1072,9 +1177,8 @@ def seasonalUnwrapping_old(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelen
     return a_sin, a_cos, gamma
         
 def launchSeasonalModelling(parameters: tuple, plot=False):
-    (arc_idx_range, num_arcs, phase, wavelength, ifg_net_obj, yearsRg, nyears, logger) = parameters
-    #plot: False
-    nparams = yearsRg.size * 3 # 2 params per year plus intercept per year, 27 params for 9 years 
+    (arc_idx_range, num_arcs, phase, wavelength, ifg_net_obj, yearsRg, logger) = parameters
+
     # model A sin(2pi*f*t+phase)
 
     # parameters
@@ -1123,8 +1227,8 @@ def launchSeasonalModelling(parameters: tuple, plot=False):
         if p_value < 0.05:
             # model is significant, there is a periodic signal
             logger.debug(f"Seasonal modelling meaningful - arc:{k}")
-            a_sin[k] = coef[0] #sin amp
-            a_cos[k] = coef[1] # cos amp
+            a_sin[k] = coef[0] 
+            a_cos[k] = coef[1] 
             gamma[k] = np.abs(np.mean(np.exp(1j * phaseres)))
 
             if plot:
