@@ -363,7 +363,7 @@ def searchTemporalCoherence_seasonal(*, demerr_range: np.ndarray, vel_range: np.
     res = (obs_phase - pred_phase.T).ravel()
     gamma_bef = np.abs(np.mean(np.exp(1j * res)))
 
-    print(f'Gamma before seasonal fitting: {gamma_bef}')
+    #print(f'Gamma before seasonal fitting: {gamma_bef}')
     
     # estimate seasonality
     cos_part, sin_part, gamma_seasonal, pred_phase_seasonal = findOptimum2D_sinusoidal(obs_phase=res,
@@ -382,23 +382,28 @@ def searchTemporalCoherence_seasonal(*, demerr_range: np.ndarray, vel_range: np.
     res = (obs_phase - pred_phase.T).ravel()
     gamma_aft = np.abs(np.mean(np.exp(1j * res)))
 
-    print(f'Gamma after seasonal fitting: {gamma_aft}')
+    #print(f'Gamma after seasonal fitting: {gamma_aft}')
 
     # parameters from sinusoid
     amplitude = np.sqrt(cospart**2 + sinpart**2)  
     phi = np.arctan2(sinpart,cospart)/omega
 
     # testing
-    # full model
-    RSS1 = np.sum((res)**2)
+    # residual after DEM + velocity
+    res0 = res.copy()
 
-    # Reduced model (mean only)
-    phase_mean = np.mean(res)
-    RSS0 = np.sum((res - phase_mean)**2)
-    p0 = 1
+    # residual after DEM + velocity + seasonal
+    pred_seasonal = np.matmul(design_mat[:, 2:], np.array([cospart, sinpart]))
+    res1 = res0 - pred_seasonal
 
-    # degrees of freedom
-    n, p1 = design_mat[:, 2:].shape
+    # RSS
+    RSS0 = np.sum(res0**2)
+    RSS1 = np.sum(res1**2)
+
+    n = len(res0)
+    p0 = 0
+    p1 = 2
+
     df_num = p1 - p0
     df_den = n - p1
 
@@ -409,7 +414,12 @@ def searchTemporalCoherence_seasonal(*, demerr_range: np.ndarray, vel_range: np.
 
     if p_value < 0.05:
         # model is significant, there is a periodic signal
-        return demerr, vel, amplitude, phi, gamma_aft
+        if gamma_aft - gamma_bef < 0.02:
+            amplitude = 0
+            phi = 0
+            return demerr, vel, amplitude, phi, gamma_bef
+        else:
+            return demerr, vel, amplitude, phi, gamma_aft
     else:
         amplitude = 0
         phi = 0

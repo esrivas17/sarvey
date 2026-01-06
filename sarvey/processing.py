@@ -488,6 +488,20 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_seasonal_phase.png"), dpi=300)
         plt.close(fig)
 
+        # histograms
+        fig = plt.figure(figsize=(15, 5))
+        axs = fig.subplots(1, 2)
+        axs[0].hist(-amplitude * 100, bins=200)
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Mean velocity [cm / year]')
+
+        axs[1].hist(-offset, bins=200)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('DEM error [m]')
+        fig.savefig(join(self.path, "pic", "step_2_parameters_p1.png"),
+                    dpi=300)
+        plt.close(fig)
+
         self.logger.info(msg="Remove phase contributions from mean velocity and DEM correction and seasonal signal from wrapped phase of points.")
         pred_phase_demerr, pred_phase_vel, pred_phase_seasonal = ut.predictPhaseSeasonal(
             obj=point_obj, vel=vel, demerr=demerr, amplitude=amplitude, offset=offset,
