@@ -360,8 +360,8 @@ def searchTemporalCoherence_seasonal(*, demerr_range: np.ndarray, vel_range: np.
         scale_demerr=scale_demerr, obs_phase=obs_phase, design_mat=design_mat[:,:2], x0=np.array([demerr / scale_demerr,vel / scale_vel]).T)
 
     pred_phase1 = np.matmul(design_mat[:,:2], np.array([demerr, vel]))
-    res = (obs_phase - pred_phase1.T).ravel()
-    gamma_bef = np.abs(np.mean(np.exp(1j * res)))
+    res1 = (obs_phase - pred_phase1.T).ravel()
+    gamma_bef = np.abs(np.mean(np.exp(1j * res1)))
 
     #print(f'Gamma before seasonal fitting: {gamma_bef}')
     
@@ -390,7 +390,7 @@ def searchTemporalCoherence_seasonal(*, demerr_range: np.ndarray, vel_range: np.
 
     # testing
     # residual after DEM + velocity
-    res0 = res.copy()
+    res0 = obs_phase - pred_phase1.T
 
     # residual after DEM + velocity + seasonal
     pred_seasonal = np.matmul(design_mat[:, 2:], np.array([cospart, sinpart]))
