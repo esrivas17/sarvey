@@ -149,6 +149,9 @@ class Processing:
             normflag = self.config.general.normalize_temperature
             ifg_net_obj.set_temperature(path=self.config.general.temperature_file, normalized=normflag)
             ifg_net_obj.set_ifg_temperature(nettype=self.config.preparation.ifg_network_type, ref_idx=int(np.floor(num_slc/2)))
+            fig = ifg_net_obj.plot_temperature()
+            fig.savefig(join(self.path, "pic", "step_0_temperature_ts.png"), dpi=300)
+            plt.close(fig)
         
         ifg_net_obj.writeToFile(path=join(self.path, "ifg_network.h5"), logger=log)
         log.info(msg=f"temporal baselines: {np.unique(np.round(np.abs(ifg_net_obj.tbase_ifg) * 365.25).astype(int))}")

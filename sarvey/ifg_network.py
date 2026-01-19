@@ -219,6 +219,15 @@ class IfgNetwork:
         else:
             raise Exception("Ifg network not supported")
 
+    def plot_temperature(self):
+        fig, ax = plt.subplots(1,1,figsize=(8, 5))
+        dt = [datetime.date.fromisoformat(d) for d in self.dates]
+        ax.scatter(dt, self.temperatures, c='blue')
+        ax.plot(dt, self.temperatures, c='blue')
+        ax.set_ylabel('Temperatures [C]')
+        ax.set_xlabel('temporal baseline [years]')
+        ax.set_title('Temperature')
+        return fig
 
 class StarNetwork(IfgNetwork):
     """Star network of interferograms (single-reference)."""
