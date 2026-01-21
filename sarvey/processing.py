@@ -455,11 +455,10 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
 
-        self.logger.info(msg="Remove phase contributions from mean velocity"
-                             " and DEM correction from wrapped phase of points.")
+        
         
         #temperature coefficient
-        self.logger.info(msg="Integrate mean velocity.")
+        self.logger.info(msg="Integrate temperature coefficient.")
         tcoef = spatialParameterIntegration(val_arcs=net_par_obj.tcoef,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
@@ -479,6 +478,8 @@ class Processing:
         #    ifg_space=True, logger=self.logger
         #)
         #pred_phase = pred_phase_demerr + pred_phase_vel
+        self.logger.info(msg="Remove phase contributions from mean velocity"
+                             " and DEM correction from wrapped phase of points.")
 
         pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(
             obj=point_obj, vel=vel, demerr=demerr, tcoef=tcoef,
