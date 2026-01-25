@@ -390,10 +390,18 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
     )
 
     reference_p1: Optional[List[float]] = Field(title="Reference for spatial integration",
-                                                description="Optional reference in lon lat for spatial integration",
+                                                description="Optional reference in lon lat for spatial integration separated by a comma",
                                                 default=None)
 
-
+    @field_validator("reference_p1", mode="before")
+    def parse_string_to_list(cls, v):
+        if isinstance(v, str):
+            try:
+                return [float(x) for x in v.split(",")]
+            except ValueError:
+                raise ValueError("String must contain comma-separated numbers")
+        return v
+    
     @field_validator('coherence_p1')
     def checkCoherenceP1(cls, v):
         """Check if the temporal coherence threshold is valid."""
