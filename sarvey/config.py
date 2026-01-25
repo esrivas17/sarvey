@@ -32,7 +32,7 @@ import os
 import json5
 from datetime import date
 from json import JSONDecodeError
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -388,6 +388,11 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         description="Set the minimum number of arcs per point.",
         default=3
     )
+
+    reference_p1: Optional[List[float]] = Field(title="Reference for spatial integration",
+                                                description="Optional reference in lon lat for spatial integration",
+                                                default=None)
+
 
     @field_validator('coherence_p1')
     def checkCoherenceP1(cls, v):
