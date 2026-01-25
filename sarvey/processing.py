@@ -412,6 +412,8 @@ class Processing:
 
         # reference point can be set arbitrarily, because outliers are removed.
         spatial_ref_idx = 0
+        ref_lalo = point_obj.coord_lalo[spatial_ref_idx]
+        self.logger.info(msg=f"coordinate for reference: {ref_lalo}")
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
