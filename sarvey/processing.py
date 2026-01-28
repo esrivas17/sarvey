@@ -540,6 +540,7 @@ class Processing:
                                        logger=self.logger)
 
         point_obj.phase = phase_ts
+        # i should correct displacements here
         point_obj.writeToFile()
 
     def runFiltering(self):
