@@ -728,7 +728,7 @@ def readPhasePatchwise(*, stack_obj: BaseStack, dataset_name: str, num_patches: 
     """
     if dataset_name == "ifgs":
         length, width, num_images = stack_obj.getShape(dataset_name=dataset_name)
-    elif dataset_name == "phase":  # result from miaplpy
+    elif dataset_name == "phase" or dataset_name == "timeseries":  # result from miaplpy and ERA5.h5
         num_images, length, width = stack_obj.getShape(dataset_name=dataset_name)
     else:
         logger.error(f"Reading '{dataset_name}' is not supported.")
@@ -739,6 +739,17 @@ def readPhasePatchwise(*, stack_obj: BaseStack, dataset_name: str, num_patches: 
         if dataset_name == "phase":  # result from miaplpy
             phase_img = np.moveaxis(phase_img, 0, -1)
             phase_points = phase_img[cand_mask, :]
+        elif dataset_name == "timeseries": # from ERA5.h5
+            phase_img = np.moveaxis(phase_img, 0, -1)
+            # meters to phase
+            scale_dict = {"mm": 1000, "cm": 100, "dm": 10, "m": 1}
+            stack_obj.metadata['WAVELENGTH']
+            unit = stack_obj.metadata['UNIT']
+            wv = stack_obj.metadata['WAVELENGTH']* scale_dict[unit.lower()]
+            factor = 4 * np.pi / wv * scale_dict[unit.lower()]
+            phase_img *= factor
+            phase_points = phase_img[cand_mask, :]
+
         else:
             phase_points = np.angle(phase_img[cand_mask, :])
     else:
@@ -758,6 +769,18 @@ def readPhasePatchwise(*, stack_obj: BaseStack, dataset_name: str, num_patches: 
                 box = (bbox[1], 0, bbox[0], bbox[3], num_images, bbox[2])
                 phase_img = stack_obj.read(dataset_name=dataset_name, box=box, print_msg=False)
                 phase_img = np.moveaxis(phase_img, 0, -1)
+            elif dataset_name == "timeseries": # results from ERA5.h5 or GACOS.h5
+                box = (bbox[1], 0, bbox[0], bbox[3], num_images, bbox[2])
+                phase_img = stack_obj.read(dataset_name=dataset_name, box=box, print_msg=False)
+                phase_img = np.moveaxis(phase_img, 0, -1)
+                box = (bbox[1], 0, bbox[0], bbox[3], num_images, bbox[2])
+                # meters to phase
+                scale_dict = {"mm": 1000, "cm": 100, "dm": 10, "m": 1}
+                #stack_obj.metadata['WAVELENGTH']
+                unit = stack_obj.metadata['UNIT']
+                wv = float(stack_obj.metadata['WAVELENGTH'])* scale_dict[unit.lower()]
+                factor = 4 * np.pi / wv * scale_dict[unit.lower()]
+                phase_img *= factor
             else:
                 phase_img = stack_obj.read(dataset_name=dataset_name, box=bbox, print_msg=False)
             cur_cand_mask = cand_mask[bbox[1]:bbox[3], bbox[0]:bbox[2]]
@@ -765,7 +788,7 @@ def readPhasePatchwise(*, stack_obj: BaseStack, dataset_name: str, num_patches: 
             # extract the wrapped phase for the selected pixels in the patch
             cur_num_points = cur_cand_mask[cur_cand_mask].shape[0]
             stop_idx = start_idx + cur_num_points
-            if dataset_name == "phase":
+            if dataset_name == "phase" or dataset_name == "timeseries":
                 phase_points[start_idx:stop_idx, :] = phase_img[cur_cand_mask, :]  # miaplpy results are phases
             else:
                 phase_points[start_idx:stop_idx, :] = np.angle(phase_img[cur_cand_mask, :])

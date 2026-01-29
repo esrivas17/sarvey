@@ -43,7 +43,7 @@ from sarvey.densification import densifyNetwork
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
-from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
+from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, APS_Points
 from sarvey.unwrapping import spatialParameterIntegration, \
     parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
@@ -275,6 +275,22 @@ class Processing:
                                                 point_id_img=point_id_img, logger=self.logger)
 
         point_obj.writeToFile()
+
+        aps_stack_obj = BaseStack(file=join(self.config.general.input_path, "ERA5.h5"), logger=self.logger)
+
+        aps_points_obj = APS_Points(file_path=join(self.path, "p1_aps_ts.h5"), logger=self.logger)
+        aps_points_obj.prepare(
+            point_id=point_id1,
+            coord_xy=coord_xy,
+            input_path=self.config.general.input_path
+        )
+
+        aps_points_obj.phase = ut.readPhasePatchwise(stack_obj=aps_stack_obj, dataset_name="timeseries",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
+                                                point_id_img=point_id_img, logger=self.logger)
+        aps_points_obj.time_reference()
+        aps_points_obj.writeToFile()
+
         del ifg_stack_obj, cand_mask1
 
         # 1) create spatial network
@@ -360,7 +376,9 @@ class Processing:
 
         net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+        aps_points_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
         point_obj.writeToFile()
+        aps_points_obj.writeToFile()
 
     def runUnwrappingTimeAndSpace(self):
         """RunTemporalAndSpatialUnwrapping."""
@@ -521,7 +539,12 @@ class Processing:
         # adjust reference to peak of histogram
         point_obj.phase = unw_phase
         vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+
         point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
+
+        aps_points_obj = APS_Points(file_path=join(self.path, "p1_aps_ts.h5"), logger=self.logger)
+        aps_points_obj.open(input_path=self.config.general.input_path)
+        #aps_points_obj.space_reference(ix=0)
 
         point_obj.writeToFile()
         del point_obj
@@ -538,8 +561,11 @@ class Processing:
                                        num_cores=1,  # self.config.general.num_cores,
                                        ref_idx=0,
                                        logger=self.logger)
-
-        point_obj.phase = phase_ts
+        # APS correction
+        aps_points_obj.phase_to_disp()
+        #phase_ts -= aps_points_obj.disp
+        self.logger.info(msg="removing APS from ERA")
+        point_obj.phase = phase_ts - aps_points_obj.phase
         # i should correct displacements here
         point_obj.writeToFile()
 
@@ -732,6 +758,23 @@ class Processing:
         point2_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
                                                  num_patches=self.config.general.num_patches, cand_mask=cand_mask2,
                                                  point_id_img=point_id_img, logger=self.logger)
+        
+        # APS for p2
+        aps_stack_obj = BaseStack(file=join(self.config.general.input_path, "ERA5.h5"), logger=self.logger)
+
+        aps_points_obj = APS_Points(file_path=join(self.path, "p2_aps_ts.h5"), logger=self.logger)
+        aps_points_obj.prepare(
+            point_id=point_id2,
+            coord_xy=coord_xy,
+            input_path=self.config.general.input_path
+        )
+
+        aps_points_obj.phase = ut.readPhasePatchwise(stack_obj=aps_stack_obj, dataset_name="timeseries",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask2,
+                                                point_id_img=point_id_img, logger=self.logger)
+        aps_points_obj.time_reference()
+        aps_points_obj.writeToFile()
+
 
         if self.config.phase_linking.use_phase_linking_results:
             self.logger.info(msg="read phase from MiaplPy results...")
@@ -1095,7 +1138,11 @@ class Processing:
                                        num_cores=1,  # self.config.general.num_cores,
                                        ref_idx=0,
                                        logger=self.logger)
-
-        point_obj.phase = phase_ts
+        
+        # correcting APS afterwards
+        aps_points_obj = APS_Points(file_path=join(self.path, "p2_aps_ts.h5"), logger=self.logger)
+        aps_points_obj.open(input_path=self.config.general.input_path)
+        self.logger.info(msg="removing APS from ERA")
+        point_obj.phase = phase_ts - aps_points_obj.phase
 
         point_obj.writeToFile()

@@ -827,3 +827,15 @@ class NetworkParameter(Network):
             self.demerr = f["demerr"][:]
             self.vel = f["vel"][:]
             self.gamma = f["gamma"][:]
+
+
+class APS_Points(Points):
+    def time_reference(self, ix=0):
+        self.phase -= self.phase[:,ix][:,np.newaxis]
+
+    def space_reference(self,ix=0):
+        self.phase -= self.phase[ix,:][np.newaxis,:]
+
+    def phase_to_disp(self):
+        factor = self.wavelength / (4 *np.pi)
+        self.disp = factor *self.phase
