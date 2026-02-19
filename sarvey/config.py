@@ -297,11 +297,6 @@ class Preparation(BaseModel, extra="forbid"):
         default=9
     )
 
-    quality_selection_method: str = Field(
-        title="amplitude dispersion or temporal coherence",
-        description="Select metric for pixel quality 'tcoh' and 'adi'.",
-        default='tcoh'
-    )
 
     @field_validator('start_date', 'end_date')
     def checkDates(cls, v):
@@ -401,7 +396,7 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
     tcoef_bound: float = Field(
         title="Bounds on temperature coefficient",
         description="Set the bound (symmetric) temperature coefficient",
-        default=1
+        default=0.07
     )
 
     num_optimization_samples: int = Field(
@@ -654,7 +649,7 @@ class Densification(BaseModel, extra="forbid"):
     tcoef_bound: float = Field(
         title="Bounds on temperature coefficient",
         description="Set the bound (symmetric) temperature coefficient",
-        default=1
+        default=0.09
     )
     
     num_optimization_samples: int = Field(

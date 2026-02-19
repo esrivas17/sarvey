@@ -160,10 +160,7 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_0_interferogram_network.png"), dpi=300)
         plt.close(fig)
         # at this point just created folder pic and ifg_network.h5
-        msg = "#" * 10
-        msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
-        msg += "#" * 10
-        log.info(msg=msg)
+        
 
         box_list, num_patches = ut.preparePatches(num_patches=self.config.general.num_patches,
                                                   width=slc_stack_obj.width,
@@ -177,7 +174,10 @@ class Processing:
                                      metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
 
         if self.config.general.quality_selection_method == 'tcoh':
-
+            msg = "#" * 10
+            msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
+            msg += "#" * 10
+            log.info(msg=msg)
             # create placeholder in result file for datasets which are stored patch-wise
             temp_coh_obj = BaseStack(file=join(self.path, "temporal_coherence.h5"), logger=log)
             dshape = (slc_stack_obj.length, slc_stack_obj.width)
@@ -211,6 +211,11 @@ class Processing:
             plt.close(fig)
 
         elif self.config.general.quality_selection_method == 'adi':
+            msg = "#" * 10
+            msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS"
+            msg += "#" * 10
+            log.info(msg=msg)
+
             mean_amp_img = computeIfgsStack(
                 path_ifgs=join(self.path, "ifg_stack.h5"),
                 path_slc=join(self.config.general.input_path, "slcStack.h5"),
