@@ -277,7 +277,7 @@ class Processing:
 
         elif self.config.general.quality_selection_method == 'adi':
             cand_mask1 = selectPixels(
-                path=self.config.general.adi_path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
+                path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
                 grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger
             )
 

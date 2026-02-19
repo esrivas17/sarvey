@@ -213,9 +213,7 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         # cmap = "lajolla"
 
     elif selection_method == "adi":
-        adi_file = path
-        logger.debug(f"Reading amplitude dispersion file: {adi_file}")
-        adi_obj = BaseStack(file=adi_file, logger=logger)
+        adi_obj = BaseStack(file=join(path, "temporal_coherence.h5"), logger=logger)
         quality = adi_obj.read(dataset_name="adi")
         logger.debug(f"[Min, Max] of all amplitude dispersion pixels: [{np.min(quality):.2f}, {np.max(quality):.2f}].)")
         logger.debug(f"[Min, Max] of all amplitude dispersion pixels excluding invalid values: "
