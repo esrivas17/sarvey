@@ -219,7 +219,7 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         logger.debug(f"[Min, Max] of all amplitude dispersion pixels excluding invalid values: "
                      f"[{np.nanmin(quality):.2f}, {np.nanmax(quality):.2f}].)")
         cand_mask = quality <= thrsh
-        grid_min_val = False
+        grid_min_val = True
         unit = "ADI [ ]"
         cmap = "lajolla"
         logger.debug(
