@@ -87,9 +87,21 @@ class General(BaseModel, extra="forbid"):
         default=True
     )
 
+    adi_path: str = Field(
+        title="Amplitude dispersion file path",
+        description="Amplitude dispersion",
+        default=""
+    )
+
+    quality_selection_method: str = Field(
+        title="amplitude dispersion or temporal coherence",
+        description="Select metric for pixel quality 'tcoh' and 'adi'.",
+        default='tcoh'
+    )
+
     logging_level: str = Field(
         title="Logging level.",
-        description="Set loggig level.",
+        description="Set logging level.",
         default="INFO"
     )
 
@@ -132,6 +144,15 @@ class General(BaseModel, extra="forbid"):
         if (v != "ilp") & (v != "puma"):
             raise ValueError("Unwrapping method must be either 'ilp' or 'puma'.")
         return v
+    
+    @field_validator('adi_path')
+    def checkADIPath(cls, v):
+        """Check if the amplitude dispersion exists."""
+        if v:
+            if not os.path.exists(os.path.abspath(v)):
+                raise ValueError(f"Path is invalid: {os.path.abspath(v)}")
+            else:
+                return v
 
     @field_validator('logging_level')
     def checkLoggingLevel(cls, v):
@@ -276,6 +297,12 @@ class Preparation(BaseModel, extra="forbid"):
         default=9
     )
 
+    quality_selection_method: str = Field(
+        title="amplitude dispersion or temporal coherence",
+        description="Select metric for pixel quality 'tcoh' and 'adi'.",
+        default='tcoh'
+    )
+
     @field_validator('start_date', 'end_date')
     def checkDates(cls, v):
         """Check if date format is valid."""
@@ -327,6 +354,12 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         title="Temporal coherence threshold for first-order points",
         description="Set the temporal coherence threshold of first-order points for the consistency check.",
         default=0.9
+    )
+
+    adi_p1: float = Field(
+        title="Maximum ADI threshold for first-order points",
+        description="Set the ADI threshold of first-order points for the consistency check.",
+        default=0.25
     )
 
     grid_size: int = Field(
@@ -502,6 +535,12 @@ class Filtering(BaseModel, extra="forbid"):
         title="Temporal coherence threshold",
         description="Set the temporal coherence threshold for the filtering step.",
         default=0.8
+    )
+
+    adi_p2: float = Field(
+        title="Maximum ADI threshold for second-order points",
+        description="Set the ADI threshold of second-order points for the filtering step.",
+        default=0.4
     )
 
     apply_aps_filtering: bool = Field(

@@ -199,8 +199,10 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         grid_min_val = False
         unit = "Temporal\nCoherence [ ]"
         cmap = "lajolla"
+        logger.debug(
+        f"Number of selected pixels using {thrsh:.2f} Temporal coherence threshold: {np.sum(cand_mask)}")
 
-    if selection_method == "miaplpy":
+    elif selection_method == "miaplpy":
         raise NotImplementedError("This part is not developed yet. MiaplPy data is read in another way.")
         # pl_coherence = readCoherenceFromMiaplpy(path=join(path, 'inverted', 'phase_series.h5'), box=None,
         # logger=logger)
@@ -209,6 +211,24 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         # grid_min_val = False
         # unit = "Phase-Linking\nCoherence [ ]"
         # cmap = "lajolla"
+
+    elif selection_method == "adi":
+        adi_file = path
+        logger.debug(f"Reading amplitude dispersion file: {adi_file}")
+        adi_obj = BaseStack(file=adi_file, logger=logger)
+        quality = adi_obj.read(dataset_name="adi")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels: [{np.min(quality):.2f}, {np.max(quality):.2f}].)")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels excluding invalid values: "
+                     f"[{np.nanmin(quality):.2f}, {np.nanmax(quality):.2f}].)")
+        cand_mask = quality <= thrsh
+        grid_min_val = False
+        unit = "ADI [ ]"
+        cmap = "lajolla"
+        logger.debug(
+        f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
+
+    else:
+        raise NotImplementedError
 
     if grid_size is not None:  # -> sparse pixel selection
         coord_utm_obj = CoordinatesUTM(file_path=join(path, "coordinates_utm.h5"), logger=logger)
