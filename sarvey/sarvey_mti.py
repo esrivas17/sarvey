@@ -151,7 +151,13 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
                            config_section_default=config_default_dict["filtering"],
                            logger=logger)
         proc_obj.runFiltering()
-    coh_value = int(config.filtering.coherence_p2 * 100)
+    
+    if config.general.quality_selection_method == 'tcoh':
+        coh_value = int(config.filtering.coherence_p2 * 100)
+    elif config.general.quality_selection_method == 'adi':
+        coh_value = int(config.filtering.adi_p2 * 100)
+    else:
+        raise NotImplementedError
     required_files.extend(["p1_aps.h5", f"p2_coh{coh_value}_ifg_wr.h5", f"p2_coh{coh_value}_aps.h5"])
 
     if 4 in steps:

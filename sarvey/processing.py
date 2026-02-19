@@ -763,7 +763,7 @@ class Processing:
         elif self.config.general.quality_selection_method == 'adi':
             proxy_value = int(self.config.filtering.adi_p2 * 100)
             cand_mask2 = selectPixels(
-                path=self.config.general.adi_path, selection_method="adi", thrsh=self.config.filtering.adi_p2,
+                path=self.path, selection_method="adi", thrsh=self.config.filtering.adi_p2,
                 grid_size=None, bool_plot=True, logger=self.logger
             )# first-order points are included in second-order points
 
