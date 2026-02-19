@@ -105,11 +105,11 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
                            config_section_default=config_default_dict["preparation"],
                            logger=logger)
         proc_obj.runPreparation()
-        if config.general.quality_selection_method =='tcoh':
-            required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",
-                      "temporal_coherence.h5"]
-        else:
-            required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5"]
+    if config.general.quality_selection_method =='tcoh':
+        required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",
+                    "temporal_coherence.h5"]
+    else:
+        required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5"]
 
     if 1 in steps:
         checkIfRequiredFilesExist(
