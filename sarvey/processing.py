@@ -420,6 +420,7 @@ class Processing:
             spatial_ref_idx = 0
         
         ref_lalo = point_obj.coord_lalo[spatial_ref_idx]
+        ref_xy = point_obj.coord_xy[spatial_ref_idx]
         self.logger.info(msg=f"coordinate for reference: {ref_lalo}")
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
@@ -437,10 +438,11 @@ class Processing:
         #                                               spatial_ref_idx=spatial_ref_idx,
         #                                               res_tol=5.0,
         #                                               max_rm_fraction=0.001)
-        fig = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+        fig, axf, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
@@ -457,14 +459,14 @@ class Processing:
         #                                            spatial_ref_idx=spatial_ref_idx,
         #                                            res_tol=1.0,
         #                                            max_rm_fraction=0.001)
-        fig = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
+        fig, axf, _ = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        # plotting reference of network
+        axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
-
-        
         
         #temperature coefficient
         self.logger.info(msg="Integrate temperature coefficient.")
@@ -474,10 +476,11 @@ class Processing:
                                           weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-tcoef, coord=point_obj.coord_xy,
+        fig, axf, _ = viewer.plotScatter(value=-tcoef, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: temperature coefficient [m / C]",
                                  bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
         plt.close(fig)
 
