@@ -32,7 +32,7 @@ import os
 import json5
 from datetime import date
 from json import JSONDecodeError
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -389,17 +389,21 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=3
     )
 
-    reference_p1: Optional[List[float]] = Field(title="Reference for spatial integration",
-                                                description="Optional reference in lon lat for spatial integration separated by a comma",
-                                                default=None)
+    
+    reference_p1: Optional[Tuple[float, float]] = Field(title="Reference for spatial integration",
+        description="Optional reference in lon,lat for spatial integration",
+        default=None
+    )
+
 
     @field_validator("reference_p1", mode="before")
-    def parse_string_to_list(cls, v):
+    def parse_string_to_tuple(cls, v):
         if isinstance(v, str):
             try:
-                return [float(x) for x in v.split(",")]
+                lon, lat = [float(x.strip()) for x in v.split(",")]
+                return (lon, lat)
             except ValueError:
-                raise ValueError("String must contain comma-separated numbers")
+                raise ValueError("Value must be 'lon,lat'")
         return v
     
     @field_validator('coherence_p1')
