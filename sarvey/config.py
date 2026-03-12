@@ -390,21 +390,14 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
     )
 
     
-    reference_p1: Optional[Tuple[float, float]] = Field(title="Reference for spatial integration",
-        description="Optional reference in lon,lat for spatial integration",
-        default=None
-    )
-
-
-    @field_validator("reference_p1", mode="before")
-    def parse_string_to_tuple(cls, v):
-        if isinstance(v, str):
-            try:
-                lon, lat = [float(x.strip()) for x in v.split(",")]
-                return (lon, lat)
-            except ValueError:
-                raise ValueError("Value must be 'lon,lat'")
-        return v
+    reference_p1_lon: Optional[float] = Field(title="Reference for spatial integration",
+        description="Optional reference in lon,lat for spatial integration",     
+        default=None)
+    
+    reference_p1_lat: Optional[float] = Field(title="Reference for spatial integration",
+        description="Optional reference in lon,lat for spatial integration",     
+        default=None)
+    
     
     @field_validator('coherence_p1')
     def checkCoherenceP1(cls, v):

@@ -411,8 +411,9 @@ class Processing:
         )
 
         # reference point can be set arbitrarily, because outliers are removed.
-        if self.config.consistency_check.reference_p1:
-            reflon, reflat = self.config.consistency_check.reference_p1
+        if self.config.consistency_check.reference_p1_lon:
+            reflon = self.config.consistency_check.reference_p1_lon
+            reflat = self.config.consistency_check.reference_p1_lat
             from scipy.spatial import KDTree
             tree_p1 = KDTree(point_obj.coord_lalo)
             spatial_ref_idx = tree_p1.query([reflat, reflon])[-1]
