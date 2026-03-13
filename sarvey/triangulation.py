@@ -142,3 +142,64 @@ class PointNetworkTriangulation:
         prog_bar.close()
         m, s = divmod(time.time() - start_time, 60)
         self.logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+
+
+class HeightTriangulation(PointNetworkTriangulation):
+
+    def add_demerror(self, demerror: np.array):
+        self.demerror = demerror
+        self.height_mat = self.demerror[:, None] - self.demerror[None, :]
+
+    def removeHighArcs(self, *, max_height: float):
+        """Remove arcs from network which are longer than given threshold.
+
+        Parameter
+        ---------
+        max_dist: float
+            distance threshold on arc length in [m]
+        """
+        mask = self.height_mat > max_height
+        self.adj_mat[mask] = False
+
+    def triangulateKnn(self, *, k: int, height_thresh: float):
+        """Connect points to the k-nearest neighbours with a height constraint."""
+        
+        self.logger.info(msg=f"Triangulate points with {k}-nearest neighbours and height threshold {height_thresh}.")
+        
+        num_points = self.coord_xy.shape[0]
+        prog_bar = ptime.progressBar(maxValue=num_points)
+        start_time = time.time()
+        count = 0
+
+        tree = KDTree(data=self.coord_xy)
+
+        if k > num_points:
+            k = num_points
+            self.logger.info(msg="k > number of points. Connect all points with each other.")
+
+        for p1 in range(num_points):
+
+            # candidate neighbors
+            idx = tree.query(self.coord_xy[p1, :], k)[1]
+
+            # compute height difference
+            dh = np.abs(self.demerror[p1] - self.demerror[idx])
+
+            # filter neighbors
+            valid_idx = idx[dh <= height_thresh]
+
+            # update adjacency
+            self.adj_mat[p1, valid_idx] = True
+
+            count += 1
+            prog_bar.update(
+                value=count + 1,
+                every=np.int16(num_points / (num_points / 5)),
+                suffix='{}/{} points triangulated'.format(count + 1, num_points + 1)
+            )
+
+        prog_bar.close()
+
+        m, s = divmod(time.time() - start_time, 60)
+        self.logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+

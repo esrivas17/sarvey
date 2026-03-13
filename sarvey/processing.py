@@ -43,14 +43,15 @@ from sarvey.densification import densifyNetwork, densifyNetwork_temp
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
-from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp
+from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp, NetworkParameter_DEMError
 from sarvey.unwrapping import spatialParameterIntegration,  \
     parameterBasedNoisyPointRemoval, temporalUnwrapping, spatialUnwrapping, removeGrossOutliers
-from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
+from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence
 from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
+from sarvey.unwrapping_1d import temporalUnwrapping_demerr
 
 import pdb
 from sarvey.unwrapping_temperature import *
@@ -293,23 +294,103 @@ class Processing:
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
                                        logger=self.logger)
-        net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(
-            point_obj=point_obj,
-            arcs=arcs
-        )
+        net_obj = Network(file_path=join(self.path, "apriori_point_network.h5"), logger=self.logger)
+        net_obj.computeArcObservations(point_obj=point_obj, arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
-        #demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
-        #                                        net_obj=net_obj,
-        #                                        wavelength=point_obj.wavelength,
-        #                                        velocity_bound=self.config.consistency_check.velocity_bound,
-        #                                        demerr_bound=self.config.consistency_check.dem_error_bound,
-        #                                        num_samples=self.config.consistency_check.num_optimization_samples,
-        #                                        num_cores=self.config.general.num_cores,
-        #                                        logger=self.logger)
+        ###############################################
+        # only dem unwrapping
+        demerr, gamma = temporalUnwrapping_demerr(ifg_net_obj=point_obj.ifg_net_obj,
+                                                net_obj=net_obj,
+                                                wavelength=point_obj.wavelength,
+                                                demerr_bound=self.config.consistency_check.dem_error_bound_demerror_network,
+                                                num_samples=self.config.consistency_check.num_optimization_samples,
+                                                num_cores=self.config.general.num_cores,
+                                                logger=self.logger)
+        
+        demerr_net_par_obj = NetworkParameter_DEMError(file_path=join(self.path, "point_network_demerr.h5"),  logger=self.logger)
+        demerr_net_par_obj.prepare(net_obj=net_obj,demerr=demerr, gamma=gamma)
+        demerr_net_par_obj.writeToFile()
+        
+        # PLOT
+        bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
+        try:
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+                                                      arcs=demerr_net_par_obj.arcs, val=demerr_net_par_obj.gamma,
+                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from DEM Error temporal unwrapping\nBefore outlier removal")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_arc_coherence_demerror.png"), dpi=300)
+        except BaseException as e:
+            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+
+        demerr_net_par_obj, point_id, coord_xy, design_mat = removeGrossOutliers(
+            net_obj=demerr_net_par_obj,
+            point_id=point_obj.point_id,
+            coord_xy=point_obj.coord_xy,
+            min_num_arc=self.config.consistency_check.min_num_arc_demerror,
+            quality_thrsh=self.config.consistency_check.arc_coherence_demerror,
+            logger=self.logger
+        )
+
+        try:
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=coord_xy[:, 1], y=coord_xy[:, 0],
+                                                      arcs=demerr_net_par_obj.arcs,
+                                                      val=demerr_net_par_obj.gamma,
+                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping\nAfter outlier removal")
+
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_arc_coherence_demerror_reduced.png"), dpi=300)
+        except BaseException as e:
+            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+
+        #spatial_ref_id, point_id, demerr_net_par_obj = parameterBasedNoisyPointRemoval(
+        #    net_par_obj=demerr_net_par_obj,
+        #    point_id=point_id,
+        #    coord_xy=coord_xy,
+        #    design_mat=design_mat,
+        #    bmap_obj=bmap_obj,
+        #    bool_plot=True,
+        #    logger=self.logger)
+        
+        demerr_net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.?
+        point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+        point_obj.writeToFile()
+        spatial_ref_idx = 0
+        demerr = spatialParameterIntegration(val_arcs=demerr_net_par_obj.demerr,
+                                             arcs=demerr_net_par_obj.arcs,
+                                             coord_xy=point_obj.coord_xy,
+                                             weights=demerr_net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori.png"), dpi=300)
+        plt.close(fig)
+        self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimaitons: {demerr.shape}")
+        ##################################################
+        # 2) create spatial network
+        
+        arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, demerror=demerr,
+                                       knn=self.config.consistency_check.num_nearest_neighbours,
+                                       max_arc_length=self.config.consistency_check.max_arc_length,
+                                       max_arc_height=self.config.consistency_check.max_arc_height,
+                                       logger=self.logger)
+        
+        net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
+        net_obj.computeArcObservations(point_obj=point_obj, arcs=arcs)
+        net_obj.writeToFile()
+        net_obj.open(input_path=self.config.general.input_path) 
+        
         demerr, vel, tcoef, gamma = temporalUnwrapping_t(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
@@ -319,16 +400,6 @@ class Processing:
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
-
-        #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
-        #                               logger=self.logger)
-        #net_par_obj.prepare(
-        #    net_obj=net_obj,
-        #    demerr=demerr,
-        #    vel=vel,
-        #    gamma=gamma
-       # )
-       # net_par_obj.writeToFile()
 
         net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
@@ -349,7 +420,8 @@ class Processing:
             ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+                                                      ax=ax, linewidth=0.8, cmap="lajolla", clim=(0, 1))
+            
             ax.set_title("Coherence from temporal unwrapping\nBefore outlier removal")
             fig = ax.get_figure()
             plt.tight_layout()

@@ -39,7 +39,7 @@ import mintpy.utils.readfile as readfile
 from sarvey import viewer
 import sarvey.utils as ut
 from sarvey.objects import CoordinatesUTM, AmplitudeImage, BaseStack, Points
-from sarvey.triangulation import PointNetworkTriangulation
+from sarvey.triangulation import PointNetworkTriangulation, HeightTriangulation
 
 
 def createTimeMaskFromDates(*, start_date: str, stop_date: str, date_list: list, logger: Logger):
@@ -272,6 +272,57 @@ def createArcsBetweenPoints(*, point_obj: Points, knn: int = None, max_arc_lengt
 
     if not triang_obj.isConnected():
         triang_obj.triangulateGlobal()
+
+    logger.info(msg="retrieve arcs from adjacency matrix.")
+    arcs = triang_obj.getArcsFromAdjMat()
+    return arcs
+
+
+def createConstraintArcsBetweenPoints(*, point_obj: Points, demerror: np.array, knn: int = None,  max_arc_length: float = np.inf, max_arc_height: float = np.inf, logger: Logger) -> np.ndarray:
+    """Create a spatial network of arcs to triangulate the points.
+
+    All points are triangulated with a Delaunay triangulation. If knn is given, the triangulation is done with the k
+    nearest neighbors. Too long arcs are removed from the network. If, afterward, the network is not connected, a
+    delaunay triangulation is performed again to ensure connectivity in the network.
+
+    Parameters
+    ----------
+    point_obj: Points
+        Point object.
+    knn: int
+        Number of nearest neighbors to consider (default: None).
+    max_arc_length: float
+        Maximum length of an arc. Longer arcs will be removed. Default: np.inf.
+    max_arc_height: float
+        Maximum height of arc
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    arcs: np.ndarray
+        Arcs of the triangulation containing the indices of the points for each arc.
+    """
+    triang_obj = HeightTriangulation(coord_xy=point_obj.coord_xy, coord_utmxy=point_obj.coord_utm, logger=logger)
+    triang_obj.add_demerror(demerror)
+
+    if knn is not None:
+        triang_obj.triangulateKnn(k=knn, height_thresh=max_arc_height)
+
+    #triang_obj.triangulateGlobal()
+
+    logger.info(msg="remove arcs with length > {}.".format(max_arc_length))
+    triang_obj.removeLongArcs(max_dist=max_arc_length)
+
+    logger.info(msg="remove arcs with height > {}.".format(max_arc_height))
+    triang_obj.removeHighArcs(max_height=max_arc_height)
+
+    if not triang_obj.isConnected():
+        logger.info(msg="Network NOT connected. Adding Delaunay arcs")
+        triang_obj.triangulateGlobal()
+
+    logger.info(msg="remove arcs with height > {}.".format(max_arc_height))
+    triang_obj.removeHighArcs(max_height=max_arc_height)
 
     logger.info(msg="retrieve arcs from adjacency matrix.")
     arcs = triang_obj.getArcsFromAdjMat()
