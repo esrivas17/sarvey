@@ -58,7 +58,7 @@ def temporalUnwrapping_demerr(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wav
         args = (
             np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
             net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, demerr_bound, num_samples)
-        arc_idx_range, demerr, gamma = launchAmbiguityFunctionSearch(parameters=args)
+        arc_idx_range, demerr, gamma = launchAmbiguityFunctionSearchDEMerr(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
 
@@ -81,7 +81,7 @@ def temporalUnwrapping_demerr(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wav
             num_samples) for idx_range in idx]
 
         with multiprocessing.Pool(processes=num_cores) as pool:
-            results = pool.map(func=launchAmbiguityFunctionSearch, iterable=args)
+            results = pool.map(func=launchAmbiguityFunctionSearchDEMerr, iterable=args)
 
         # retrieve results
         for i, demerr_i, gamma_i in results:
@@ -94,7 +94,7 @@ def temporalUnwrapping_demerr(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wav
     return demerr, gamma
 
 
-def launchAmbiguityFunctionSearch(parameters: tuple):
+def launchAmbiguityFunctionSearchDEMerr(parameters: tuple):
     """Wrap for launching ambiguity function for temporal unwrapping in parallel.
 
     Parameters
@@ -151,8 +151,7 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, obs_phase: np.nda
     # Convert to scaled space for L-BFGS-B
     x0 = (p0 - centers) / scales
 
-    demerr, gamma = gradientSearchTcoh(
-        scales=scales,
+    demerr, gamma = gradientSearchTcoh(scales=scales,
         centers=centers,
         obs_phase=obs_phase,
         design_mat=design_mat,

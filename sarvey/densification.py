@@ -38,6 +38,7 @@ from mintpy.utils import ptime
 
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
 from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_t, oneDimSearchTemporalCoherence_3variables
+from sarvey.unwrapping_1d import coarseSearchTempCoh
 from sarvey.objects import Points
 import sarvey.utils as ut
 
@@ -274,8 +275,7 @@ def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndar
 
 def launchDensifyNetworkConsistencyCheck_temp(args: tuple):
 
-    (idx_range, num_points, num_conn_p1, max_dist_p1, 
-     velocity_bound, demerr_bound, tcoef_bound, num_samples) = args
+    (idx_range, num_points, num_conn_p1, max_dist_p1, velocity_bound, demerr_bound, tcoef_bound, num_samples) = args
 
     counter = 0
     prog_bar = ptime.progressBar(maxValue=num_points)
@@ -421,3 +421,160 @@ def densifyNetwork_temp(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np
     
     return demerr_p2, vel_p2, tcoef_p2, gamma_p2
 
+
+
+def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, tcoef_p1: np.ndarray, 
+                        point2_obj: Points, num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,  tcoef_bound: float, 
+                        max_height_p1: int, gamma_thresh_demerror: float, num_samples: int, num_cores: int = 1, logger: Logger):
+
+    msg = "#" * 10
+    msg += " DENSIFICATION WITH SECOND-ORDER POINTS CONSTRAINED WITH DEMERROR "
+    msg += "#" * 10
+    logger.info(msg=msg)
+    start_time = time.time()
+
+    # find the closest points from first-order network
+    tree_p1 = KDTree(data=point1_obj.coord_utm)
+
+    # remove parameters from wrapped phase
+    pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(obj=point1_obj,
+        vel=vel_p1, demerr=demerr_p1, tcoef=tcoef_p1, ifg_space=True, logger=logger)
+
+    pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_tcoef
+
+    demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
+
+    # initialize output
+    init_args = (tree_p1, point2_obj, demod_phase1)
+
+    if num_cores == 1:
+        densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
+        args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1, max_height_p1, 
+                gamma_thresh_demerror, demerr_bound, velocity_bound, tcoef_bound, num_samples)
+        idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkDEMConstraint(args)
+    else:
+        with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
+            logger.info(msg="start parallel processing with {} cores.".format(num_cores))
+            num_cores = point2_obj.num_points if num_cores > point2_obj.num_points else num_cores
+            # avoids having less samples than cores
+            idx = ut.splitDatasetForParallelProcessing(num_samples=point2_obj.num_points, num_cores=num_cores)
+            args = [(idx_range, idx_range.shape[0], num_conn_p1, max_dist_p1, max_height_p1, gamma_thresh_demerror, 
+                     demerr_bound, velocity_bound, tcoef_bound, num_samples) for idx_range in idx]
+
+            results = pool.map_async(launchDensifyNetworkDEMConstraint, args, chunksize=1)
+            while True:
+                time.sleep(5)
+                if results.ready():
+                    results = results.get()
+                    break
+
+        demerr_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        vel_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        tcoef_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        gamma_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+
+        # retrieve results
+        for i, demerr_i, vel_i, tcoef_i, gamma_i in results:
+            demerr_p2[i] = demerr_i
+            vel_p2[i] = vel_i
+            tcoef_p2[i] = tcoef_i
+            gamma_p2[i] = gamma_i
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
+
+    # combine p1 and p2 parameters and bring them in correct order using point_id
+    sort_idx = np.argsort(np.append(point1_obj.point_id, point2_obj.point_id))
+    demerr_p2 = np.append(demerr_p1, demerr_p2)  # add gamma=1 for p1 pixels
+    vel_p2 = np.append(vel_p1, vel_p2)
+    tcoef_p2 = np.append(tcoef_p1, tcoef_p2)
+    gamma_p2 = np.append(np.ones_like(point1_obj.point_id), gamma_p2)  # add gamma=1 for p1 pixels
+
+    demerr_p2 = demerr_p2[sort_idx]
+    vel_p2 = vel_p2[sort_idx]
+    gamma_p2 = gamma_p2[sort_idx]
+    tcoef_p2 = tcoef_p2[sort_idx]
+    
+    return demerr_p2, vel_p2, tcoef_p2, gamma_p2
+
+def launchDensifyNetworkDEMConstraint(args: tuple):
+
+    (idx_range, num_points, num_conn_p1, max_dist_p1, max_height_p1, gamma_demerr_thresh, demerr_bound, velocity_bound, tcoef_bound, num_samples) = args
+
+    counter = 0
+    prog_bar = ptime.progressBar(maxValue=num_points)
+
+    # initialize output
+    demerr_p2 = np.zeros((num_points,), dtype=np.float32)
+    vel_p2 = np.zeros((num_points,), dtype=np.float32)
+    gamma_p2 = np.zeros((num_points,), dtype=np.float32)
+    tcoef_p2 = np.zeros((num_points,), dtype=np.float32)
+
+    design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 3), dtype=np.float32)
+
+    demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
+    vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
+    tcoef_range = np.linspace(-tcoef_bound, tcoef_bound, num_samples)
+
+    design_mat_demerr = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 1), dtype=np.float32)
+    factor = 4 * np.pi / global_point2_obj.wavelength
+
+    for idx in range(num_points):
+
+        p2 = idx_range[idx]
+        # nearest points in p1
+        nk = num_conn_p1 * 2
+        dist, nearest_p1 = global_tree_p1.query([global_point2_obj.coord_utm[p2, 0], global_point2_obj.coord_utm[p2, 1]], k=nk)
+
+        # filter distance
+        mask = (dist < max_dist_p1) & (dist != 0)
+        mask[:3] = True  # ensure that always at least the three closest points are used
+        nearest_p1 = nearest_p1[mask]
+        
+        # height filter -  i do not know the height of p2 so quickly estimate the relative height with closest p1 points
+        nearest_p1_filtered = list()
+        arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1, :]))) 
+
+        npoints = 0
+        for ix, np1dx in zip(range(arc_phase_p1.shape[0]), nearest_p1):
+            design_mat_demerr[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
+                            / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
+            demerr_p2_coarse, gamma_p2_coarse = coarseSearchTempCoh(demerr_range=demerr_range, obs_phase=arc_phase_p1[ix, :], design_mat=design_mat_demerr)
+            
+            if (np.abs(demerr_p2_coarse) <= max_height_p1) & (gamma_p2_coarse >= gamma_demerr_thresh):
+                nearest_p1_filtered.append(np1dx)
+                npoints += 1
+
+                if npoints >= num_conn_p1:
+                    break
+                
+        if not nearest_p1_filtered:
+            nearest_p1_filtered = nearest_p1
+            #continue
+        else:
+            if len(nearest_p1_filtered) >= nk:
+                nearest_p1_filtered = nearest_p1_filtered[:nk]
+
+        
+        # compute arc observations to filtered nearest points with DEM err
+        arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1_filtered, :])))
+
+        design_mat[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
+                            / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
+        design_mat[:, 1] = factor * global_point2_obj.ifg_net_obj.tbase_ifg
+        design_mat[:, 2] = factor * global_point2_obj.ifg_net_obj.temperatures_ifg
+
+
+        demerr_p2[idx], vel_p2[idx], tcoef_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence_3variables(
+            demerr_range=demerr_range,
+            vel_range=vel_range,
+            tcoef_range=tcoef_range,
+            obs_phase=arc_phase_p1,
+            design_mat=design_mat)
+
+        prog_bar.update(counter + 1, every=np.int16(200),
+                        suffix='{}/{} points'.format(counter + 1, num_points))
+        counter += 1
+
+    return idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2
+        

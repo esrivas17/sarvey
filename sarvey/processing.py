@@ -39,7 +39,7 @@ from mintpy.utils import readfile
 from mintpy.utils.plot import auto_flip_direction
 
 from sarvey import viewer
-from sarvey.densification import densifyNetwork, densifyNetwork_temp
+from sarvey.densification import densifyNetwork, densifyNetwork_temp, densifyNetworkConstrained
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
@@ -716,10 +716,10 @@ class Processing:
             auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
         else:
             # remove DEM error, but not velocity before estimating the temporal autocorrelation
-            raise Exception("edit this")
-            pred_phase_demerr = ut.predictPhase(
-                obj=point1_obj, vel=vel, demerr=demerr, ifg_space=False, logger=self.logger)[0]
-            phase_wo_demerr = point1_obj.phase - pred_phase_demerr
+            pred_phase_demerr, _, pred_phase_tcoef = ut.predictPhase_t(
+                obj=point1_obj, vel=vel, demerr=demerr, tcoef=tcoef,
+                ifg_space=True, logger=self.logger)
+            phase_wo_demerr = point1_obj.phase - pred_phase_demerr - pred_phase_tcoef
             auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
 
         auto_corr_img[mask] = auto_corr
@@ -747,6 +747,7 @@ class Processing:
         cand_mask_sparse = ut.selectBestPointsInGrid(box_list=box_list, quality=auto_corr_img, sel_min=True)
 
         num_p1_points_for_filtering = cand_mask_sparse[cand_mask_sparse].shape[0]
+
         if num_p1_points_for_filtering < 10:
             self.logger.warning(msg=f"Only {num_p1_points_for_filtering} points for APS filtering selected. Filtering "
                                     f"results are probably not reliable. You can e.g. increase 'max_auto_corr' or try "
@@ -755,17 +756,17 @@ class Processing:
                 self.logger.error("No points selected for APS filtering.")
                 raise ValueError
 
-        point_id_img = np.arange(0, point1_obj.length * point1_obj.width).reshape(
-            (point1_obj.length, point1_obj.width))
+        point_id_img = np.arange(0, point1_obj.length * point1_obj.width).reshape((point1_obj.length, point1_obj.width))
+        cand_mask_sparse[:] = True
         keep_id = point_id_img[np.where(cand_mask_sparse)]
         point1_obj.removePoints(keep_id=keep_id, input_path=self.config.general.input_path)
         point1_obj.writeToFile()  # to be able to load aps1 from this file having the same set of points
-
         # store plot for quality control during processing
         fig, ax = viewer.plotScatter(value=auto_corr_img[cand_mask_sparse], coord=point1_obj.coord_xy,
                                      bmap_obj=bmap_obj, ttl="Selected pixels for APS estimation",
                                      unit="Auto-correlation\n[ ]", s=5, cmap="lajolla", vmin=0, vmax=1,
                                      logger=self.logger)[:2]
+        
         viewer.plotGridFromBoxList(box_list=box_list, ax=ax, edgecolor="k", linewidth=0.2)
         fig.savefig(join(self.path, "pic", "step_3_stable_points.png"), dpi=300)
         plt.close(fig)
@@ -779,18 +780,15 @@ class Processing:
 
         # create output which contains only the atmospheric phase screen (no parameters)
         aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
-        aps1_obj.open(
-            other_file_path=join(self.path, "p1_ts_filt.h5"),
-            input_path=self.config.general.input_path
-        )
+        aps1_obj.open(other_file_path=join(self.path, "p1_ts_filt.h5"),
+            input_path=self.config.general.input_path)
 
         # select second-order points
         cand_mask2 = selectPixels(
             path=self.path, selection_method="temp_coh",
             thrsh=self.config.filtering.coherence_p2,
             grid_size=None, bool_plot=True,
-            logger=self.logger
-        )  # first-order points are included in second-order points
+            logger=self.logger)  # first-order points are included in second-order points
 
         if self.config.phase_linking.use_phase_linking_results:
             # read PL results
@@ -971,8 +969,7 @@ class Processing:
         point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
         point2_obj.open(
             other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )  # wrapped phase
+            input_path=self.config.general.input_path)  # wrapped phase
 
         # estimate parameters from unwrapped phase
         point1_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
@@ -1075,21 +1072,8 @@ class Processing:
         point2_obj.phase = np.angle(np.exp(1j * point2_obj.phase) * np.conjugate(np.exp(1j * aps2_ifg_phase)))
         point1_obj.phase = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * aps1_ifg_phase)))
 
-        #demerr, vel, gamma = densifyNetwork(
-        #    point1_obj=point1_obj,
-        #    vel_p1=vel_p1,
-        #    demerr_p1=demerr_p1,
-        #    point2_obj=point2_obj,
-        #    num_conn_p1=self.config.densification.num_connections_to_p1,
-        #    max_dist_p1=self.config.densification.max_distance_to_p1,
-        #    velocity_bound=self.config.densification.velocity_bound,
-        #    demerr_bound=self.config.densification.dem_error_bound,
-        #    num_samples=self.config.densification.num_optimization_samples,
-        #    num_cores=self.config.general.num_cores,
-        #    logger=self.logger
-        #)  # returns parameters of both first- and second-order points
 
-        demerr, vel, tcoef, gamma = densifyNetwork_temp(
+        demerr, vel, tcoef, gamma = densifyNetworkConstrained(
             point1_obj=point1_obj,
             vel_p1=vel_p1,
             demerr_p1=demerr_p1,
@@ -1100,6 +1084,8 @@ class Processing:
             velocity_bound=self.config.densification.velocity_bound,
             demerr_bound=self.config.densification.dem_error_bound,
             tcoef_bound=self.config.densification.tcoef_bound,
+            max_height_p1=self.config.densification.max_height_to_p1,
+            gamma_thresh_demerror=self.config.densification.gamma_thresh_demerror,
             num_samples=self.config.densification.num_optimization_samples,
             num_cores=self.config.general.num_cores,
             logger=self.logger)

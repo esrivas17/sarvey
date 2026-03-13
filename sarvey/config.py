@@ -650,6 +650,20 @@ class Densification(BaseModel, extra="forbid"):
         default=0.5
     )
 
+    gamma_thresh_demerror: float = Field(
+        title="Gamma threshold for arc coherence to obtain coarse dem error",
+        description="Gamma threshold for coarse DEM estimation",
+        default=0.5
+    )
+
+    max_height_to_p1: int = Field(
+        title="Maximum height to first-order points [m]",
+        description="Set threshold on the height between first-order points and to be temporally unwrapped"
+                    "second-order point.",
+        default=100
+    )
+
+
     @field_validator('num_connections_to_p1')
     def checkNumConn1(cls, v):
         """Check if num_connections_p1 are valid."""
