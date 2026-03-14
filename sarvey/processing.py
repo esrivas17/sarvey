@@ -757,7 +757,17 @@ class Processing:
                 raise ValueError
 
         point_id_img = np.arange(0, point1_obj.length * point1_obj.width).reshape((point1_obj.length, point1_obj.width))
-        cand_mask_sparse[:] = True
+
+        # add points in height based on percentiles of DEM error ######
+        # 10 percentile levels
+        n_bins = 5
+        percvals = np.percentile(demerr, np.linspace(50, 100, n_bins))
+        # index of closest sample to each percentile
+        idxs = np.array([np.argmin(np.abs(demerr - pv)) for pv in percvals])
+        idxs2d =  point1_obj.coord_xy[idxs,:]
+        #cand_mask_sparse[idxs2d[:,0], idxs2d[:,1]] = True
+        ####################################################################
+
         keep_id = point_id_img[np.where(cand_mask_sparse)]
         point1_obj.removePoints(keep_id=keep_id, input_path=self.config.general.input_path)
         point1_obj.writeToFile()  # to be able to load aps1 from this file having the same set of points
