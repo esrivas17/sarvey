@@ -549,8 +549,12 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
                     break
                 
         if not nearest_p1_filtered:
-            nearest_p1_filtered = nearest_p1
-            #continue
+            #nearest_p1_filtered = nearest_p1
+            demerr_p2[idx] = 0
+            vel_p2[idx] = 0
+            tcoef_p2[idx] = 0
+            gamma_p2[idx] = 0
+            continue
         else:
             if len(nearest_p1_filtered) >= nk:
                 nearest_p1_filtered = nearest_p1_filtered[:nk]
