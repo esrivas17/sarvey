@@ -294,10 +294,7 @@ class Processing:
                                        max_arc_length=self.config.consistency_check.max_arc_length,
                                        logger=self.logger)
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(
-            point_obj=point_obj,
-            arcs=arcs
-        )
+        net_obj.computeArcObservations(point_obj=point_obj,arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
@@ -332,13 +329,7 @@ class Processing:
 
         net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
-        net_par_obj.prepare(
-            net_obj=net_obj,
-            demerr=demerr,
-            vel=vel,
-            tcoef=tcoef,
-            gamma=gamma
-        )
+        net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
         net_par_obj.writeToFile()
 
         # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
@@ -357,12 +348,11 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        _, point_id = removeBadPointsIteratively(
-            net_obj=net_par_obj,
+        _, point_id = removeBadPointsIteratively(net_obj=net_par_obj,
             point_id=point_obj.point_id,
             quality_thrsh=self.config.consistency_check.point_median_coherence,
-            logger=self.logger
-        )
+            logger=self.logger)
+        
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
 
         try:
@@ -384,30 +374,23 @@ class Processing:
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        logger=self.logger)
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(
-            point_obj=point_obj,
-            arcs=arcs
-        )
+        net_obj.computeArcObservations(point_obj=point_obj,arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
-        demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
+        demerr, vel, tcoef, gamma = temporalUnwrapping_t(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
                                                 demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                coef_bound=self.config.consistency_check.tcoef_bound,
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
 
-        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
+        net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
-        net_par_obj.prepare(
-            net_obj=net_obj,
-            demerr=demerr,
-            vel=vel,
-            gamma=gamma
-        )
+        net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, tcoef=tcoef, gamma=gamma)
         net_par_obj.writeToFile()
 
         try:
@@ -423,11 +406,9 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj = removeBadArcsIteratively(
-            net_obj=net_par_obj,
+        net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj,
             quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
-            logger=self.logger
-        )
+            logger=self.logger)
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
