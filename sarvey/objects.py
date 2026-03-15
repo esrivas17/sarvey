@@ -2,7 +2,7 @@
 
 # SARvey - A multitemporal InSAR time series tool for the derivation of displacements.
 #
-# Copyright (C) 2021-2025 Andreas Piter (IPI Hannover, piter@ipi.uni-hannover.de)
+# Copyright (C) 2021-2026 Andreas Piter (IPI Hannover, piter@ipi.uni-hannover.de)
 #
 # This software was developed together with FERN.Lab (fernlab@gfz-potsdam.de) in the context
 # of the SAR4Infra project with funds of the German Federal Ministry for Digital and
@@ -740,7 +740,6 @@ class Network:
         """
         self.arcs = arcs
         self.num_arcs = self.arcs.shape[0]
-        self.logger.info(msg="no. arcs:\t{}".format(self.num_arcs))
 
         self.phase = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs))
         self.loc_inc = np.zeros((self.num_arcs,))

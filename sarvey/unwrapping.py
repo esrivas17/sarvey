@@ -2,7 +2,7 @@
 
 # SARvey - A multitemporal InSAR time series tool for the derivation of displacements.
 #
-# Copyright (C) 2021-2025 Andreas Piter (IPI Hannover, piter@ipi.uni-hannover.de)
+# Copyright (C) 2021-2026 Andreas Piter (IPI Hannover, piter@ipi.uni-hannover.de)
 #
 # This software was developed together with FERN.Lab (fernlab@gfz-potsdam.de) in the context
 # of the SAR4Infra project with funds of the German Federal Ministry for Digital and
@@ -29,12 +29,15 @@
 
 """Unwrapping module for SARvey."""
 import multiprocessing
-from os.path import join, dirname
 import time
+<<<<<<< HEAD
 from typing import Union
 import networkx as nx
 
 import matplotlib.pyplot as plt
+=======
+import networkx as nx
+>>>>>>> thermal_modelling_branch
 import numpy as np
 from kamui import unwrap_arbitrary
 from scipy.sparse import csr_matrix
@@ -42,14 +45,17 @@ from scipy.sparse.csgraph import structural_rank
 from scipy.sparse.linalg import lsqr
 from scipy.optimize import minimize
 from logging import Logger
-import cmcrameri as cmc
 
 from mintpy.utils import ptime
 
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
 from sarvey.objects import Network, NetworkParameter
+<<<<<<< HEAD
 import pdb
+=======
+
+>>>>>>> thermal_modelling_branch
 
 def objFuncTemporalCoherence(x, *args):
     """Compute temporal coherence from parameters and phase. To be used as objective function for optimization.
@@ -286,7 +292,7 @@ def launchAmbiguityFunctionSearch(parameters: tuple):
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
 
-    # prog_bar = ptime.progressBar(maxValue=num_arcs)
+    prog_bar = ptime.progressBar(maxValue=num_arcs)
 
     factor = 4 * np.pi / wavelength
 
@@ -300,11 +306,13 @@ def launchAmbiguityFunctionSearch(parameters: tuple):
             obs_phase=phase[k, :],
             design_mat=design_mat
         )
+        prog_bar.update(value=k + 1, every=num_arcs // 10,
+                        suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
 
     return arc_idx_range, demerr, vel, gamma
 
 
-def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength: float, velocity_bound: float,
+def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength: float, velocity_bound: float,
                        demerr_bound: float, num_samples: int, num_cores: int = 1, logger: Logger) -> \
         tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Solve ambiguities for every arc in spatial Network object.
@@ -353,8 +361,8 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength
         vel = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
         gamma = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
 
-        num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores  # avoids having more samples then
-        # cores
+        num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores  # avoids having more samples
+        # then cores
         idx = ut.splitDatasetForParallelProcessing(num_samples=net_obj.num_arcs, num_cores=num_cores)
 
         args = [(
@@ -504,151 +512,6 @@ def spatialUnwrapping(*, num_ifgs: int, num_points: int, phase: np.ndarray, edge
     return unw_phase
 
 
-def spatialParameterIntegrationIterative(*,
-                                         val_arcs: np.ndarray,
-                                         all_arcs: np.ndarray,
-                                         coord_xy: np.ndarray,
-                                         all_weights: np.ndarray,
-                                         spatial_ref_idx: int = 0,
-                                         res_tol: float = 1e-3,
-                                         max_rm_fraction: float = 0.001,
-                                         logger: Logger):
-    """Unwrapping double-difference arc parameters spatially.
-
-    The parameters at the arcs are integrated spatially to the points. The integration is done iteratively using
-    least-squares by removing the arcs with the highest residuals in each iteration.
-    The integration stops when the sum of the residuals is below a threshold.
-    Function is adopted from StaMPS software (Hooper et al., 2007).
-
-    Parameters
-    ----------
-    val_arcs: np.ndarray
-        Value at the arcs (e.g. DEM error, velocity).
-    all_arcs: np.ndarray
-        Arcs of the spatial network.
-    coord_xy: np.ndarray
-        Radar coordinates of the points in the spatial network.
-    all_weights: np.ndarray
-        Weights of the arcs (e.g. temporal coherence from temporal unwrapping)
-    spatial_ref_idx: int
-        Index of the spatial reference point (default = 0). Can be arbitrary.
-    res_tol: float
-        Threshold on the sum of the residual phase (default = 1e-3). Convergence criterion.
-    max_rm_fraction: float
-        Fraction of the arcs that are removed in each iteration (default = 0.001).
-    logger: Logger
-        Logging handler
-
-    Returns
-    -------
-    val_points: np.ndarray
-        Estimated parameters at the points resulting from the integration of the parameters at the arcs.
-    """
-    all_arcs = np.array(all_arcs)
-    num_points = coord_xy.shape[0]
-    num_arcs = all_arcs.shape[0]
-
-    # create design matrix
-    a = np.zeros((num_arcs, num_points))
-    for i in range(num_arcs):
-        a[i, all_arcs[i][0]] = 1
-        a[i, all_arcs[i][1]] = -1
-
-    # find the number of arcs per point
-    arcs_per_point = np.zeros(num_points, )
-
-    for i in range(num_points):
-        arcs_per_point[i] = np.where(a[:, i] != 0)[0].shape[0]
-
-    # remove reference point from design matrix
-    all_a = csr_matrix(all_weights * np.delete(a, spatial_ref_idx, 1))
-
-    # don't even start if the network is not connected
-    if structural_rank(all_a) < all_a.shape[1]:
-        logger.exception(msg="Spatial point network is not connected. Phase cannot be unwrapped!")
-        raise Exception
-
-    # set n_bad to maximum fraction of bad edges that can be removed
-    n_bad = np.ceil(num_arcs * max_rm_fraction).astype(np.int64)
-
-    # initialize output
-    val_points = np.zeros((num_points,))
-    points_idx = np.ones((num_points,), dtype=bool)
-    points_idx[spatial_ref_idx] = False
-    x_hat = np.zeros((num_points - 1,))
-
-    start_time = time.time()
-
-    arcs = all_arcs
-    obv_vec = val_arcs.reshape(-1, ) * all_weights.reshape(-1, )
-    a = all_a
-    weights = all_weights
-    num_arcs = obv_vec.size
-
-    r = None
-    num_arcs_save = None
-    arcs_save = None
-    a_save = None
-    weights_save = None
-    obv_vec_save = None
-    i = 0
-    while True:
-        if structural_rank(a) >= a.shape[1]:
-            x_hat[:] = lsqr(a, obv_vec)[0]
-
-            # store the current version of variables, being able to go back to previous iteration if too many arcs
-            # removed
-            a_save = a
-            obv_vec_save = obv_vec
-            weights_save = weights
-            arcs_save = arcs
-            num_arcs_save = num_arcs
-
-            # compute residuals
-            r = obv_vec - np.matmul(a.toarray(), x_hat)
-
-        else:  # network is not connected anymore, remove less psPoints and try again
-            # x_hat = np.linalg.lstsq(a_save, obv_vec_save, rcond=None)[0]  # unclear: I think it is not necessary to
-            # recompute the inversion.
-            n_bad = np.ceil(n_bad / 10).astype(np.int64)  # remove less point
-
-        if np.all(np.abs(r) < res_tol):
-            break
-        else:
-            # drop arcs with the highest residuals, but only drop max one arc per point
-            ps_w_dropped_arc = np.zeros((num_points,))
-            good_arc_idx = np.ones((num_arcs_save,), dtype=bool)
-            r_sort_idx = np.abs(r).argsort()[::-1]  # descending order, makes for loop easier
-
-            for j in range(n_bad):  # remove arcs one by one
-                bad_arc_idx = r_sort_idx[j]
-                ps_idx0 = arcs_save[bad_arc_idx][0]
-                ps_idx1 = arcs_save[bad_arc_idx][1]
-                if (ps_w_dropped_arc[ps_idx0] == 0) and (ps_w_dropped_arc[
-                                                             ps_idx1] == 0):  # if arc not already dropped for either
-                    # point of current arc drop current arc
-                    good_arc_idx[bad_arc_idx] = False
-                    # mark both psPoints from the arc as having an arc dropped
-                    ps_w_dropped_arc[ps_idx0] = 1
-                    ps_w_dropped_arc[ps_idx1] = 1
-
-            # update all variables for next iteration
-            arcs = arcs_save[good_arc_idx, :]
-            obv_vec = obv_vec_save[good_arc_idx]
-            a = a_save[good_arc_idx, :]
-            weights = weights_save[good_arc_idx]
-            num_arcs = obv_vec.size
-
-        i += 1
-
-    val_points[points_idx] = x_hat
-
-    m, s = divmod(time.time() - start_time, 60)
-    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
-
-    return val_points
-
-
 def spatialParameterIntegration(*,
                                 val_arcs: np.ndarray,
                                 arcs: np.ndarray,
@@ -714,50 +577,108 @@ def spatialParameterIntegration(*,
     return val_points
 
 
-def computeNumArcsPerPoints(*, net_obj: Network, point_id: np.ndarray,
-                            logger: Logger) -> tuple[np.ndarray, np.ndarray]:
-    """Remove Points with less than specified number of arcs.
+def removeBadPointsIteratively(*, net_obj: NetworkParameter, point_id: np.ndarray,
+                               quality_thrsh: float, logger: Logger) -> [NetworkParameter, np.ndarray]:
+    """
+    Remove bad points from a network. Points with many low-quality arcs are removed iteratively.
 
     Parameters
     ----------
-    net_obj: Network
-        The spatial Network object.
+    net_obj: NetworkParameter
+        The NetworkParameter object.
     point_id: np.ndarray
         ID of the points in the network.
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs (edge weights).
     logger: Logger
         Logging handler.
 
     Returns
     -------
-     design_mat: np.ndarray
-        Design matrix of the spatial network
-     arcs_per_point: np.ndarray
-        Number of arcs that each point is connected with.
+    net_obj: NetworkParameter
+        NetworkParameter object without the removed points and arcs.
+    point_id: np.ndarray
+        ID of the points in the network after the removal of bad points.
     """
-    logger.info(msg="Removal of arcs and PSC that cannot be tested.")
+    logger.info(msg="Remove points with arcs that have a median temporal coherence < {}".format(quality_thrsh))
 
-    num_points = point_id.shape[0]
+    graph = nx.DiGraph()
+    graph.add_nodes_from(
+        [(i, {'point_id': id}) for (i, id) in enumerate(point_id)]
+    )
+    graph.add_edges_from(
+        [(arc[0], arc[1], {'weight': net_obj.gamma[idx], 'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)]
+    )
 
-    # create design matrix
-    design_mat = np.zeros((net_obj.num_arcs, num_points))
-    for i in range(net_obj.num_arcs):
-        design_mat[i, net_obj.arcs[i][0]] = 1
-        design_mat[i, net_obj.arcs[i][1]] = -1
+    median_coherence = {
+        u: np.nanmedian([graph[u][v]['weight'] for v in graph.successors(u)] +
+                        [graph[v][u]['weight'] for v in graph.predecessors(u)])
+        for u in graph.nodes()
+    }
 
-    # find the number of arcs per point
-    arcs_per_point = np.zeros(num_points, )
+    while True:
+        worst_node = min(median_coherence, key=median_coherence.get)
 
-    for i in range(num_points):
-        arcs_per_point[i] = np.where(design_mat[:, i] != 0)[0].shape[0]
+        if median_coherence[worst_node] >= quality_thrsh:
+            break
 
-    return design_mat, arcs_per_point
+        affected_nodes = set(graph.successors(worst_node)) | set(graph.predecessors(worst_node))
+        for u in affected_nodes:
+            median_coherence[u] = np.nanmedian([graph[u][v]['weight'] for v in graph.successors(u)] +
+                                               [graph[v][u]['weight'] for v in graph.predecessors(u)])
+
+        graph.remove_node(worst_node)
+        logger.debug("Removing point %d with median coherence %.2f",
+                     point_id[worst_node], median_coherence[worst_node])
+
+        del median_coherence[worst_node]
+
+    lookup_dict = {node: index for index, node in enumerate(graph.nodes)}
+    new_arc_list = [(lookup_dict[edge[0]], lookup_dict[edge[1]]) for edge in graph.edges]
+    new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
+
+    logger.debug("Number of points after/before removal due to low temporal coherence: %d / %d",
+                 len(new_point_id), len(point_id))
+    logger.info("Number of points removed due to low temporal coherence: %d", len(point_id) - len(new_point_id))
+
+    arc_idx = [graph.edges[edge]['arc_idx'] for edge in graph.edges()]
+    net_obj.arcs = np.array(new_arc_list, dtype=np.int64)
+    net_obj.gamma = net_obj.gamma[arc_idx]
+    net_obj.vel = net_obj.vel[arc_idx]
+    net_obj.demerr = net_obj.demerr[arc_idx]
+    net_obj.loc_inc = net_obj.loc_inc[arc_idx]
+    net_obj.slant_range = net_obj.slant_range[arc_idx]
+    net_obj.phase = net_obj.phase[arc_idx, :]
+    net_obj.num_arcs = len(new_arc_list)
+    point_id = new_point_id
+
+    # log values after bad point removal
+    logger.debug("[Min, Max] temporal coherence of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.gamma), np.max(net_obj.gamma))
+    logger.debug("[Min, Max] velocity of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.vel), np.max(net_obj.vel))
+    logger.debug("[Min, Max] DEM residual of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.demerr), np.max(net_obj.demerr))
+    logger.debug("[Min, Max] incidence angle of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.loc_inc), np.max(net_obj.loc_inc))
+    logger.debug("[Min, Max] slant range of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.slant_range), np.max(net_obj.slant_range))
+    logger.debug("[Min, Max] phase of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.phase), np.max(net_obj.phase))
+
+    logger.info(msg="Finished removing bad points.")
+    return net_obj, point_id
 
 
-def computeAvgCoherencePerPoint(*, net_obj: Network, point_id: np.ndarray, logger: Logger) -> np.ndarray:
-    """Compute the average coherence from all arcs that a point is connected with. Used to remove incoherent points.
+def removeBadArcsIteratively(*,
+                             net_obj: NetworkParameter,
+                             quality_thrsh: float = 0.0,
+                             logger: Logger) -> NetworkParameter:
+    """Remove bad arcs iteratively from network based on quality threshold, preserving the minimum spanning tree.
 
     Parameters
     ----------
+<<<<<<< HEAD
     net_obj: Network
         The Network object.
     point_id: np.ndarray
@@ -947,6 +868,8 @@ def removeBadArcsIteratively(*,
 
     Parameters
     ----------
+=======
+>>>>>>> thermal_modelling_branch
     net_obj: NetworkParameter
         The spatial NetworkParameter object.
     quality_thrsh: float
