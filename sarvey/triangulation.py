@@ -146,6 +146,32 @@ class PointNetworkTriangulation:
 
 class HeightTriangulation(PointNetworkTriangulation):
 
+    def __init__(self, *, coord_xy: np.ndarray, coord_utmxy: np.ndarray, logger: Logger):
+        """Triangulate points in space based on distance.
+
+        Parameters
+        ----------
+        coord_xy: np.ndarray
+            Radar coordinates of the points.
+        coord_utmxy: np.ndarray
+            UTM coordinates of the points.
+        logger: Logger
+            Logging handler.
+        """
+        self.coord_xy = coord_xy
+        self.coord_utmxy = coord_utmxy
+        num_points = self.coord_xy.shape[0]
+        self.logger = logger
+
+        # create sparse matrix with dim (num_points x num_points), add 1 if connected.
+        # create network afterwards once. reduces time.
+        self.adj_mat = lil_matrix((num_points, num_points), dtype=np.bool_)
+
+        logger.info(msg="create distance matrix between all points...")
+        self.dist_mat = distance_matrix(coord_utmxy, coord_utmxy)
+        # todo: check out alternatives:
+        #       scipy.spatial.KDTree.sparse_distance_matrix
+
     def add_demerror(self, demerror: np.array):
         self.demerror = demerror
         self.height_mat = self.demerror[:, None] - self.demerror[None, :]
@@ -165,13 +191,12 @@ class HeightTriangulation(PointNetworkTriangulation):
         """Connect points to the k-nearest neighbours with a height constraint."""
         
         self.logger.info(msg=f"Triangulate points with {k}-nearest neighbours and height threshold {height_thresh}.")
-        
-        num_points = self.coord_xy.shape[0]
+        num_points = self.coord_utmxy.shape[0]
         prog_bar = ptime.progressBar(maxValue=num_points)
         start_time = time.time()
         count = 0
 
-        tree = KDTree(data=self.coord_xy)
+        tree = KDTree(data=self.coord_utmxy)
 
         if k > num_points:
             k = num_points
@@ -180,7 +205,7 @@ class HeightTriangulation(PointNetworkTriangulation):
         for p1 in range(num_points):
 
             # candidate neighbors
-            idx = tree.query(self.coord_xy[p1, :], k)[1]
+            idx = tree.query(self.coord_utmxy[p1, :], k)[1]
 
             # compute height difference
             dh = np.abs(self.demerror[p1] - self.demerror[idx])
@@ -192,11 +217,9 @@ class HeightTriangulation(PointNetworkTriangulation):
             self.adj_mat[p1, valid_idx] = True
 
             count += 1
-            prog_bar.update(
-                value=count + 1,
+            prog_bar.update(value=count + 1,
                 every=np.int16(num_points / (num_points / 5)),
-                suffix='{}/{} points triangulated'.format(count + 1, num_points + 1)
-            )
+                suffix='{}/{} points triangulated'.format(count + 1, num_points + 1))
 
         prog_bar.close()
 

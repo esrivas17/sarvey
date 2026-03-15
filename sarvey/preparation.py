@@ -278,7 +278,7 @@ def createArcsBetweenPoints(*, point_obj: Points, knn: int = None, max_arc_lengt
     return arcs
 
 
-def createConstraintArcsBetweenPoints(*, point_obj: Points, demerror: np.array, knn: int = None,  max_arc_length: float = np.inf, max_arc_height: float = np.inf, logger: Logger) -> np.ndarray:
+def createConstraintArcsBetweenPoints(*, point_obj: Points, corrected_coord_utm: np.array, demerror: np.array, knn: int,  max_arc_length: float = np.inf, max_arc_height: float = np.inf, logger: Logger) -> np.ndarray:
     """Create a spatial network of arcs to triangulate the points.
 
     All points are triangulated with a Delaunay triangulation. If knn is given, the triangulation is done with the k
@@ -303,11 +303,12 @@ def createConstraintArcsBetweenPoints(*, point_obj: Points, demerror: np.array, 
     arcs: np.ndarray
         Arcs of the triangulation containing the indices of the points for each arc.
     """
-    triang_obj = HeightTriangulation(coord_xy=point_obj.coord_xy, coord_utmxy=point_obj.coord_utm, logger=logger)
+    #triang_obj = HeightTriangulation(coord_xy=point_obj.coord_xy, coord_utmxy=point_obj.coord_utm, logger=logger)
+    triang_obj = HeightTriangulation(coord_xy=point_obj.coord_xy, coord_utmxy=corrected_coord_utm, logger=logger)
     triang_obj.add_demerror(demerror)
 
-    if knn is not None:
-        triang_obj.triangulateKnn(k=knn, height_thresh=max_arc_height)
+    #if knn is not None:
+    triang_obj.triangulateKnn(k=knn, height_thresh=max_arc_height)
 
     #triang_obj.triangulateGlobal()
 
@@ -321,8 +322,8 @@ def createConstraintArcsBetweenPoints(*, point_obj: Points, demerror: np.array, 
         logger.info(msg="Network NOT connected. Adding Delaunay arcs")
         triang_obj.triangulateGlobal()
 
-    logger.info(msg="remove arcs with height > {}.".format(max_arc_height))
-    triang_obj.removeHighArcs(max_height=max_arc_height)
+    #logger.info(msg="remove arcs with height > {}.".format(max_arc_height))
+    #triang_obj.removeHighArcs(max_height=max_arc_height)
 
     logger.info(msg="retrieve arcs from adjacency matrix.")
     arcs = triang_obj.getArcsFromAdjMat()

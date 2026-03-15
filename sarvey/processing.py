@@ -52,6 +52,8 @@ from sarvey.coherence import computeIfgsAndTemporalCoherence
 from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
 from sarvey.unwrapping_1d import temporalUnwrapping_demerr
+from sarvey.geolocation import calculateGeolocationCorrection
+
 
 import pdb
 from sarvey.unwrapping_temperature import *
@@ -232,10 +234,8 @@ class Processing:
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
         length, width, num_ifgs = ifg_stack_obj.getShape(dataset_name="ifgs")
 
-        cand_mask1 = selectPixels(
-            path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
-            grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger
-        )
+        cand_mask1 = selectPixels(path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
+            grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         mask_valid_area = ut.detectValidAreas(bmap_obj=bmap_obj, logger=self.logger)
@@ -273,37 +273,33 @@ class Processing:
         # in the densification step. point_id is ordered so that it fits to anydata[mask].ravel() when loading the data.
         point_id_img = np.arange(0, length * width).reshape((length, width))
 
-        point_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)
+        point_obj_apriori = Points(file_path=join(self.path, "p1_ifg_wr_apriori.h5"), logger=self.logger)
         point_id1 = point_id_img[cand_mask1]
 
-        point_obj.prepare(
-            point_id=point_id1,
-            coord_xy=coord_xy,
-            input_path=self.config.general.input_path
-        )
+        point_obj_apriori.prepare(point_id=point_id1,coord_xy=coord_xy,input_path=self.config.general.input_path)
 
-        point_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
+        point_obj_apriori.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
                                                 point_id_img=point_id_img, logger=self.logger)
 
-        point_obj.writeToFile()
-        del ifg_stack_obj, cand_mask1
+        point_obj_apriori.writeToFile()
+        #del ifg_stack_obj, cand_mask1
 
-        # 1) create spatial network
-        arcs = createArcsBetweenPoints(point_obj=point_obj,
+        ###############################################
+        # only dem unwrapping
+         # 1) create spatial network
+        arcs = createArcsBetweenPoints(point_obj=point_obj_apriori,
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
                                        logger=self.logger)
         net_obj = Network(file_path=join(self.path, "apriori_point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(point_obj=point_obj, arcs=arcs)
+        net_obj.computeArcObservations(point_obj=point_obj_apriori, arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
-        ###############################################
-        # only dem unwrapping
-        demerr, gamma = temporalUnwrapping_demerr(ifg_net_obj=point_obj.ifg_net_obj,
+        demerr, gamma = temporalUnwrapping_demerr(ifg_net_obj=point_obj_apriori.ifg_net_obj,
                                                 net_obj=net_obj,
-                                                wavelength=point_obj.wavelength,
+                                                wavelength=point_obj_apriori.wavelength,
                                                 demerr_bound=self.config.consistency_check.dem_error_bound_demerror_network,
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
@@ -318,7 +314,7 @@ class Processing:
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj_apriori.coord_xy[:, 1], y=point_obj_apriori.coord_xy[:, 0],
                                                       arcs=demerr_net_par_obj.arcs, val=demerr_net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
             ax.set_title("Coherence from DEM Error temporal unwrapping\nBefore outlier removal")
@@ -328,10 +324,10 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        demerr_net_par_obj, point_id, coord_xy, design_mat = removeGrossOutliers(
+        demerr_net_par_obj, point_id, coord_xy_dnet, design_mat = removeGrossOutliers(
             net_obj=demerr_net_par_obj,
-            point_id=point_obj.point_id,
-            coord_xy=point_obj.coord_xy,
+            point_id=point_obj_apriori.point_id,
+            coord_xy=point_obj_apriori.coord_xy,
             min_num_arc=self.config.consistency_check.min_num_arc_demerror,
             quality_thrsh=self.config.consistency_check.arc_coherence_demerror,
             logger=self.logger
@@ -339,7 +335,7 @@ class Processing:
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=coord_xy[:, 1], y=coord_xy[:, 0],
+            ax, cbar = viewer.plotColoredPointNetwork(x=coord_xy_dnet[:, 1], y=coord_xy_dnet[:, 0],
                                                       arcs=demerr_net_par_obj.arcs,
                                                       val=demerr_net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
@@ -361,31 +357,62 @@ class Processing:
         #    logger=self.logger)
         
         demerr_net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.?
-        point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
-        point_obj.writeToFile()
+        point_obj_apriori.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+        point_obj_apriori.writeToFile()
         spatial_ref_idx = 0
         demerr = spatialParameterIntegration(val_arcs=demerr_net_par_obj.demerr,
                                              arcs=demerr_net_par_obj.arcs,
-                                             coord_xy=point_obj.coord_xy,
+                                             coord_xy=point_obj_apriori.coord_xy,
                                              weights=demerr_net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
         
-        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj_apriori.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
                                  logger=self.logger)
         fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori.png"), dpi=300)
         plt.close(fig)
-        self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimaitons: {demerr.shape}")
-        ##################################################
+        self.logger.info(msg=f"Num of points: {point_obj_apriori.num_points} and num of dem error estimaitons: {demerr.shape}")
+
+        ### geolocation of P1
+        self.logger.info("Calculate geolocation correction.")
+        coord_correction = calculateGeolocationCorrection(path_geom=self.config.general.input_path,
+                                                          point_obj=point_obj_apriori,
+                                                          demerr=demerr,
+                                                          logger=self.logger)
+        coord_correction_norm = np.linalg.norm(coord_correction, axis=1)
+        max_error_index = np.argmax(coord_correction_norm)
+        self.logger.info(f"Maximum geolocation correction: {coord_correction_norm[max_error_index]:.1f} m "
+                    f"corresponding to {demerr[max_error_index]:.1f} m DEM correction")
+        coord_utm = point_obj_apriori.coord_utm
+        coord_utm_corrected = coord_utm + coord_correction
+        ####################################### END DEM ERROR NETWORK #####################
         # 2) create spatial network
+        point_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)
+        point_id1 = point_id_img[cand_mask1]
+
+        point_obj.prepare(point_id=point_id1,coord_xy=coord_xy,input_path=self.config.general.input_path)
+
+        point_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
+                                                point_id_img=point_id_img, logger=self.logger)
+
+        point_obj.writeToFile()
+        del ifg_stack_obj, cand_mask1
         
-        arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, demerror=demerr,
+        #arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, corrected_coord_utm=coord_utm_corrected, demerror=demerr,
+        #                               knn=self.config.consistency_check.num_nearest_neighbours,
+        #                               max_arc_length=self.config.consistency_check.max_arc_length,
+        #                               max_arc_height=self.config.consistency_check.max_arc_height,
+        #                               logger=self.logger)
+        
+        arcs = createArcsBetweenPoints(point_obj=point_obj,
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
-                                       max_arc_height=self.config.consistency_check.max_arc_height,
                                        logger=self.logger)
         
+        
+
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
         net_obj.computeArcObservations(point_obj=point_obj, arcs=arcs)
         net_obj.writeToFile()
