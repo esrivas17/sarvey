@@ -400,16 +400,16 @@ class Processing:
         point_obj.writeToFile()
         del ifg_stack_obj, cand_mask1
         
-        #arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, corrected_coord_utm=coord_utm_corrected, demerror=demerr,
-        #                               knn=self.config.consistency_check.num_nearest_neighbours,
-        #                               max_arc_length=self.config.consistency_check.max_arc_length,
-        #                               max_arc_height=self.config.consistency_check.max_arc_height,
-        #                               logger=self.logger)
-        
-        arcs = createArcsBetweenPoints(point_obj=point_obj,
+        arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, corrected_coord_utm=coord_utm_corrected, demerror=demerr,
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
+                                       max_arc_height=self.config.consistency_check.max_arc_height,
                                        logger=self.logger)
+        
+        #arcs = createArcsBetweenPoints(point_obj=point_obj,
+        #                               knn=self.config.consistency_check.num_nearest_neighbours,
+        #                               max_arc_length=self.config.consistency_check.max_arc_length,
+        #                               logger=self.logger)
         
         
 
