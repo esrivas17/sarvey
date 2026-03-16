@@ -43,7 +43,7 @@ from mintpy.utils import ptime
 
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
-from sarvey.objects import Network, NetworkParameter
+from sarvey.objects import Network, NetworkParameter, NetworkParameter_Temp
 import pdb
 
 def objFuncTemporalCoherence(x, *args):
@@ -565,6 +565,142 @@ def spatialParameterIntegration(*,
 
     return val_points
 
+def spatialParameterIntegration_with_distance_and_redundancy(*,
+                                val_arcs: np.ndarray,
+                                arcs: np.ndarray,
+                                coord_utmxy: np.ndarray,
+                                weights: np.ndarray,
+                                spatial_ref_idx: int = 0,
+                                logger: Logger):
+
+    arcs = np.array(arcs)
+    num_points = coord_utmxy.shape[0]
+    num_arcs = arcs.shape[0]
+
+    arc_distances = np.zeros(num_arcs)
+    design_mat = np.zeros((num_arcs, num_points))
+    degree = np.zeros(num_points)
+    p1_idx = arcs[:, 0]
+    p2_idx = arcs[:, 1]
+
+    for i in range(num_arcs):
+        idx1 = p1_idx[i]
+        idx2 = p2_idx[i]
+
+        design_mat[i, idx1] = 1
+        design_mat[i, idx2] = -1
+
+        x1, y1 = coord_utmxy[idx1]
+        x2, y2 = coord_utmxy[idx2]
+
+        arc_distances[i] = np.hypot(x2 - x1, y2 - y1)
+
+        degree[idx1] += 1
+        degree[idx2] += 1
+
+
+    
+    # redundancy factor
+    k_arc = np.sqrt(degree[p1_idx] * degree[p2_idx])
+    w_red = 1 / k_arc
+
+    # combine weigths and coherence weights
+    d0 = 30
+    w_dist = 1 / (arc_distances+d0)
+    w_coh = weights**2
+
+    # combine weigths
+    weigths = w_coh * w_dist * w_red
+    weights /= np.mean(weigths)
+    weights = np.sqrt(weights)
+
+    # remove reference point from design matrix
+    design_mat = csr_matrix(weights * np.delete(design_mat, spatial_ref_idx, 1))
+
+    # don't even start if the network is not connected
+    if structural_rank(design_mat) < design_mat.shape[1]:
+        raise Exception("Spatial point network is not connected. Cannot integrate parameters spatially!")
+
+    start_time = time.time()
+
+    obv_vec = val_arcs.reshape(-1, ) * weights.reshape(-1, )
+
+    x_hat = lsqr(design_mat, obv_vec)[0]
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+
+    val_points = np.zeros((num_points,))
+    points_idx = np.ones((num_points,), dtype=bool)
+    points_idx[spatial_ref_idx] = False
+    val_points[points_idx] = x_hat
+
+    return val_points
+
+def spatialParameterIntegration_with_distance(*,
+                                val_arcs: np.ndarray,
+                                arcs: np.ndarray,
+                                coord_utmxy: np.ndarray,
+                                weights: np.ndarray,
+                                spatial_ref_idx: int = 0,
+                                logger: Logger):
+
+    arcs = np.array(arcs)
+    num_points = coord_utmxy.shape[0]
+    num_arcs = arcs.shape[0]
+
+    arc_distances = np.zeros(num_arcs)
+    design_mat = np.zeros((num_arcs, num_points))
+    p1_idx = arcs[:, 0]
+    p2_idx = arcs[:, 1]
+
+    for i in range(num_arcs):
+        idx1 = p1_idx[i]
+        idx2 = p2_idx[i]
+
+        design_mat[i, idx1] = 1
+        design_mat[i, idx2] = -1
+
+        x1, y1 = coord_utmxy[idx1]
+        x2, y2 = coord_utmxy[idx2]
+
+        arc_distances[i] = np.hypot(x2 - x1, y2 - y1)
+
+
+
+    # combine weigths and coherence weights
+    d0 = 30
+    w_dist = 1 / (arc_distances+d0)
+    w_coh = weights**2
+
+    # combine weigths
+    weigths = w_coh * w_dist
+    weights /= np.mean(weigths)
+    weights = np.sqrt(weights)
+
+    # remove reference point from design matrix
+    design_mat = csr_matrix(weights * np.delete(design_mat, spatial_ref_idx, 1))
+
+    # don't even start if the network is not connected
+    if structural_rank(design_mat) < design_mat.shape[1]:
+        raise Exception("Spatial point network is not connected. Cannot integrate parameters spatially!")
+
+    start_time = time.time()
+
+    obv_vec = val_arcs.reshape(-1, ) * weights.reshape(-1, )
+
+    x_hat = lsqr(design_mat, obv_vec)[0]
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+
+    val_points = np.zeros((num_points,))
+    points_idx = np.ones((num_points,), dtype=bool)
+    points_idx[spatial_ref_idx] = False
+    val_points[points_idx] = x_hat
+
+    return val_points
+
 
 def removeBadPointsIteratively(*, net_obj: NetworkParameter, point_id: np.ndarray,
                                quality_thrsh: float, logger: Logger) -> [NetworkParameter, np.ndarray]:
@@ -658,6 +794,100 @@ def removeBadPointsIteratively(*, net_obj: NetworkParameter, point_id: np.ndarra
     logger.info(msg="Finished removing bad points.")
     return net_obj, point_id
 
+def removeBadPointsIteratively_3v(*, net_obj: NetworkParameter_Temp, point_id: np.ndarray,
+                               quality_thrsh: float, logger: Logger) -> [NetworkParameter_Temp, np.ndarray]:
+    """
+    Remove bad points from a network. Points with many low-quality arcs are removed iteratively.
+
+    Parameters
+    ----------
+    net_obj: NetworkParameter
+        The NetworkParameter object.
+    point_id: np.ndarray
+        ID of the points in the network.
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs (edge weights).
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: NetworkParameter
+        NetworkParameter object without the removed points and arcs.
+    point_id: np.ndarray
+        ID of the points in the network after the removal of bad points.
+    """
+    logger.info(msg="Remove points with arcs that have a median temporal coherence < {}".format(quality_thrsh))
+
+    graph = nx.DiGraph()
+    graph.add_nodes_from(
+        [(i, {'point_id': id}) for (i, id) in enumerate(point_id)]
+    )
+    graph.add_edges_from(
+        [(arc[0], arc[1], {'weight': net_obj.gamma[idx], 'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)]
+    )
+
+    median_coherence = {
+        u: np.nanmedian([graph[u][v]['weight'] for v in graph.successors(u)] +
+                        [graph[v][u]['weight'] for v in graph.predecessors(u)])
+        for u in graph.nodes()
+    }
+
+    while True:
+        worst_node = min(median_coherence, key=median_coherence.get)
+
+        if median_coherence[worst_node] >= quality_thrsh:
+            break
+
+        affected_nodes = set(graph.successors(worst_node)) | set(graph.predecessors(worst_node))
+        for u in affected_nodes:
+            median_coherence[u] = np.nanmedian([graph[u][v]['weight'] for v in graph.successors(u)] +
+                                               [graph[v][u]['weight'] for v in graph.predecessors(u)])
+
+        graph.remove_node(worst_node)
+        logger.debug("Removing point %d with median coherence %.2f",
+                     point_id[worst_node], median_coherence[worst_node])
+
+        del median_coherence[worst_node]
+
+    lookup_dict = {node: index for index, node in enumerate(graph.nodes)}
+    new_arc_list = [(lookup_dict[edge[0]], lookup_dict[edge[1]]) for edge in graph.edges]
+    new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
+
+    logger.debug("Number of points after/before removal due to low temporal coherence: %d / %d",
+                 len(new_point_id), len(point_id))
+    logger.info("Number of points removed due to low temporal coherence: %d", len(point_id) - len(new_point_id))
+
+    arc_idx = [graph.edges[edge]['arc_idx'] for edge in graph.edges()]
+    net_obj.arcs = np.array(new_arc_list, dtype=np.int64)
+    net_obj.gamma = net_obj.gamma[arc_idx]
+    net_obj.vel = net_obj.vel[arc_idx]
+    net_obj.demerr = net_obj.demerr[arc_idx]
+    net_obj.tcoef = net_obj.tcoef[arc_idx]
+    net_obj.loc_inc = net_obj.loc_inc[arc_idx]
+    net_obj.slant_range = net_obj.slant_range[arc_idx]
+    net_obj.phase = net_obj.phase[arc_idx, :]
+    net_obj.num_arcs = len(new_arc_list)
+    point_id = new_point_id
+
+    # log values after bad point removal
+    logger.debug("[Min, Max] temporal coherence of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.gamma), np.max(net_obj.gamma))
+    logger.debug("[Min, Max] velocity of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.vel), np.max(net_obj.vel))
+    logger.debug("[Min, Max] DEM residual of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.demerr), np.max(net_obj.demerr))
+    logger.debug("[Min, Max] Thermal coefficienrt of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.tcoef), np.max(net_obj.tcoef))
+    logger.debug("[Min, Max] incidence angle of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.loc_inc), np.max(net_obj.loc_inc))
+    logger.debug("[Min, Max] slant range of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.slant_range), np.max(net_obj.slant_range))
+    logger.debug("[Min, Max] phase of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.phase), np.max(net_obj.phase))
+
+    logger.info(msg="Finished removing bad points.")
+    return net_obj, point_id
 
 def removeBadArcsIteratively(*,
                              net_obj: NetworkParameter,

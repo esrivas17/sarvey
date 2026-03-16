@@ -363,19 +363,44 @@ def createConstraintArcsBetweenPoints(*, point_obj: Points, corrected_coord_utm:
     arcs: np.ndarray
         Arcs of the triangulation containing the indices of the points for each arc.
     """
+    logger.info(f"Triangulating {point_obj.coord_xy.shape[0]} points with DEM error constraint and UTM Coordinates...")
     #triang_obj = HeightTriangulation(coord_xy=point_obj.coord_xy, coord_utmxy=point_obj.coord_utm, logger=logger)
     triang_obj = HeightTriangulation(coord_xy=point_obj.coord_xy, coord_utmxy=corrected_coord_utm, logger=logger)
     triang_obj.add_demerror(demerror)
 
-    #if knn is not None:
-    triang_obj.triangulateKnn(k=knn, height_thresh=max_arc_height)
+    triang_obj.triangulateGlobal()
 
-    #triang_obj.triangulateGlobal()
+    if knn is not None:
+        logger.info(f"Triangulating with {point_obj.coord_xy.shape[0]} points with heights...")
+        triang_obj.triangulateKnn(k=knn, height_thresh=max_arc_height)
 
     logger.info(msg="remove arcs with length > {}.".format(max_arc_length))
+    ut_mask = np.triu(triang_obj.dist_mat, k=1) != 0
+    logger.debug(f"Triangulation arc lengths - "
+                 f"Min: {np.min(triang_obj.dist_mat[ut_mask]):.0f} m, "
+                 f"Max: {np.max(triang_obj.dist_mat[ut_mask]):.0f} m, "
+                 f"Mean: {np.mean(triang_obj.dist_mat[ut_mask]):.0f} m.")
+
     triang_obj.removeLongArcs(max_dist=max_arc_length)
 
     logger.info(msg="remove arcs with height > {}.".format(max_arc_height))
+    ut_mask = np.triu(triang_obj.height_mat, k=1) != 0
+    logger.debug(f"Triangulation arc heights - "
+                 f"Min: {np.min(triang_obj.height_mat[ut_mask]):.0f} m, "
+                 f"Max: {np.max(triang_obj.height_mat[ut_mask]):.0f} m, "
+                 f"Mean: {np.mean(triang_obj.height_mat[ut_mask]):.0f} m.")
+
+    # checking after arc removal
+    logger.debug(f"Triangulation arc lengths after long arc removal - "
+                 f"Min: {np.min(triang_obj.dist_mat[ut_mask]):.0f} m, "
+                 f"Max: {np.max(triang_obj.dist_mat[ut_mask]):.0f} m, "
+                 f"Mean: {np.mean(triang_obj.dist_mat[ut_mask]):.0f} m.")
+    logger.debug(f"Triangulation arc heights after long arc removal - "
+                 f"Min: {np.min(triang_obj.height_mat[ut_mask]):.0f} m, "
+                 f"Max: {np.max(triang_obj.height_mat[ut_mask]):.0f} m, "
+                 f"Mean: {np.mean(triang_obj.height_mat[ut_mask]):.0f} m.")
+
+
     triang_obj.removeHighArcs(max_height=max_arc_height)
 
     if not triang_obj.isConnected():
@@ -385,6 +410,8 @@ def createConstraintArcsBetweenPoints(*, point_obj: Points, corrected_coord_utm:
     #logger.info(msg="remove arcs with height > {}.".format(max_arc_height))
     #triang_obj.removeHighArcs(max_height=max_arc_height)
 
-    logger.info(msg="retrieve arcs from adjacency matrix.")
+    logger.info("Retrieve arcs from adjacency matrix.")
     arcs = triang_obj.getArcsFromAdjMat()
+    logger.info(f"Final number of arcs: {arcs.shape[0]}.")
+
     return arcs

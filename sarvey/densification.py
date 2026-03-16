@@ -37,7 +37,7 @@ from logging import Logger
 from mintpy.utils import ptime
 
 from sarvey.unwrapping import oneDimSearchTemporalCoherence
-from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_t, oneDimSearchTemporalCoherence_3variables
+from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_t, oneDimSearchTemporalCoherence_3variables, oneDimSearchTemporalCoherence_3variables_coarse
 from sarvey.unwrapping_1d import coarseSearchTempCoh
 from sarvey.objects import Points
 import sarvey.utils as ut
@@ -61,6 +61,30 @@ def densificationInitializer(tree_p1: KDTree, point2_obj: Points, demod_phase1: 
     global global_point2_obj
     global global_demod_phase1
 
+    global_tree_p1 = tree_p1
+    global_point2_obj = point2_obj
+    global_demod_phase1 = demod_phase1
+
+def globalvariables(tree_p1: KDTree, point1_obj: Points, point2_obj: Points, demod_phase1: np.ndarray):
+    """DensificationInitializer.
+
+    Sets values to global variables for parallel processing.
+
+    Parameters
+    ----------
+    tree_p1 : KDTree
+        KDTree of the first-order network
+    point2_obj : Points
+        Points object with second-order points
+    demod_phase1 : np.ndarray
+        demodulated phase of the first-order network
+    """
+    global global_tree_p1
+    global global_point2_obj
+    global global_demod_phase1
+    global global_point1_obj
+
+    global_point1_obj = point1_obj
     global_tree_p1 = tree_p1
     global_point2_obj = point2_obj
     global_demod_phase1 = demod_phase1
@@ -361,15 +385,15 @@ def densifyNetwork_temp(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np
     demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
 
     # initialize output
-    init_args = (tree_p1, point2_obj, demod_phase1)
+    init_args = (tree_p1, point1_obj, point2_obj, demod_phase1)
 
     if num_cores == 1:
-        densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
+        globalvariables(tree_p1=tree_p1, point1_obj=point1_obj, point2_obj=point2_obj, demod_phase1=demod_phase1)
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1,
                 velocity_bound, demerr_bound, tcoef_bound, num_samples)
         idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkConsistencyCheck_temp(args)
     else:
-        with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
+        with multiprocessing.Pool(num_cores, initializer=globalvariables, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))
             num_cores = point2_obj.num_points if num_cores > point2_obj.num_points else num_cores
             # avoids having less samples than cores
@@ -445,15 +469,16 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
     demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
 
     # initialize output
-    init_args = (tree_p1, point2_obj, demod_phase1)
+    init_args = (tree_p1, point1_obj, point2_obj, demod_phase1)
 
     if num_cores == 1:
-        densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
+        globalvariables(tree_p1=tree_p1, point1_obj=point1_obj, point2_obj=point2_obj, demod_phase1=demod_phase1)
+        #densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1, max_height_p1, 
                 gamma_thresh_demerror, demerr_bound, velocity_bound, tcoef_bound, num_samples)
         idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkDEMConstraint(args)
     else:
-        with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
+        with multiprocessing.Pool(num_cores, initializer=globalvariables, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))
             num_cores = point2_obj.num_points if num_cores > point2_obj.num_points else num_cores
             # avoids having less samples than cores
@@ -518,13 +543,36 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
 
     design_mat_demerr = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 1), dtype=np.float32)
     factor = 4 * np.pi / global_point2_obj.wavelength
-
+    
+    test_xvals = range(300,320)
+    test_yvals = range(100,110)
+    
     for idx in range(num_points):
 
         p2 = idx_range[idx]
         # nearest points in p1
         nk = num_conn_p1 * 2
         dist, nearest_p1 = global_tree_p1.query([global_point2_obj.coord_utm[p2, 0], global_point2_obj.coord_utm[p2, 1]], k=nk)
+
+        yp, xp = global_point2_obj.coord_xy[p2, :]
+
+        
+        #if (xp not in range(300,320)) and (yp not in range(100,110)):
+        #    demerr_p2[idx] = 0
+        #    vel_p2[idx] = 0
+        #    tcoef_p2[idx] = 0
+        #    gamma_p2[idx] = 0
+        #    continue
+        #else:
+        #print(f"Pixels: {xp, yp}")
+        #if xp != 308 and yp != 104:
+        #    continue
+        
+        #########
+        # if xp == 308 and yp == 104:
+        #    idxsp1 = [global_point1_obj.coord_xy[p1x] for p1x in nearest_p1]
+        #    print(f"P2:{xp, yp}\nP1 used: {idxsp1}\ndistances: {dist}")
+        ######
 
         # filter distance
         mask = (dist < max_dist_p1) & (dist != 0)
@@ -533,41 +581,71 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
         
         # height filter -  i do not know the height of p2 so quickly estimate the relative height with closest p1 points
         nearest_p1_filtered = list()
-        arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1, :]))) 
+        arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1, :])))
+
+        # design matrix
+        design_mat[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
+                            / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
+        design_mat[:, 1] = factor * global_point2_obj.ifg_net_obj.tbase_ifg
+        design_mat[:, 2] = factor * global_point2_obj.ifg_net_obj.temperatures_ifg
 
         npoints = 0
         for ix, np1dx in zip(range(arc_phase_p1.shape[0]), nearest_p1):
             design_mat_demerr[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
                             / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
-            demerr_p2_coarse, gamma_p2_coarse = coarseSearchTempCoh(demerr_range=demerr_range, obs_phase=arc_phase_p1[ix, :], design_mat=design_mat_demerr)
-            
+            #demerr_p2_coarse, vel_p2_coarse, tcoef_p2_coarse, gamma_p2_coarse = oneDimSearchTemporalCoherence_3variables_coarse(demerr_range=demerr_range, vel_range=vel_range,
+            #    tcoef_range=tcoef_range, obs_phase=arc_phase_p1, design_mat=design_mat)
+            demerr_p2_coarse, vel_p2_coarse, tcoef_p2_coarse, gamma_p2_coarse = oneDimSearchTemporalCoherence_3variables(
+            demerr_range=demerr_range,
+            vel_range=vel_range,
+            tcoef_range=tcoef_range,
+            obs_phase=arc_phase_p1[ix, :],
+            design_mat=design_mat)
+            #demerr_p2_coarse, gamma_p2_coarse = coarseSearchTempCoh(demerr_range=demerr_range, obs_phase=arc_phase_p1[ix, :], design_mat=design_mat_demerr)
+            #if (xp in test_xvals) and (yp in test_yvals):
+            #    print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
+
+            #if xp == 308 and yp == 104:
+            #    print(f"P1 used: {global_point1_obj.coord_xy[np1dx]}")       
+            #    import matplotlib.pyplot as plt
+            #    plt.scatter(global_point2_obj.ifg_net_obj.tbase_ifg, arc_phase_p1[ix, :])
+            #    plt.ylabel("ArcPhase")
+            #    plt.xlabel("Time")
+            #    plt.title(f"P{xp} {yp} ixp1: {ix}")
+            #    plt.savefig(f"P{xp}_{yp}_ixp1_{ix}.png")
+            #    plt.close()
+
             if (np.abs(demerr_p2_coarse) <= max_height_p1) & (gamma_p2_coarse >= gamma_demerr_thresh):
+                #print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.2f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
                 nearest_p1_filtered.append(np1dx)
                 npoints += 1
 
                 if npoints >= num_conn_p1:
                     break
+            #else:
+            #    if (xp in test_xvals) and (yp in test_yvals):
+             #       print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.2f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
                 
         if not nearest_p1_filtered:
-            #nearest_p1_filtered = nearest_p1
-            demerr_p2[idx] = 0
-            vel_p2[idx] = 0
-            tcoef_p2[idx] = 0
-            gamma_p2[idx] = 0
-            continue
+            nearest_p1_filtered = nearest_p1
+            #demerr_p2[idx] = 0
+            #vel_p2[idx] = 0
+            #tcoef_p2[idx] = 0
+            #gamma_p2[idx] = 0
+            #print(f"Pixels: {xp, yp} - making 0")
+            #continue
         else:
+            #########
+            #if xp == 308 and yp == 104:
+            #    idxsp1 = [global_point1_obj.coord_xy[p1x] for p1x in nearest_p1_filtered]
+            #    print(f"P2:{xp, yp}\nP1 used: {idxsp1}\ndistances: {dist}")
+            #####
             if len(nearest_p1_filtered) >= nk:
                 nearest_p1_filtered = nearest_p1_filtered[:nk]
 
         
         # compute arc observations to filtered nearest points with DEM err
         arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1_filtered, :])))
-
-        design_mat[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
-                            / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
-        design_mat[:, 1] = factor * global_point2_obj.ifg_net_obj.tbase_ifg
-        design_mat[:, 2] = factor * global_point2_obj.ifg_net_obj.temperatures_ifg
-
 
         demerr_p2[idx], vel_p2[idx], tcoef_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence_3variables(
             demerr_range=demerr_range,

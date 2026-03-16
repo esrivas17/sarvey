@@ -198,7 +198,7 @@ class HeightTriangulation(PointNetworkTriangulation):
         self.adj_mat[mask] = False
 
     def triangulateKnn(self, *, k: int, height_thresh: float):
-        """Connect points to the k-nearest neighbours with a height constraint."""
+        """Connect points to the k-nearest neighbours based on UTM coordinates with a height constraint."""
         
         self.logger.info(msg=f"Triangulate points with {k}-nearest neighbours and height threshold {height_thresh}.")
         num_points = self.coord_utmxy.shape[0]

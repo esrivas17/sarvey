@@ -43,15 +43,16 @@ from sarvey.densification import densifyNetwork, densifyNetwork_temp, densifyNet
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
-from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp
-from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, spatialUnwrapping,
-                               removeBadArcsIteratively, removeBadPointsIteratively)
-from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
+from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp, NetworkParameter_DEMError
+from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, spatialUnwrapping, spatialParameterIntegration_with_distance, spatialParameterIntegration_with_distance_and_redundancy,
+                               removeBadArcsIteratively, removeBadPointsIteratively, removeBadPointsIteratively_3v)
+from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence
-from sarvey.triangulation import PointNetworkTriangulation
+from sarvey.triangulation import PointNetworkTriangulation, HeightTriangulation
 from sarvey.config import Config
 from sarvey.unwrapping_1d import temporalUnwrapping_demerr
+from sarvey.unwrapping_temperature import temporalUnwrapping_3v
 from sarvey.geolocation import calculateGeolocationCorrection
 
 
@@ -273,121 +274,6 @@ class Processing:
         # in the densification step. point_id is ordered so that it fits to anydata[mask].ravel() when loading the data.
         point_id_img = np.arange(0, length * width).reshape((length, width))
 
-        point_obj_apriori = Points(file_path=join(self.path, "p1_ifg_wr_apriori.h5"), logger=self.logger)
-        point_id1 = point_id_img[cand_mask1]
-
-        point_obj_apriori.prepare(point_id=point_id1,coord_xy=coord_xy,input_path=self.config.general.input_path)
-
-        point_obj_apriori.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
-                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
-                                                point_id_img=point_id_img, logger=self.logger)
-
-        point_obj_apriori.writeToFile()
-        #del ifg_stack_obj, cand_mask1
-
-        ###############################################
-        # only dem unwrapping
-         # 1) create spatial network
-        arcs = createArcsBetweenPoints(point_obj=point_obj_apriori,
-                                       knn=self.config.consistency_check.num_nearest_neighbours,
-                                       max_arc_length=self.config.consistency_check.max_arc_length,
-                                       logger=self.logger)
-        net_obj = Network(file_path=join(self.path, "apriori_point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(point_obj=point_obj_apriori, arcs=arcs)
-        net_obj.writeToFile()
-        net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
-
-        demerr, gamma = temporalUnwrapping_demerr(ifg_net_obj=point_obj_apriori.ifg_net_obj,
-                                                net_obj=net_obj,
-                                                wavelength=point_obj_apriori.wavelength,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound_demerror_network,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
-        
-        demerr_net_par_obj = NetworkParameter_DEMError(file_path=join(self.path, "point_network_demerr.h5"),  logger=self.logger)
-        demerr_net_par_obj.prepare(net_obj=net_obj,demerr=demerr, gamma=gamma)
-        demerr_net_par_obj.writeToFile()
-        
-        # PLOT
-        bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
-
-        try:
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj_apriori.coord_xy[:, 1], y=point_obj_apriori.coord_xy[:, 0],
-                                                      arcs=demerr_net_par_obj.arcs, val=demerr_net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from DEM Error temporal unwrapping\nBefore outlier removal")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_arc_coherence_demerror.png"), dpi=300)
-        except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-
-        demerr_net_par_obj, point_id, coord_xy_dnet, design_mat = removeGrossOutliers(
-            net_obj=demerr_net_par_obj,
-            point_id=point_obj_apriori.point_id,
-            coord_xy=point_obj_apriori.coord_xy,
-            min_num_arc=self.config.consistency_check.min_num_arc_demerror,
-            quality_thrsh=self.config.consistency_check.arc_coherence_demerror,
-            logger=self.logger
-        )
-
-        try:
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=coord_xy_dnet[:, 1], y=coord_xy_dnet[:, 0],
-                                                      arcs=demerr_net_par_obj.arcs,
-                                                      val=demerr_net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nAfter outlier removal")
-
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_arc_coherence_demerror_reduced.png"), dpi=300)
-        except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-
-        #spatial_ref_id, point_id, demerr_net_par_obj = parameterBasedNoisyPointRemoval(
-        #    net_par_obj=demerr_net_par_obj,
-        #    point_id=point_id,
-        #    coord_xy=coord_xy,
-        #    design_mat=design_mat,
-        #    bmap_obj=bmap_obj,
-        #    bool_plot=True,
-        #    logger=self.logger)
-        
-        demerr_net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.?
-        point_obj_apriori.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
-        point_obj_apriori.writeToFile()
-        spatial_ref_idx = 0
-        demerr = spatialParameterIntegration(val_arcs=demerr_net_par_obj.demerr,
-                                             arcs=demerr_net_par_obj.arcs,
-                                             coord_xy=point_obj_apriori.coord_xy,
-                                             weights=demerr_net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj_apriori.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori.png"), dpi=300)
-        plt.close(fig)
-        self.logger.info(msg=f"Num of points: {point_obj_apriori.num_points} and num of dem error estimaitons: {demerr.shape}")
-
-        ### geolocation of P1
-        self.logger.info("Calculate geolocation correction.")
-        coord_correction = calculateGeolocationCorrection(path_geom=self.config.general.input_path,
-                                                          point_obj=point_obj_apriori,
-                                                          demerr=demerr,
-                                                          logger=self.logger)
-        coord_correction_norm = np.linalg.norm(coord_correction, axis=1)
-        max_error_index = np.argmax(coord_correction_norm)
-        self.logger.info(f"Maximum geolocation correction: {coord_correction_norm[max_error_index]:.1f} m "
-                    f"corresponding to {demerr[max_error_index]:.1f} m DEM correction")
-        coord_utm = point_obj_apriori.coord_utm
-        coord_utm_corrected = coord_utm + coord_correction
-        ####################################### END DEM ERROR NETWORK #####################
-        # 2) create spatial network
         point_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)
         point_id1 = point_id_img[cand_mask1]
 
@@ -399,26 +285,19 @@ class Processing:
 
         point_obj.writeToFile()
         del ifg_stack_obj, cand_mask1
-        
-        arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, corrected_coord_utm=coord_utm_corrected, demerror=demerr,
+
+        ############ FIRST NETWORK ########
+         # 1) create spatial network
+        arcs = createArcsBetweenPoints(point_obj=point_obj,
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
-                                       max_arc_height=self.config.consistency_check.max_arc_height,
                                        logger=self.logger)
-        
-        #arcs = createArcsBetweenPoints(point_obj=point_obj,
-        #                               knn=self.config.consistency_check.num_nearest_neighbours,
-        #                               max_arc_length=self.config.consistency_check.max_arc_length,
-        #                               logger=self.logger)
-        
-        
-
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(point_obj=point_obj, arcs=arcs)
+        net_obj.computeArcObservations(point_obj=point_obj,arcs=arcs)
         net_obj.writeToFile()
-        net_obj.open(input_path=self.config.general.input_path) 
-        
-        demerr, vel, tcoef, gamma = temporalUnwrapping_t(ifg_net_obj=point_obj.ifg_net_obj,
+        net_obj.open(input_path=self.config.general.input_path)
+
+        demerr, vel, tcoef, gamma = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
@@ -427,20 +306,19 @@ class Processing:
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
-
+        
         net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
         net_par_obj.writeToFile()
-
-        # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
+        
+        # PLOT
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                      arcs=net_par_obj.arcs,
-                                                      val=net_par_obj.gamma,
+                                                      arcs=net_par_obj.arcs, val=net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
             ax.set_title("Coherence from temporal unwrapping\nInitial network")
             fig = ax.get_figure()
@@ -449,7 +327,7 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        _, point_id = removeBadPointsIteratively(net_obj=net_par_obj,
+        _, point_id = removeBadPointsIteratively_3v(net_obj=net_par_obj,
             point_id=point_obj.point_id,
             quality_thrsh=self.config.consistency_check.point_median_coherence,
             logger=self.logger)
@@ -468,18 +346,86 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_1_network_1_points_removed.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+        
+        ############### DEM error spatial integration and GEOLOCATION ##################
+        spatial_ref_idx = 0
+        demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
+                                             arcs=net_par_obj.arcs,
+                                             coord_xy=point_obj.coord_xy,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        ref_demerr = demerr - np.min(demerr)
+        
+        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori.png"), dpi=300)
+        plt.close(fig)
+        self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
+    
+        #### test ###
+        demerr_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.demerr,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, _, _ = viewer.plotScatter(value=-demerr_test1, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori_with_distances.png"), dpi=300)
+        plt.close(fig)
+        
+        demerr_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.demerr,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, _, _ = viewer.plotScatter(value=-demerr_test2, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori_with_distances_and redundancy.png"), dpi=300)
+        plt.close(fig)
+        ##### end test ####
 
-        # 4) re-triangulate the points (network might not be connected anymore) and redo temporal unwrapping
-        arcs = createArcsBetweenPoints(point_obj=point_obj,
-                                       max_arc_length=self.config.consistency_check.max_arc_length,
+        ### geolocation of P1 ###
+        self.logger.info("Calculate geolocation correction.")
+        coord_correction = calculateGeolocationCorrection(path_geom=self.config.general.input_path,
+                                                          point_obj=point_obj,
+                                                          demerr=demerr,
+                                                          logger=self.logger)
+        coord_correction_norm = np.linalg.norm(coord_correction, axis=1)
+        max_error_index = np.argmax(coord_correction_norm)
+        self.logger.info(f"Maximum geolocation correction: {coord_correction_norm[max_error_index]:.1f} m "
+                    f"corresponding to {demerr[max_error_index]:.1f} m DEM correction")
+        coord_utm = point_obj.coord_utm
+        coord_utm_corrected = coord_utm + coord_correction
+
+        ####################################### End of DEM ERROR Spatial Integration and GEOLOCATION #####################
+
+         # 4) re-triangulate the points (network might not be connected anymore) and redo temporal unwrapping      
+        arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, corrected_coord_utm=coord_utm_corrected, demerror=demerr,
                                        knn=self.config.consistency_check.num_nearest_neighbours,
+                                       max_arc_length=self.config.consistency_check.max_arc_length,
+                                       max_arc_height=self.config.consistency_check.max_arc_height,
                                        logger=self.logger)
-        net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(point_obj=point_obj,arcs=arcs)
-        net_obj.writeToFile()
-        net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
+        
+        #arcs = createArcsBetweenPoints(point_obj=point_obj,
+        #                               knn=self.config.consistency_check.num_nearest_neighbours,
+        #                               max_arc_length=self.config.consistency_check.max_arc_length,
+        #                               logger=self.logger)
 
-        demerr, vel, tcoef, gamma = temporalUnwrapping_t(ifg_net_obj=point_obj.ifg_net_obj,
+        net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
+        net_obj.computeArcObservations(point_obj=point_obj, arcs=arcs)
+        net_obj.writeToFile()
+        net_obj.open(input_path=self.config.general.input_path) 
+        
+        demerr, vel, tcoef, gamma = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
@@ -491,7 +437,7 @@ class Processing:
 
         net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
-        net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, tcoef=tcoef, gamma=gamma)
+        net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
         net_par_obj.writeToFile()
 
         try:
@@ -507,10 +453,8 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj,
-            quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
-            logger=self.logger)
-
+        net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        
         try:
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
@@ -580,6 +524,34 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
+        #### test ###
+        demerr_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.demerr,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, _, _ = viewer.plotScatter(value=-demerr_test1, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_with_distances.png"), dpi=300)
+        plt.close(fig)
+        
+        demerr_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.demerr,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, _, _ = viewer.plotScatter(value=-demerr_test2, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_with_distances_and redundancy.png"), dpi=300)
+        plt.close(fig)
+        ##### end test ####
+
         self.logger.info(msg="Integrate mean velocity.")
         vel = spatialParameterIntegration(val_arcs=net_par_obj.vel,
                                           arcs=net_par_obj.arcs,
@@ -601,6 +573,34 @@ class Processing:
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
+
+        #### test ###
+        vel_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.vel,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, _, _ = viewer.plotScatter(value=-vel_test1, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: mean velocity in [m / year]",
+                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_with_distances.png"), dpi=300)
+        plt.close(fig)
+        
+        vel_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.vel,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, _, _ = viewer.plotScatter(value=-vel_test2, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: mean velocity in [m / year]",
+                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_with_distances_and_redundancy.png"), dpi=300)
+        plt.close(fig)
+        ##### end test ####
         
         #temperature coefficient
         self.logger.info(msg="Integrate temperature coefficient.")
@@ -617,6 +617,36 @@ class Processing:
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
         plt.close(fig)
+
+        #### test ###
+        tcoef_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.tcoef,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, axf, _ = viewer.plotScatter(value=-tcoef_test1, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: temperature coefficient [m / C]",
+                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient_with_distances.png"), dpi=300)
+        plt.close(fig)
+        
+        tcoef_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.tcoef,
+                                             arcs=net_par_obj.arcs,
+                                             coord_utmxy=point_obj.coord_utm,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig, axf, _ = viewer.plotScatter(value=-tcoef_test2, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: temperature coefficient [m / C]",
+                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
+                                 logger=self.logger)
+        axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
+        fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient_with_distances_and_redundancy.png"), dpi=300)
+        plt.close(fig)
+
+        ##### end test ####
 
 
         #pred_phase_demerr, pred_phase_vel = ut.predictPhase(
