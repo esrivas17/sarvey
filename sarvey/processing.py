@@ -326,26 +326,40 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_1_network_0_initial.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-
-        _, point_id = removeBadPointsIteratively_3v(net_obj=net_par_obj,
-            point_id=point_obj.point_id,
-            quality_thrsh=self.config.consistency_check.point_median_coherence,
-            logger=self.logger)
+        
+        _, point_id = removeBadPointsIteratively_3v(net_obj=net_par_obj, point_id=point_obj.point_id,
+            quality_thrsh=self.config.consistency_check.point_median_coherence, logger=self.logger)
         
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
 
         try:
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+           ax = bmap_obj.plot(logger=self.logger)
+           ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_removed.png"), dpi=300)
+           ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points")
+           fig = ax.get_figure()
+           plt.tight_layout()
+           fig.savefig(join(self.path, "pic", "step_1_network1_points_removed.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+
+        if True:
+            net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+
+            try:
+                ax = bmap_obj.plot(logger=self.logger)
+                ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+                                                        arcs=net_par_obj.arcs,
+                                                        val=net_par_obj.gamma,
+                                                        ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+                ax.set_title("Coherence from temporal unwrapping\nAfter removing low quality arcs")
+                fig = ax.get_figure()
+                plt.tight_layout()
+                fig.savefig(join(self.path, "pic", "step_1_network1_arcs_removed.png"), dpi=300)
+            except BaseException as e:
+                self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
         
         ############### DEM error spatial integration and GEOLOCATION ##################
         spatial_ref_idx = 0
@@ -364,34 +378,6 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori.png"), dpi=300)
         plt.close(fig)
         self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
-    
-        #### test ###
-        demerr_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.demerr,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, _, _ = viewer.plotScatter(value=-demerr_test1, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori_with_distances.png"), dpi=300)
-        plt.close(fig)
-        
-        demerr_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.demerr,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, _, _ = viewer.plotScatter(value=-demerr_test2, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori_with_distances_and redundancy.png"), dpi=300)
-        plt.close(fig)
-        ##### end test ####
 
         ### geolocation of P1 ###
         self.logger.info("Calculate geolocation correction.")
