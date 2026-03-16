@@ -435,7 +435,7 @@ class Processing:
             ax.set_title("Coherence from temporal unwrapping\nAfter re-triangulation")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_network_2_points_retriangulated.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
