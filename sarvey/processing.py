@@ -469,8 +469,23 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.
-        point_obj.writeToFile()
+        if True:
+            point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+
+            try:
+                ax = bmap_obj.plot(logger=self.logger)
+                ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+                                                            arcs=net_par_obj.arcs,
+                                                            val=net_par_obj.gamma,
+                                                            ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+                ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points")
+                fig = ax.get_figure()
+                plt.tight_layout()
+                fig.savefig(join(self.path, "pic", "step_1_network_2_points_removed2.png"), dpi=300)
+            except BaseException as e:
+                self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+                net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.
+                point_obj.writeToFile()
 
     def runUnwrappingTimeAndSpace(self):
         """RunTemporalAndSpatialUnwrapping."""

@@ -936,3 +936,52 @@ def removeBadArcsIteratively(*,
     net_obj.removeArcs(mask=mask)
 
     return net_obj
+
+
+def removeBadArcsIteratively_without_MST(*,
+                             net_obj: NetworkParameter,
+                             quality_thrsh: float = 0.0,
+                             logger: Logger) -> NetworkParameter:
+    """Remove bad arcs iteratively from network based on quality threshold, preserving the minimum spanning tree.
+
+    Parameters
+    ----------
+    net_obj: NetworkParameter
+        The spatial NetworkParameter object.
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs. Default = 0.0.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: NetworkParameter
+        NetworkParameter object without the removed arcs.
+    """
+    logger.info(msg="Iteratively removing bad arcs with quality < {}".format(quality_thrsh))
+
+    graph = nx.Graph()
+    for idx, arc in enumerate(net_obj.arcs):
+        graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
+
+    mst = nx.minimum_spanning_tree(graph, algorithm="kruskal")
+    mst_edges = set(mst.edges)
+
+    # Identify bad arcs that are not part of the MST
+    bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
+    bad_arcs = [
+        (arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs)
+        if bad_arc_mask[idx] and (arc[0], arc[1]) not in mst_edges and (arc[1], arc[0]) not in mst_edges
+    ]
+    logger.info(msg="Removing {} bad arc(s)".format(len(bad_arcs)))
+
+    # Remove the bad arcs
+    bad_arc_indices = [
+        idx for idx, arc in enumerate(net_obj.arcs)
+        if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs
+    ]
+    mask = np.ones(net_obj.num_arcs, dtype=bool)
+    mask[bad_arc_indices] = False
+    net_obj.removeArcs(mask=mask)
+
+    return net_obj
