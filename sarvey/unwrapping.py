@@ -964,11 +964,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
 
     bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
     bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
-    # Remove the bad arcs
-    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs)
-        if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
-    mask = np.ones(net_obj.num_arcs, dtype=bool)
-    logger.info(msg="Removing {} bad arc(s)".format(len(bad_arcs)))
+    
 
     # keep largest component
     nnods = graph1.number_of_nodes()
@@ -977,12 +973,17 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     newnnods = graph.number_of_nodes()
     remove_nodes = list(set(graph1.nodes()).difference(largest_cc))
 
-    count = 0
+    #count = 0
     for idx, arc in enumerate(net_obj.arcs):
         if arc not in bad_arcs:
             if arc[0] in remove_nodes or arc[1] in remove_nodes:
-                count +=1
-                print(f"Arc {arc} present")
+                bad_arcs.append(arc)
+
+    # Remove the bad arcs
+    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs)
+        if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
+    mask = np.ones(net_obj.num_arcs, dtype=bool)
+    logger.info(msg="Removing {} bad arc(s)".format(len(bad_arcs)))
 
     # arc mask
     mask = np.array([graph.has_edge(i, j) for i, j in net_obj.arcs])    
@@ -1005,7 +1006,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     mask[bad_arc_indices] = False
     #net_obj.removeArcs(mask=mask)
     net_obj.removeArcs(mask=mask)
-    pdb.set_trace()
+    #pdb.set_trace()
     if False:
         import matplotlib.pyplot as plt
         nx.draw(graph)
