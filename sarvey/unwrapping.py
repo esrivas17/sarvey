@@ -956,22 +956,19 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     graph0.add_nodes_from([(i, {'point_id': id}) for i, id in enumerate(point_id)])
     graph0.add_edges_from([(arc[0], arc[1], {'weight': net_obj.gamma[idx], 'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)])
 
-    graph1 = nx.Graph()
-    graph1.add_nodes_from([(i, {'point_id': id}) for i, id in enumerate(point_id)])
-    graph1.add_edges_from([(arc[0], arc[1], {'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs) if net_obj.gamma[idx] >= quality_thrsh])
-
-    logger.info(msg=f"Keeping {graph1.number_of_edges()} good arc(s) out of {num_arcs}")
-
     bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
     bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
     
+    logger.info(msg=f"Removing {len(bad_arcs)} bad arc(s) out of {num_arcs}")
 
-    # keep largest component
-    nnods = graph1.number_of_nodes()
-    largest_cc = max(nx.connected_components(graph1), key=len)
-    graph = graph1.subgraph(largest_cc).copy()
+    #### graph0
+    nnods = graph0.number_of_nodes()
+    graph0.remove_edges_from(bad_arcs)
+    largest_cc = max(nx.connected_components(graph0), key=len)
+    graph = graph0.subgraph(largest_cc).copy()
     newnnods = graph.number_of_nodes()
-    remove_nodes = list(set(graph1.nodes()).difference(largest_cc))
+    remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
+
 
     #count = 0
     for arc in net_obj.arcs:
@@ -987,27 +984,19 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     logger.info(msg="Removing {} bad arc(s)".format(len(bad_arcs)))
 
     # arc mask
-    mask = np.array([graph.has_edge(i, j) for i, j in net_obj.arcs])    
     logger.info(msg=f"Keeping largest connected component with {newnnods} nodes, previously {nnods}")
-    #pdb.set_trace()
-    # node mapping
-    #nodes_sorted = sorted(graph.nodes())
-    #old_to_new = {old: new for new, old in enumerate(nodes_sorted)}
+
     
     #mask = np.zeros(net_obj.num_arcs, dtype=bool)
     new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
 
-    #for i, arc in enumerate(net_obj.arcs):
-    #    if graph.has_edge(arc[0], arc[1]):
-    #        mask[i] = True
 
     logger.info(msg=f"Keeping {np.sum(mask)} arc(s) out of {num_arcs}")
 
     # removing arcs from net obj
     mask[bad_arc_indices] = False
-    #net_obj.removeArcs(mask=mask)
     net_obj.removeArcs(mask=mask)
-    #pdb.set_trace()
+
     if False:
         import matplotlib.pyplot as plt
         nx.draw(graph)
