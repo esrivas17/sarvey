@@ -971,7 +971,7 @@ def removeArcsAndPointsKeepingLargestComponentInMST(*,
     graph.add_edges_from([(arc[0], arc[1], {'weight': net_obj.gamma[idx], 'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)])
 
     # Removing bad arcs
-    good_mask = net_obj.gamma >= quality_thrsh
+    good_mask = (net_obj.gamma >= quality_thrsh).flatten()
     bad_arcs_num = net_obj.gamma.shape[0] - np.sum(good_mask)
     logger.info(msg=f"Removing {bad_arcs_num} bad arc(s) out of {net_obj.gamma.shape[0]}")
 
