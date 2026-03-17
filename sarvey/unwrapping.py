@@ -972,18 +972,20 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
 
     # keep largest component
     nnods = graph1.number_of_nodes()
-    logger.info(msg=f"Keeping largest connected component")
     largest_cc = max(nx.connected_components(graph1), key=len)
     graph = graph1.subgraph(largest_cc).copy()
     newnnods = graph.number_of_nodes()
+    remove_nodes = list(set(graph1.nodes()).difference(largest_cc))
+
+    count = 0
+    for idx, arc in enumerate(net_obj.arcs):
+        if arc not in bad_arcs:
+            if arc[0] in remove_nodes or arc[1] in remove_nodes:
+                count +=1
+                print(f"Arc {arc} present")
 
     # arc mask
-    mask = np.array([graph.has_edge(i, j) for i, j in net_obj.arcs])
-
-    # reindex arcs
-    #new_arcs = np.array([[old_to_new[i], old_to_new[j]] for i, j in net_obj.arcs[mask]], dtype=np.int64)
-
-    
+    mask = np.array([graph.has_edge(i, j) for i, j in net_obj.arcs])    
     logger.info(msg=f"Keeping largest connected component with {newnnods} nodes, previously {nnods}")
     #pdb.set_trace()
     # node mapping
@@ -1003,7 +1005,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     mask[bad_arc_indices] = False
     #net_obj.removeArcs(mask=mask)
     net_obj.removeArcs(mask=mask)
-
+    pdb.set_trace()
     if False:
         import matplotlib.pyplot as plt
         nx.draw(graph)
