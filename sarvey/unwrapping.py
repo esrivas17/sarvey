@@ -966,12 +966,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     graph = graph0.subgraph(largest_cc).copy()
     newnnods = graph.number_of_nodes()
     remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
-
-    # checking if points have no connections after node removal
-    nodeixs = [nodeix for nodeix, ncs in dict(graph.degree).items() if ncs == 0] # nodes with 0 connections
-    for ix in nodeixs:
-        graph.remove_node(ix)
-
+    pdb.set_trace()
     #count = 0
     for arc in net_obj.arcs:
         arc = tuple(arc)
@@ -980,34 +975,17 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
                 bad_arcs.append(arc)
 
     # Remove the bad arcs
-    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs)
-        if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
+    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs) if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
     mask = np.ones(net_obj.num_arcs, dtype=bool)
     logger.info(msg=f"Removing {len(bad_arcs)} bad arc(s) out of {num_arcs}")
 
     # arc mask
     logger.info(msg=f"Keeping largest connected component with {newnnods} nodes, previously {nnods}")
-
-    #mask = np.zeros(net_obj.num_arcs, dtype=bool)
-
     new_point_id = [graph0.nodes[node]['point_id'] for node in graph.nodes()]
-    lookup_dict = {node: index for index, node in enumerate(graph.nodes)}
-    new_arc_list = [(lookup_dict[edge[0]], lookup_dict[edge[1]]) for edge in graph.edges]
-    arc_idx = [graph.edges[edge]['arc_idx'] for edge in graph.edges()]
-    net_obj.arcs = np.array(new_arc_list, dtype=np.int64)
-    net_obj.gamma = net_obj.gamma[arc_idx]
-    net_obj.vel = net_obj.vel[arc_idx]
-    net_obj.demerr = net_obj.demerr[arc_idx]
-    net_obj.tcoef = net_obj.tcoef[arc_idx]
-    net_obj.loc_inc = net_obj.loc_inc[arc_idx]
-    net_obj.slant_range = net_obj.slant_range[arc_idx]
-    net_obj.phase = net_obj.phase[arc_idx, :]
-    net_obj.num_arcs = len(new_arc_list)
-    point_id = new_point_id
 
     # removing arcs from net obj
     mask[bad_arc_indices] = False
-    #net_obj.removeArcs(mask=mask)
+    net_obj.removeArcs(mask=mask)
     logger.info(msg=f"Keeping {np.sum(mask)} arc(s) out of {num_arcs}")
 
     if False:
