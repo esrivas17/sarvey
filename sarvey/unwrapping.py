@@ -966,14 +966,14 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     graph = graph0.subgraph(largest_cc).copy()
     newnnods = graph.number_of_nodes()
     remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
-    pdb.set_trace()
-    #count = 0
+    
+    print(bad_arcs)
     for arc in net_obj.arcs:
         arc = tuple(arc)
         if arc not in bad_arcs:
             if arc[0] in remove_nodes or arc[1] in remove_nodes:
                 bad_arcs.append(arc)
-
+    pdb.set_trace()
     # Remove the bad arcs
     bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs) if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
     mask = np.ones(net_obj.num_arcs, dtype=bool)
