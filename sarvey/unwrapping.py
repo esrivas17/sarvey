@@ -944,10 +944,10 @@ def removeBadArcsIteratively(*,
 
 
 def removeArcsAndPointsKeepLargestConnectedComponent(*,
-                             net_obj: NetworkParameter,
+                             net_obj: NetworkParameter_Temp,
                              quality_thrsh: float = 0.0,
                              point_id: np.ndarray,
-                             logger: Logger) -> tuple[NetworkParameter, np.array]:
+                             logger: Logger) -> tuple[NetworkParameter_Temp, np.array]:
 
     logger.info(msg="Iteratively removing bad arcs with quality < {}".format(quality_thrsh))
     num_arcs = net_obj.num_arcs
@@ -963,9 +963,13 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     logger.info(msg=f"Keeping largest connected component")
     largest_cc = max(nx.connected_components(graph), key=len)
     graph = graph.subgraph(largest_cc).copy()
+    # Get list of isolated nodes
+    isolated = list(nx.isolates(graph))
+    print(f"Number of isolated nodes: {len(isolated)}")
+    print(f"Isolated nodes: {isolated}")
     newnnods = graph.number_of_nodes()
     logger.info(msg=f"Keeping largest connected component with {newnnods} nodes, previously {nnods}")
-
+    pdb.set_trace()
     # node mapping
     #nodes_sorted = sorted(graph.nodes())
     #old_to_new = {old: new for new, old in enumerate(nodes_sorted)}
