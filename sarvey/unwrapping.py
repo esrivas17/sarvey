@@ -1007,7 +1007,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
 
     # removing arcs from net obj
     mask[bad_arc_indices] = False
-    net_obj.removeArcs(mask=mask)
+    #net_obj.removeArcs(mask=mask)
     logger.info(msg=f"Keeping {np.sum(mask)} arc(s) out of {num_arcs}")
 
     if False:
