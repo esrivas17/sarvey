@@ -967,7 +967,11 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     newnnods = graph.number_of_nodes()
     remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
 
-
+    # checking if points have no connections after node removal
+    nodeixs = [nodeix for nodeix, ncs in dict(graph.degree).items() if ncs == 0] # nodes with 0 connections
+    for ix in nodeixs:
+        graph.remove_node(ix)
+        
     #count = 0
     for arc in net_obj.arcs:
         arc = tuple(arc)
