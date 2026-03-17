@@ -976,10 +976,6 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     largest_cc = max(nx.connected_components(graph1), key=len)
     graph = graph1.subgraph(largest_cc).copy()
     newnnods = graph.number_of_nodes()
-   
-   # mapping
-    nodes_sorted = sorted(graph.nodes())
-    old_to_new = {old: new for new, old in enumerate(nodes_sorted)}
 
     # arc mask
     mask = np.array([graph.has_edge(i, j) for i, j in net_obj.arcs])
@@ -995,7 +991,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     #old_to_new = {old: new for new, old in enumerate(nodes_sorted)}
     
     #mask = np.zeros(net_obj.num_arcs, dtype=bool)
-    new_point_id = [graph.nodes[node]['point_id'] for node in nodes_sorted]
+    new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
 
     #for i, arc in enumerate(net_obj.arcs):
     #    if graph.has_edge(arc[0], arc[1]):
