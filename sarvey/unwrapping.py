@@ -956,11 +956,15 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     graph.add_nodes_from([(i, {'point_id': id}) for i, id in enumerate(point_id)])
     graph.add_edges_from([(arc[0], arc[1], {'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs) if net_obj.gamma[idx] >= quality_thrsh])
 
-    logger.info(msg=f"Removing {graph.number_of_edges()} bad arc(s) out of {num_arcs}")
+    logger.info(msg=f"Keeping {graph.number_of_edges()} good arc(s) out of {num_arcs}")
 
     # keep largest component
+    nnods = graph.number_of_nodes()
+    logger.info(msg=f"Keeping largest connected component")
     largest_cc = max(nx.connected_components(graph), key=len)
     graph = graph.subgraph(largest_cc).copy()
+    newnnods = graph.number_of_nodes()
+    logger.info(msg=f"Keeping largest connected component with {newnnods} nodes, previously {nnods}")
 
     # node mapping
     #nodes_sorted = sorted(graph.nodes())
