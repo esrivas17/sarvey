@@ -84,7 +84,7 @@ class General(BaseModel, extra="forbid"):
     normalize_temperature: bool = Field(
         title="Normalize temperature values",
         description="Normalized temperature values to keep them between 0 and 1",
-        default=True
+        default=False
     )
 
     logging_level: str = Field(
