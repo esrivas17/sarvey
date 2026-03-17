@@ -975,7 +975,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
 
     #count = 0
     for idx, arc in enumerate(net_obj.arcs):
-        if arc not in bad_arcs:
+        if list(arc) not in bad_arcs:
             if arc[0] in remove_nodes or arc[1] in remove_nodes:
                 bad_arcs.append(arc)
 
