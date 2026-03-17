@@ -971,7 +971,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     nodeixs = [nodeix for nodeix, ncs in dict(graph.degree).items() if ncs == 0] # nodes with 0 connections
     for ix in nodeixs:
         graph.remove_node(ix)
-        
+
     #count = 0
     for arc in net_obj.arcs:
         arc = tuple(arc)
@@ -991,6 +991,20 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     #mask = np.zeros(net_obj.num_arcs, dtype=bool)
 
     new_point_id = [graph0.nodes[node]['point_id'] for node in graph.nodes()]
+    lookup_dict = {node: index for index, node in enumerate(graph.nodes)}
+    new_arc_list = [(lookup_dict[edge[0]], lookup_dict[edge[1]]) for edge in graph.edges]
+    arc_idx = [graph.edges[edge]['arc_idx'] for edge in graph.edges()]
+    net_obj.arcs = np.array(new_arc_list, dtype=np.int64)
+    net_obj.gamma = net_obj.gamma[arc_idx]
+    net_obj.vel = net_obj.vel[arc_idx]
+    net_obj.demerr = net_obj.demerr[arc_idx]
+    net_obj.tcoef = net_obj.tcoef[arc_idx]
+    net_obj.loc_inc = net_obj.loc_inc[arc_idx]
+    net_obj.slant_range = net_obj.slant_range[arc_idx]
+    net_obj.phase = net_obj.phase[arc_idx, :]
+    net_obj.num_arcs = len(new_arc_list)
+    point_id = new_point_id
+
     # removing arcs from net obj
     mask[bad_arc_indices] = False
     net_obj.removeArcs(mask=mask)
