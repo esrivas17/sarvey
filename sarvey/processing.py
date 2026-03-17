@@ -530,11 +530,6 @@ class Processing:
                                              weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        # demerr = spatialParameterIntegrationIterative(val_arcs=net_par_obj.demerr, all_arcs=net_par_obj.arcs,
-        #                                               coord_xy=point_obj.coord_xy, all_weights=net_par_obj.gamma,
-        #                                               spatial_ref_idx=spatial_ref_idx,
-        #                                               res_tol=5.0,
-        #                                               max_rm_fraction=0.001)
         fig, axf, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
@@ -578,12 +573,6 @@ class Processing:
                                           weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        # vel = spatialParameterIntegrationIterative(val_arcs=net_par_obj.vel, all_arcs=net_par_obj.arcs,
-        #                                            coord_xy=point_obj.coord_xy,
-        #                                            all_weights=net_par_obj.gamma,
-        #                                            spatial_ref_idx=spatial_ref_idx,
-        #                                            res_tol=1.0,
-        #                                            max_rm_fraction=0.001)
         fig, axf, _ = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
@@ -592,34 +581,6 @@ class Processing:
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
-
-        #### test ###
-        vel_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.vel,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, _, _ = viewer.plotScatter(value=-vel_test1, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: mean velocity in [m / year]",
-                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_with_distances.png"), dpi=300)
-        plt.close(fig)
-        
-        vel_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.vel,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, _, _ = viewer.plotScatter(value=-vel_test2, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: mean velocity in [m / year]",
-                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_with_distances_and_redundancy.png"), dpi=300)
-        plt.close(fig)
-        ##### end test ####
         
         #temperature coefficient
         self.logger.info(msg="Integrate temperature coefficient.")
@@ -636,36 +597,6 @@ class Processing:
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
         plt.close(fig)
-
-        #### test ###
-        tcoef_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.tcoef,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, axf, _ = viewer.plotScatter(value=-tcoef_test1, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: temperature coefficient [m / C]",
-                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient_with_distances.png"), dpi=300)
-        plt.close(fig)
-        
-        tcoef_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.tcoef,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, axf, _ = viewer.plotScatter(value=-tcoef_test2, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: temperature coefficient [m / C]",
-                                 bmap_obj=bmap_obj, s=10, cmap="roma", symmetric=True,
-                                 logger=self.logger)
-        axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
-        fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient_with_distances_and_redundancy.png"), dpi=300)
-        plt.close(fig)
-
-        ##### end test ####
 
 
         #pred_phase_demerr, pred_phase_vel = ut.predictPhase(

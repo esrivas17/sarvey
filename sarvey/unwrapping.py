@@ -847,8 +847,13 @@ def removeBadPointsIteratively_3v(*, net_obj: NetworkParameter_Temp, point_id: n
         graph.remove_node(worst_node)
         logger.debug("Removing point %d with median coherence %.2f",
                      point_id[worst_node], median_coherence[worst_node])
-
+        
         del median_coherence[worst_node]
+
+    # checking if points have no connections after node removal
+    nodeixs = [nodeix for nodeix, ncs in dict(graph.degree).items() if ncs == 0] # nodes with 0 connections
+    for ix in nodeixs:
+        graph.remove_node(ix)
 
     lookup_dict = {node: index for index, node in enumerate(graph.nodes)}
     new_arc_list = [(lookup_dict[edge[0]], lookup_dict[edge[1]]) for edge in graph.edges]
