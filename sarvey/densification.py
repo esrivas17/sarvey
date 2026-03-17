@@ -628,12 +628,12 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
                 
         if not nearest_p1_filtered:
             nearest_p1_filtered = nearest_p1
-            #demerr_p2[idx] = 0
-            #vel_p2[idx] = 0
-            #tcoef_p2[idx] = 0
-            #gamma_p2[idx] = 0
+            demerr_p2[idx] = 0
+            vel_p2[idx] = 0
+            tcoef_p2[idx] = 0
+            gamma_p2[idx] = 0
             #print(f"Pixels: {xp, yp} - making 0")
-            #continue
+            continue
         else:
             #########
             #if xp == 308 and yp == 104:
