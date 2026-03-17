@@ -943,55 +943,28 @@ def removeBadArcsIteratively(*,
     return net_obj
 
 
-def removeArcsAndPointsKeepingLargestComponentInMST(*,
+def removeArcsAndPointsKeepLargestConnectedComponent(*,
                              net_obj: NetworkParameter,
                              quality_thrsh: float = 0.0,
                              point_id: np.ndarray,
                              logger: Logger) -> tuple[NetworkParameter, np.array]:
-    """Remove bad arcs iteratively from network based on quality threshold, preserving the minimum spanning tree.
 
-    Parameters
-    ----------
-    net_obj: NetworkParameter
-        The spatial NetworkParameter object.
-    quality_thrsh: float
-        Threshold on the temporal coherence of the arcs. Default = 0.0.
-    logger: Logger
-        Logging handler.
-
-    Returns
-    -------
-    net_obj: NetworkParameter
-        NetworkParameter object without the removed arcs.
-    """
     logger.info(msg="Iteratively removing bad arcs with quality < {}".format(quality_thrsh))
+    num_arcs = net_obj.num_arcs
 
-    graph = nx.DiGraph()
-    graph.add_nodes_from([(i, {'point_id': id}) for (i, id) in enumerate(point_id)])
-    graph.add_edges_from([(arc[0], arc[1], {'weight': net_obj.gamma[idx], 'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)])
+    graph = nx.Graph()
+    graph.add_nodes_from([(i, {'point_id': id}) for i, id in enumerate(point_id)])
+    graph.add_edges_from([(arc[0], arc[1], {'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs) if net_obj.gamma[idx] >= quality_thrsh])
 
-    # Removing bad arcs
-    good_mask = (net_obj.gamma >= quality_thrsh).flatten()
-    bad_arcs_num = net_obj.gamma.shape[0] - np.sum(good_mask)
-    logger.info(msg=f"Removing {bad_arcs_num} bad arc(s) out of {net_obj.gamma.shape[0]}")
+    logger.info(msg=f"Removing {graph.number_of_edges()} bad arc(s) out of {num_arcs}")
 
-    bad_arcs = net_obj.arcs[~good_mask, :]
-    graph.remove_edges_from([(arc[0], arc[1]) for arc in bad_arcs])
-    logger.debug(msg=f"Number of edges after removing bad arcs: {graph.number_of_edges()}")
+    # keep largest component
+    largest_cc = max(nx.connected_components(graph), key=len)
+    graph = graph.subgraph(largest_cc).copy()
 
-    iteration = 0
-    while True:
-        iteration += 1
-        # keep largest component
-        largest_cc = max(nx.weakly_connected_components(graph), key=len)
-        nodes_to_remove = set(graph.nodes) - largest_cc
-
-        if not nodes_to_remove:
-            logger.info(msg=f"Graph is weakly connected after {iteration - 1} iteration(s). Stopping.")
-            break  # stable — nothing left to remove
-
-        logger.info(msg=f"Iteration {iteration}: removing {len(nodes_to_remove)} node(s) out of {graph.number_of_nodes()}")
-        graph.remove_nodes_from(nodes_to_remove)
+    # node mapping
+    #nodes_sorted = sorted(graph.nodes())
+    #old_to_new = {old: new for new, old in enumerate(nodes_sorted)}
     
     mask = np.zeros(net_obj.num_arcs, dtype=bool)
     new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
@@ -1000,8 +973,9 @@ def removeArcsAndPointsKeepingLargestComponentInMST(*,
         if graph.has_edge(arc[0], arc[1]):
             mask[i] = True
 
-    logger.info(msg=f"Keeping {np.sum(mask)} arc(s) out of {net_obj.num_arcs}")
+    logger.info(msg=f"Keeping {np.sum(mask)} arc(s) out of {num_arcs}")
 
+    # removing arcs from net obj
     net_obj.removeArcs(mask=mask)
 
     if False:
