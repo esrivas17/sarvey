@@ -963,23 +963,31 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     logger.info(msg=f"Keeping largest connected component")
     largest_cc = max(nx.connected_components(graph), key=len)
     graph = graph.subgraph(largest_cc).copy()
-    # Get list of isolated nodes
-    isolated = list(nx.isolates(graph))
-    print(f"Number of isolated nodes: {len(isolated)}")
-    print(f"Isolated nodes: {isolated}")
     newnnods = graph.number_of_nodes()
+   
+   # mapping
+    nodes_sorted = sorted(graph.nodes())
+    old_to_new = {old: new for new, old in enumerate(nodes_sorted)}
+
+    # arc mask
+    mask = np.array([graph.has_edge(i, j) for i, j in net_obj.arcs])
+
+    # reindex arcs
+    #new_arcs = np.array([[old_to_new[i], old_to_new[j]] for i, j in net_obj.arcs[mask]], dtype=np.int64)
+
+    
     logger.info(msg=f"Keeping largest connected component with {newnnods} nodes, previously {nnods}")
-    pdb.set_trace()
+    #pdb.set_trace()
     # node mapping
     #nodes_sorted = sorted(graph.nodes())
     #old_to_new = {old: new for new, old in enumerate(nodes_sorted)}
     
-    mask = np.zeros(net_obj.num_arcs, dtype=bool)
-    new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
+    #mask = np.zeros(net_obj.num_arcs, dtype=bool)
+    new_point_id = [graph.nodes[node]['point_id'] for node in nodes_sorted]
 
-    for i, arc in enumerate(net_obj.arcs):
-        if graph.has_edge(arc[0], arc[1]):
-            mask[i] = True
+    #for i, arc in enumerate(net_obj.arcs):
+    #    if graph.has_edge(arc[0], arc[1]):
+    #        mask[i] = True
 
     logger.info(msg=f"Keeping {np.sum(mask)} arc(s) out of {num_arcs}")
 
