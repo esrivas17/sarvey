@@ -952,11 +952,23 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     logger.info(msg="Iteratively removing bad arcs with quality < {}".format(quality_thrsh))
     num_arcs = net_obj.num_arcs
 
+    graph0 = nx.Graph()
+    graph0.add_nodes_from([(i, {'point_id': id}) for i, id in enumerate(point_id)])
+    graph0.add_edges_from([(arc[0], arc[1], {'weight': net_obj.gamma[idx], 'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)])
+
     graph1 = nx.Graph()
     graph1.add_nodes_from([(i, {'point_id': id}) for i, id in enumerate(point_id)])
     graph1.add_edges_from([(arc[0], arc[1], {'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs) if net_obj.gamma[idx] >= quality_thrsh])
 
-    logger.info(msg=f"Keeping {graph.number_of_edges()} good arc(s) out of {num_arcs}")
+    logger.info(msg=f"Keeping {graph1.number_of_edges()} good arc(s) out of {num_arcs}")
+
+    bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
+    bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
+    # Remove the bad arcs
+    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs)
+        if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
+    mask = np.ones(net_obj.num_arcs, dtype=bool)
+    logger.info(msg="Removing {} bad arc(s)".format(len(bad_arcs)))
 
     # keep largest component
     nnods = graph1.number_of_nodes()
@@ -992,6 +1004,8 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     logger.info(msg=f"Keeping {np.sum(mask)} arc(s) out of {num_arcs}")
 
     # removing arcs from net obj
+    mask[bad_arc_indices] = False
+    #net_obj.removeArcs(mask=mask)
     net_obj.removeArcs(mask=mask)
 
     if False:
