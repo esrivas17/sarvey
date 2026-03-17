@@ -470,6 +470,9 @@ class Processing:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
         if True:
+            _, point_id = removeBadPointsIteratively_3v(net_obj=net_par_obj, point_id=point_obj.point_id,
+                quality_thrsh=self.config.consistency_check.point_median_coherence, logger=self.logger)
+             
             point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
 
             try:
