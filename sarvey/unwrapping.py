@@ -1067,6 +1067,7 @@ def RemovePointsKeepingLargestComponent(*,
     net_obj.gamma = net_obj.gamma[arc_idx]
     net_obj.vel = net_obj.vel[arc_idx]
     net_obj.demerr = net_obj.demerr[arc_idx]
+    net_obj.tcoef = net_obj.tcoef[arc_idx]
     net_obj.loc_inc = net_obj.loc_inc[arc_idx]
     net_obj.slant_range = net_obj.slant_range[arc_idx]
     net_obj.phase = net_obj.phase[arc_idx, :]
