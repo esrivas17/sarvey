@@ -1171,8 +1171,8 @@ class Processing:
                              f"{self.config.densification.arc_unwrapping_coherence}")
         point2_obj.removePoints(mask=mask_gamma, keep_id=[], input_path=self.config.general.input_path)
 
-        fig = plt.figure(figsize=(15, 5))
-        axs = fig.subplots(1, 2)
+        fig = plt.figure(figsize=(16, 5))
+        axs = fig.subplots(1, 3)
         axs[0].hist(-vel[mask_gamma] * 100, bins=200)
         axs[0].set_ylabel('Absolute frequency')
         axs[0].set_xlabel('Mean velocity [cm / year]')
@@ -1180,24 +1180,15 @@ class Processing:
         axs[1].hist(-demerr[mask_gamma], bins=200)
         axs[1].set_ylabel('Absolute frequency')
         axs[1].set_xlabel('DEM error [m]')
+
+        axs[2].hist(-tcoef[mask_gamma]*1000, bins=200)
+        axs[2].set_ylabel('Absolute frequency')
+        axs[2].set_xlabel('Temp Coeff [mm/C]')
+
         fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}.png".format(coh_value)),
                     dpi=300)
         plt.close(fig)
-
-        # histogram
-        fig = plt.figure(figsize=(15, 5))
-        axs = fig.subplots(1, 2)
-        axs[0].hist(-tcoef[mask_gamma]*1000, bins=200)
-        axs[0].set_ylabel('Absolute frequency')
-        axs[0].set_xlabel('Temp Coeff [mm/C]')
-
-        axs[1].hist(-demerr[mask_gamma], bins=200)
-        axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('DEM error [m]')
-        fig.savefig(join(self.path, "pic", "step_4_consistency_hist_temp_coeff_p2_coh{}.png".format(coh_value)),
-                    dpi=300)
-        plt.close(fig)
-
+        
         # figures
         fig = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
