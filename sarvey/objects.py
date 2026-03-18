@@ -44,6 +44,9 @@ from miaplpy.objects.slcStack import slcStack
 from mintpy.utils import readfile
 from mintpy.utils.plot import auto_flip_direction
 
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import structural_rank
+
 from sarvey.ifg_network import IfgNetwork
 
 
@@ -909,7 +912,26 @@ class NetworkParameter_Temp(Network):
         self.num_arcs = mask[mask].shape[0]
         self.tcoef = self.tcoef[mask]
 
+    def isNetworkConnected(self, num_points):
+        arcs = np.array(self.arcs)
+        #num_points = coord_xy.shape[0]
+        num_arcs = arcs.shape[0]
 
+        # create design matrix
+        design_mat = np.zeros((num_arcs, num_points))
+        for i in range(num_arcs):
+            design_mat[i, arcs[i][0]] = 1
+            design_mat[i, arcs[i][1]] = -1
+
+        # remove reference point from design matrix
+        spatial_ref_idx = 0
+        design_mat = csr_matrix(np.delete(design_mat, spatial_ref_idx, 1))
+
+        if structural_rank(design_mat) < design_mat.shape[1]:
+            return False
+        else:
+            return True
+        
 class NetworkParameter_DEMError(Network):
     """Spatial Network with the estimated parameters of each arc in the network."""
 

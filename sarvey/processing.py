@@ -44,8 +44,7 @@ from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp, NetworkParameter_DEMError
-from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, spatialUnwrapping, spatialParameterIntegration_with_distance, spatialParameterIntegration_with_distance_and_redundancy,
-                               removeBadArcsIteratively, removeBadPointsIteratively, removeBadPointsIteratively_3v, removeArcsAndPointsKeepLargestConnectedComponent)
+from sarvey.unwrapping import *
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_UnevenTemporalCoherence
@@ -454,13 +453,16 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj, point_id = removeArcsAndPointsKeepLargestConnectedComponent(net_obj=net_par_obj, 
-                                                                                quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, 
-                                                                                point_id=point_obj.point_id,
-                                                                                logger=self.logger)
-        #net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        net_par_obj, point_id = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+
+        net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_id, logger=self.logger)
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
 
+        net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
+
+        if not net_par_obj.isNetworkConnected(point_obj.num_points):
+            raise Exception("Network disconnected")
+        
         try:
            ax = bmap_obj.plot(logger=self.logger)
            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],

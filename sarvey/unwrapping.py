@@ -967,13 +967,12 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     newnnods = graph.number_of_nodes()
     remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
     
-    print(bad_arcs)
     for arc in net_obj.arcs:
         arc = tuple(arc)
         if arc not in bad_arcs:
             if arc[0] in remove_nodes or arc[1] in remove_nodes:
                 bad_arcs.append(arc)
-    pdb.set_trace()
+
     # Remove the bad arcs
     bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs) if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
     mask = np.ones(net_obj.num_arcs, dtype=bool)
@@ -994,3 +993,139 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
         plt.show()
 
     return net_obj, new_point_id
+
+
+def removeBadArcsWithThresh(*,
+                             net_obj: NetworkParameter_Temp,
+                             quality_thrsh: float = 0.0,
+                             logger: Logger) -> NetworkParameter_Temp:
+    """Remove bad arcs iteratively from network based on quality threshold, preserving the minimum spanning tree.
+
+    Parameters
+    ----------
+    net_obj: NetworkParameter_Temp
+        The spatial NetworkParameter object.
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs. Default = 0.0.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: NetworkParameter_Temp
+        NetworkParameter object without the removed arcs.
+    """
+    logger.info(msg="Iteratively removing bad arcs with quality < {}".format(quality_thrsh))
+
+    graph = nx.Graph()
+    for idx, arc in enumerate(net_obj.arcs):
+        graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
+
+    # bad arcs without considering the MST
+    bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
+    bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
+
+    logger.info(msg="Removing {} bad arc(s)".format(len(bad_arcs)))
+
+    # Remove the bad arcs
+    bad_arc_indices = [
+        idx for idx, arc in enumerate(net_obj.arcs)
+        if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs
+    ]
+    mask = np.ones(net_obj.num_arcs, dtype=bool)
+    mask[bad_arc_indices] = False
+    net_obj.removeArcs(mask=mask)
+
+    return net_obj
+
+def RemovePointsKeepingLargestComponent(*,
+                             net_obj: NetworkParameter_Temp,
+                             point_id: np.ndarray,
+                             logger: Logger) -> tuple[NetworkParameter_Temp, np.array]:
+
+    logger.info(msg="Remove points using connected components")
+
+    graph0 = nx.Graph()
+    graph0.add_nodes_from([(i, {'point_id': id}) for (i, id) in enumerate(point_id)])
+    graph0.add_edges_from([(arc[0], arc[1], {'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)])
+
+    largest_cc = max(nx.connected_components(graph0), key=len)
+    graph = graph0.subgraph(largest_cc).copy()
+    remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
+    logger.debug(f"Removing points: {remove_nodes} out of the main network component")
+    graph.remove_nodes_from(remove_nodes)
+
+    lookup_dict = {node: index for index, node in enumerate(graph.nodes)}
+    new_arc_list = [(lookup_dict[edge[0]], lookup_dict[edge[1]]) for edge in graph.edges]
+    new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
+
+    logger.debug(f"Number of points after/before removal due largest components: %d / %d",
+                 len(new_point_id), len(point_id))
+
+    arc_idx = [graph.edges[edge]['arc_idx'] for edge in graph.edges()]
+    net_obj.arcs = np.array(new_arc_list, dtype=np.int64)
+    net_obj.gamma = net_obj.gamma[arc_idx]
+    net_obj.vel = net_obj.vel[arc_idx]
+    net_obj.demerr = net_obj.demerr[arc_idx]
+    net_obj.loc_inc = net_obj.loc_inc[arc_idx]
+    net_obj.slant_range = net_obj.slant_range[arc_idx]
+    net_obj.phase = net_obj.phase[arc_idx, :]
+    net_obj.num_arcs = len(new_arc_list)
+    point_id = new_point_id
+
+    # log values after bad point removal
+    logger.debug("[Min, Max] temporal coherence of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.gamma), np.max(net_obj.gamma))
+    logger.debug("[Min, Max] velocity of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.vel), np.max(net_obj.vel))
+    logger.debug("[Min, Max] DEM residual of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.demerr), np.max(net_obj.demerr))
+    logger.debug("[Min, Max] incidence angle of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.loc_inc), np.max(net_obj.loc_inc))
+    logger.debug("[Min, Max] slant range of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.slant_range), np.max(net_obj.slant_range))
+    logger.debug("[Min, Max] phase of points after bad point removal: [%.3f, %.3f]",
+                 np.min(net_obj.phase), np.max(net_obj.phase))
+
+    logger.info(msg="Finished removing bad points.")
+    return net_obj, point_id
+
+def removeArcsFromNonExistingPoints(*,
+                             net_obj: NetworkParameter_Temp,
+                             point_id: np.array,
+                             logger: Logger) -> NetworkParameter_Temp:
+    """Remove bad arcs iteratively from network based on quality threshold, preserving the minimum spanning tree.
+
+    Parameters
+    ----------
+    net_obj: NetworkParameter
+        The spatial NetworkParameter object.
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs. Default = 0.0.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: NetworkParameter
+        NetworkParameter object without the removed arcs.
+    """
+
+    graph = nx.Graph()
+    for idx, arc in enumerate(net_obj.arcs):
+        graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
+
+    # arcs not in points id
+    bad_arcs = [(arc[0], arc[1]) for arc in net_obj.arcs if arc[0] not in point_id or arc[1] not in point_id]
+    bad_arc_indices = [ix for ix, arc in enumerate(net_obj.arcs) if arc[0] not in point_id or arc[1] not in point_id]
+
+    logger.info(msg=f"Number of arcs: {net_obj.num_arcs}. Removing {len(bad_arcs)} disconnected arc(s)")
+
+    # Remove the bad arcs
+    #bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs)
+    #    if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
+    mask = np.ones(net_obj.num_arcs, dtype=bool)
+    mask[bad_arc_indices] = False
+    net_obj.removeArcs(mask=mask)
+
+    return net_obj
