@@ -1059,7 +1059,7 @@ def RemovePointsKeepingLargestComponent(*,
     new_arc_list = [(lookup_dict[edge[0]], lookup_dict[edge[1]]) for edge in graph.edges]
     new_point_id = [graph.nodes[node]['point_id'] for node in graph.nodes()]
 
-    logger.debug(f"Number of points after/before removal due largest components: %d / %d",
+    logger.info(f"Number of points after/before removal due largest components: %d / %d",
                  len(new_point_id), len(point_id))
 
     arc_idx = [graph.edges[edge]['arc_idx'] for edge in graph.edges()]
@@ -1115,11 +1115,13 @@ def removeArcsFromNonExistingPoints(*,
     for idx, arc in enumerate(net_obj.arcs):
         graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
 
+    idxs_points = list(range(point_id))
+
     # arcs not in points id
     bad_arcs = [(arc[0], arc[1]) for arc in net_obj.arcs if arc[0] not in point_id or arc[1] not in point_id]
-    bad_arc_indices = [ix for ix, arc in enumerate(net_obj.arcs) if arc[0] not in point_id or arc[1] not in point_id]
+    bad_arc_indices = [ix for ix, arc in enumerate(net_obj.arcs) if arc[0] not in point_id or arc[1] not in idxs_points]
 
-    logger.info(msg=f"Number of arcs: {net_obj.num_arcs}. Removing {len(bad_arcs)} disconnected arc(s)")
+    logger.info(msg=f"Number of arcs: {net_obj.num_arcs}. Removing {len(bad_arc_indices)} disconnected arc(s)")
 
     # Remove the bad arcs
     #bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs)
