@@ -1052,7 +1052,7 @@ def RemovePointsKeepingLargestComponent(*,
     largest_cc = max(nx.connected_components(graph0), key=len)
     graph = graph0.subgraph(largest_cc).copy()
     remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
-    logger.debug(f"Removing points: {remove_nodes} out of the main network component")
+    logger.debug(f"Removing {len(remove_nodes)} points out of the main network component")
     graph.remove_nodes_from(remove_nodes)
 
     lookup_dict = {node: index for index, node in enumerate(graph.nodes)}

@@ -462,7 +462,7 @@ class Processing:
         net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
         net_par_obj.writeToFile()
         point_obj.writeToFile()
-        
+
         if not net_par_obj.isNetworkConnected(point_obj.num_points):
             raise Exception("Network disconnected")
         
@@ -522,7 +522,7 @@ class Processing:
 
         fig, axf, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
+                                 bmap_obj=bmap_obj, s=7, cmap="vanimo", symmetric=True,
                                  logger=self.logger)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
@@ -637,6 +637,24 @@ class Processing:
         point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
+
+        # histogram
+        fig = plt.figure(figsize=(16, 5))
+        axs = fig.subplots(1, 3)
+        axs[0].hist(-tcoef*1000, bins=200)
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Temp Coeff [mm/C]')
+
+        axs[1].hist(-demerr, bins=200)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('DEM error [m]')
+
+        axs[2].hist(-vel*100, bins=200)
+        axs[2].set_ylabel('Absolute frequency')
+        axs[2].set_xlabel('Velocity [cm/yer]')
+
+        fig.savefig(join(self.path, "pic", "step_2_unwrapping_hist_p1_params.png"), dpi=300)
+        plt.close(fig)
 
         phase_ts = ut.invertIfgNetwork(
             phase=unw_phase,
