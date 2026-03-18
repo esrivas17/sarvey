@@ -455,7 +455,7 @@ class Processing:
 
         net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
 
-        net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_id, logger=self.logger)
+        net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
 
         net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)

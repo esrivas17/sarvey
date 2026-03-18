@@ -1092,7 +1092,7 @@ def RemovePointsKeepingLargestComponent(*,
 
 def removeArcsFromNonExistingPoints(*,
                              net_obj: NetworkParameter_Temp,
-                             point_id: np.array,
+                             point_id: list,
                              logger: Logger) -> NetworkParameter_Temp:
     """Remove bad arcs iteratively from network based on quality threshold, preserving the minimum spanning tree.
 
@@ -1115,7 +1115,7 @@ def removeArcsFromNonExistingPoints(*,
     for idx, arc in enumerate(net_obj.arcs):
         graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
 
-    idxs_points = list(range(point_id))
+    idxs_points = list(range(len(point_id)))
 
     # arcs not in points id
     bad_arcs = [(arc[0], arc[1]) for arc in net_obj.arcs if arc[0] not in point_id or arc[1] not in point_id]
