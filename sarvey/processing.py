@@ -394,33 +394,34 @@ class Processing:
         plt.close(fig)
         self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
 
-        ################# parameters for network 1 ################
-        demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
-                                             arcs=net_par_obj.arcs,
-                                             coord_xy=point_obj.coord_xy,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        ref_demerr = demerr - np.min(demerr)
-        
-        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori.png"), dpi=300)
-        plt.close(fig)
-        self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
+        ##################### geolocation of P1 #####################
+        self.logger.info("Calculate geolocation correction.")
+        coord_correction = calculateGeolocationCorrection(path_geom=self.config.general.input_path,
+                                                          point_obj=point_obj,
+                                                          demerr=demerr,
+                                                          logger=self.logger)
+        coord_correction_norm = np.linalg.norm(coord_correction, axis=1)
+        max_error_index = np.argmax(coord_correction_norm)
+        self.logger.info(f"Maximum geolocation correction: {coord_correction_norm[max_error_index]:.1f} m "
+                    f"corresponding to {demerr[max_error_index]:.1f} m DEM correction")
+        coord_utm = point_obj.coord_utm
+        coord_utm_corrected = coord_utm + coord_correction
 
+        ####################################### End of DEM ERROR Spatial Integration and GEOLOCATION #####################
+
+
+        ################# parameters for network 1 ################
         tcoef = spatialParameterIntegration(val_arcs=net_par_obj.tcoef,
                                              arcs=net_par_obj.arcs,
                                              coord_xy=point_obj.coord_xy,
                                              weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-                
-        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=9, cmap="roma", symmetric=True,
+        
+        fig, axf, _ = viewer.plotScatter(value=-tcoef, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: temperature coefficient [m / C]",
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)
+
         fig.savefig(join(self.path, "pic", "step_1_estimation_tcoef_apriori.png"), dpi=300)
         plt.close(fig)
 
@@ -440,21 +441,6 @@ class Processing:
         self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
         ################## end plotting apriori parameters ############################################
 
-
-        ##################### geolocation of P1 #####################
-        self.logger.info("Calculate geolocation correction.")
-        coord_correction = calculateGeolocationCorrection(path_geom=self.config.general.input_path,
-                                                          point_obj=point_obj,
-                                                          demerr=demerr,
-                                                          logger=self.logger)
-        coord_correction_norm = np.linalg.norm(coord_correction, axis=1)
-        max_error_index = np.argmax(coord_correction_norm)
-        self.logger.info(f"Maximum geolocation correction: {coord_correction_norm[max_error_index]:.1f} m "
-                    f"corresponding to {demerr[max_error_index]:.1f} m DEM correction")
-        coord_utm = point_obj.coord_utm
-        coord_utm_corrected = coord_utm + coord_correction
-
-        ####################################### End of DEM ERROR Spatial Integration and GEOLOCATION #####################
 
          # 4) re-triangulate the points (network might not be connected anymore) and redo temporal unwrapping      
         arcs = createConstraintArcsBetweenPoints(point_obj=point_obj, corrected_coord_utm=coord_utm_corrected, demerror=demerr,
