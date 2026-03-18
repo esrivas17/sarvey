@@ -1119,7 +1119,7 @@ def removeArcsFromNonExistingPoints(*,
 
     # arcs not in points id
     bad_arcs = [(arc[0], arc[1]) for arc in net_obj.arcs if arc[0] not in point_id or arc[1] not in point_id]
-    bad_arc_indices = [ix for ix, arc in enumerate(net_obj.arcs) if arc[0] not in point_id or arc[1] not in idxs_points]
+    bad_arc_indices = [ix for ix, arc in enumerate(net_obj.arcs) if arc[0] not in idxs_points or arc[1] not in idxs_points]
 
     logger.info(msg=f"Number of arcs: {net_obj.num_arcs}. Removing {len(bad_arc_indices)} disconnected arc(s)")
 
