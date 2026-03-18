@@ -438,7 +438,7 @@ class Processing:
         net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
-        net_par_obj.writeToFile()
+        #net_par_obj.writeToFile()
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
@@ -459,7 +459,7 @@ class Processing:
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
 
         net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
-
+        net_par_obj.writeToFile()
         if not net_par_obj.isNetworkConnected(point_obj.num_points):
             raise Exception("Network disconnected")
         
