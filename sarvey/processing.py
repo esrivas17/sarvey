@@ -394,7 +394,54 @@ class Processing:
         plt.close(fig)
         self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
 
-        ### geolocation of P1 ###
+        ################# parameters for network 1 ################
+        demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
+                                             arcs=net_par_obj.arcs,
+                                             coord_xy=point_obj.coord_xy,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        ref_demerr = demerr - np.min(demerr)
+        
+        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_1_estimation_dem_error_apriori.png"), dpi=300)
+        plt.close(fig)
+        self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
+
+        tcoef = spatialParameterIntegration(val_arcs=net_par_obj.tcoef,
+                                             arcs=net_par_obj.arcs,
+                                             coord_xy=point_obj.coord_xy,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+                
+        fig, _, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=9, cmap="roma", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_1_estimation_tcoef_apriori.png"), dpi=300)
+        plt.close(fig)
+
+        vel = spatialParameterIntegration(val_arcs=net_par_obj.vel,
+                                          arcs=net_par_obj.arcs,
+                                          coord_xy=point_obj.coord_xy,
+                                          weights=net_par_obj.gamma,
+                                          spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+
+        fig, _, _ = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
+                                 ttl="Parameter integration: mean velocity in [m / year]",
+                                 bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
+                                 logger=self.logger)
+        fig.savefig(join(self.path, "pic", "step_1_estimation_velocity_apriori.png"), dpi=300)
+        plt.close(fig)
+
+        self.logger.info(msg=f"Num of points: {point_obj.num_points} and num of dem error estimations: {demerr.shape}")
+        ################## end plotting apriori parameters ############################################
+
+
+        ##################### geolocation of P1 #####################
         self.logger.info("Calculate geolocation correction.")
         coord_correction = calculateGeolocationCorrection(path_geom=self.config.general.input_path,
                                                           point_obj=point_obj,
@@ -528,33 +575,6 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
-        #### test ###
-        demerr_test1 = spatialParameterIntegration_with_distance(val_arcs=net_par_obj.demerr,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, _, _ = viewer.plotScatter(value=-demerr_test1, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_with_distances.png"), dpi=300)
-        plt.close(fig)
-        
-        demerr_test2 = spatialParameterIntegration_with_distance_and_redundancy(val_arcs=net_par_obj.demerr,
-                                             arcs=net_par_obj.arcs,
-                                             coord_utmxy=point_obj.coord_utm,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        
-        fig, _, _ = viewer.plotScatter(value=-demerr_test2, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=9, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)
-        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_with_distances_and redundancy.png"), dpi=300)
-        plt.close(fig)
-        ##### end test ####
 
         self.logger.info(msg="Integrate mean velocity.")
         vel = spatialParameterIntegration(val_arcs=net_par_obj.vel,
@@ -1188,7 +1208,7 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}.png".format(coh_value)),
                     dpi=300)
         plt.close(fig)
-        
+
         # figures
         fig = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
