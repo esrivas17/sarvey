@@ -487,6 +487,13 @@ class Processing:
                                        logger=self.logger)
         net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
         #net_par_obj.writeToFile()
+        
+        #### testing ###
+        net_par_obj_test = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter_test.h5"),
+                                       logger=self.logger)
+        net_par_obj_test.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
+        net_par_obj_test.writeToFile()
+        #### end testing ###
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
@@ -522,7 +529,7 @@ class Processing:
            ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
            fig = ax.get_figure()
            plt.tight_layout()
-           fig.savefig(join(self.path, "pic", "step_1_network_2_points_and_arcs_removed.png"), dpi=300)
+           fig.savefig(join(self.path, "pic", "step_1_network_2_points_retriangulated_and_arcs_removed.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 

@@ -1021,17 +1021,14 @@ def removeBadArcsWithThresh(*,
     for idx, arc in enumerate(net_obj.arcs):
         graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
 
-    # bad arcs without considering the MST
+    # bad arcs
     bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
     bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
 
     logger.info(msg="Removing {} bad arc(s)".format(len(bad_arcs)))
 
     # Remove the bad arcs
-    bad_arc_indices = [
-        idx for idx, arc in enumerate(net_obj.arcs)
-        if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs
-    ]
+    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs) if (arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs]
     mask = np.ones(net_obj.num_arcs, dtype=bool)
     mask[bad_arc_indices] = False
     net_obj.removeArcs(mask=mask)
