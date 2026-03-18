@@ -1042,11 +1042,11 @@ def RemovePointsKeepingLargestComponent(*,
 
     logger.info(msg="Remove points using connected components")
 
-    graph0 = nx.Graph()
+    graph0 = nx.DiGraph()
     graph0.add_nodes_from([(i, {'point_id': id}) for (i, id) in enumerate(point_id)])
     graph0.add_edges_from([(arc[0], arc[1], {'arc_idx': idx}) for idx, arc in enumerate(net_obj.arcs)])
 
-    largest_cc = max(nx.connected_components(graph0), key=len)
+    largest_cc = max(nx.weakly_connected_components(graph0), key=len)
     graph = graph0.subgraph(largest_cc).copy()
     remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
     logger.debug(f"Removing {len(remove_nodes)} points out of the main network component")
