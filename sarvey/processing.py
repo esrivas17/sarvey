@@ -306,6 +306,7 @@ class Processing:
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
                                        logger=self.logger)
+        
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
         net_obj.computeArcObservations(point_obj=point_obj,arcs=arcs)
         net_obj.writeToFile()
@@ -460,6 +461,8 @@ class Processing:
 
         net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
         net_par_obj.writeToFile()
+        point_obj.writeToFile()
+        
         if not net_par_obj.isNetworkConnected(point_obj.num_points):
             raise Exception("Network disconnected")
         
