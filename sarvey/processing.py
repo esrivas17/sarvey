@@ -163,54 +163,109 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_0_interferogram_network.png"), dpi=300)
         plt.close(fig)
         # at this point just created folder pic and ifg_network.h5
-        msg = "#" * 10
-        msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
-        msg += "#" * 10
-        log.info(msg=msg)
 
         box_list, num_patches = ut.preparePatches(num_patches=self.config.general.num_patches,
                                                   width=slc_stack_obj.width,
                                                   length=slc_stack_obj.length,
                                                   logger=log)
 
-        # create placeholder in result file for datasets which are stored patch-wise
-        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_obj.num_ifgs)
-        ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
-        ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
+       
+        if self.config.general.quality_selection_method == 'tcoh':
+            msg = "#" * 10
+            msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
+            msg += "#" * 10
+            log.info(msg=msg)
+
+            # create placeholder in result file for datasets which are stored patch-wise
+            dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_obj.num_ifgs)
+            ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
+            ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
+                                        metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
+            
+            # create placeholder in result file for datasets which are stored patch-wise
+            temp_coh_obj = BaseStack(file=join(self.path, "temporal_coherence.h5"), logger=log)
+            dshape = (slc_stack_obj.length, slc_stack_obj.width)
+            temp_coh_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
+                                        dshape=dshape, dtype=np.float32, mode="w", chunks=True)
+            
+            if self.config.preparation.uneven_kernel_tempcoh:
+                log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
+                mean_amp_img = computeIfgs_And_UnevenTemporalCoherence(
+                    path_temp_coh=join(self.path, "temporal_coherence.h5"),
+                    path_ifgs=join(self.path, "ifg_stack.h5"),
+                    path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                    ifg_array=np.array(ifg_net_obj.ifg_list),
+                    time_mask=time_mask,
+                    wsize_range=self.config.preparation.filter_winsize_range,
+                    wsize_azi=self.config.preparation.filter_winsize_azimuth,
+                    num_boxes=num_patches,
+                    box_list=box_list,
+                    num_cores=self.config.general.num_cores,
+                    logger=log)
+            else:
+                mean_amp_img = computeIfgsAndTemporalCoherence(
+                    path_temp_coh=join(self.path, "temporal_coherence.h5"),
+                    path_ifgs=join(self.path, "ifg_stack.h5"),
+                    path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                    ifg_array=np.array(ifg_net_obj.ifg_list),
+                    time_mask=time_mask,
+                    wdw_size=self.config.preparation.filter_window_size,
+                    num_boxes=num_patches,
+                    box_list=box_list,
+                    num_cores=self.config.general.num_cores,
+                    logger=log)
+            
+            temp_coh = temp_coh_obj.read(dataset_name="temp_coh")
+
+            fig = plt.figure(figsize=(15, 5))
+            ax = fig.add_subplot()
+            im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1, aspect='auto')
+            auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
+            ax.set_xlabel("Range")
+            ax.set_ylabel("Azimuth")
+            plt.colorbar(im, pad=0.03, shrink=0.5)
+            plt.title("Temporal coherence")
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_0_temporal_phase_coherence.png"), dpi=300)
+            plt.close(fig)
+
+        elif self.config.general.quality_selection_method == 'adi':
+            msg = "#" * 10
+            msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS AND READING AMPLITUDE DISPERSION"
+            msg += "#" * 10
+            log.info(msg=msg)
+
+            # create placeholder in result file for datasets which are stored patch-wise
+            dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_obj.num_ifgs)
+            ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
+            ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
                                      metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
-
-        # create placeholder in result file for datasets which are stored patch-wise
-        temp_coh_obj = BaseStack(file=join(self.path, "temporal_coherence.h5"), logger=log)
-        dshape = (slc_stack_obj.length, slc_stack_obj.width)
-        temp_coh_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
-                                    dshape=dshape, dtype=np.float32, mode="w", chunks=True)
-
-        if self.config.preparation.uneven_kernel_tempcoh:
-            log.info(msg=f"CALCULATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
-            mean_amp_img = computeIfgs_And_UnevenTemporalCoherence(
-                path_temp_coh=join(self.path, "temporal_coherence.h5"),
+        
+            mean_amp_img = computeIfgsStack(
                 path_ifgs=join(self.path, "ifg_stack.h5"),
                 path_slc=join(self.config.general.input_path, "slcStack.h5"),
                 ifg_array=np.array(ifg_net_obj.ifg_list),
                 time_mask=time_mask,
-                wsize_range=self.config.preparation.filter_winsize_range,
-                wsize_azi=self.config.preparation.filter_winsize_azimuth,
                 num_boxes=num_patches,
                 box_list=box_list,
                 num_cores=self.config.general.num_cores,
                 logger=log)
-        else:
-            mean_amp_img = computeIfgsAndTemporalCoherence(
-                path_temp_coh=join(self.path, "temporal_coherence.h5"),
-                path_ifgs=join(self.path, "ifg_stack.h5"),
-                path_slc=join(self.config.general.input_path, "slcStack.h5"),
-                ifg_array=np.array(ifg_net_obj.ifg_list),
-                time_mask=time_mask,
-                wdw_size=self.config.preparation.filter_window_size,
-                num_boxes=num_patches,
-                box_list=box_list,
-                num_cores=self.config.general.num_cores,
-                logger=log)
+            
+            adi_obj = BaseStack(file=self.config.general.adi_path, logger=log)
+            adi = adi_obj.read(dataset_name="adi")
+
+            fig = plt.figure(figsize=(15, 5))
+            ax = fig.add_subplot()
+            im = ax.imshow(adi, cmap=cmc.cm.cmaps["grayC_r"], vmin=0, vmax=1, aspect='auto')
+            auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
+            ax.set_xlabel("Range")
+            ax.set_ylabel("Azimuth")
+            plt.colorbar(im, pad=0.03, shrink=0.5)
+            plt.title("Amplitude dispersion")
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_0_amplitude_dispersion.png"), dpi=300)
+            plt.close(fig)
+
 
         # store auxilliary datasets for faster access during processing
         coord_utm_obj = CoordinatesUTM(file_path=join(self.path, "coordinates_utm.h5"), logger=self.logger)
@@ -228,20 +283,6 @@ class Processing:
         plt.close(plt.gcf())
         del bmap_obj
         del mean_amp_img
-
-        temp_coh = temp_coh_obj.read(dataset_name="temp_coh")
-
-        fig = plt.figure(figsize=(15, 5))
-        ax = fig.add_subplot()
-        im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1)
-        auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
-        ax.set_xlabel("Range")
-        ax.set_ylabel("Azimuth")
-        plt.colorbar(im, pad=0.03, shrink=0.5)
-        plt.title("Temporal coherence")
-        plt.tight_layout()
-        fig.savefig(join(self.path, "pic", "step_0_temporal_phase_coherence.png"), dpi=300)
-        plt.close(fig)
 
     def runConsistencyCheck(self):
         """RunConsistencyCheck."""
