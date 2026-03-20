@@ -396,10 +396,10 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
         
-        _, point_id = removeBadPointsIteratively_3v(net_obj=net_par_obj, point_id=point_obj.point_id,
-            quality_thrsh=self.config.consistency_check.point_median_coherence, logger=self.logger)
-        
-        point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+        ######### removing bad arcs #####
+
+        net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+
 
         try:
            ax = bmap_obj.plot(logger=self.logger)
@@ -407,28 +407,72 @@ class Processing:
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-           ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points")
+           ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
+           fig = ax.get_figure()
+           plt.tight_layout()
+           fig.savefig(join(self.path, "pic", "step_1_network_1_arcs_removed.png"), dpi=300)
+        except BaseException as e:
+            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+
+
+        net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
+        point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+
+        net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
+        net_par_obj.writeToFile()
+        point_obj.writeToFile()
+
+        if not net_par_obj.isNetworkConnected(point_obj.num_points):
+            raise Exception("Network disconnected")
+        
+        try:
+           ax = bmap_obj.plot(logger=self.logger)
+           ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+                                                      arcs=net_par_obj.arcs,
+                                                      val=net_par_obj.gamma,
+                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+           ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
            fig = ax.get_figure()
            plt.tight_layout()
            fig.savefig(join(self.path, "pic", "step_1_network_1_points_removed.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        if True:
-            net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        ###################################
 
-            try:
-                ax = bmap_obj.plot(logger=self.logger)
-                ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                        arcs=net_par_obj.arcs,
-                                                        val=net_par_obj.gamma,
-                                                        ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-                ax.set_title("Coherence from temporal unwrapping\nAfter removing low quality arcs")
-                fig = ax.get_figure()
-                plt.tight_layout()
-                fig.savefig(join(self.path, "pic", "step_1_network_1_arcs_removed.png"), dpi=300)
-            except BaseException as e:
-                self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+        #_, point_id = removeBadPointsIteratively_3v(net_obj=net_par_obj, point_id=point_obj.point_id,
+        #    quality_thrsh=self.config.consistency_check.point_median_coherence, logger=self.logger)
+        
+        #point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+
+        #try:
+        #   ax = bmap_obj.plot(logger=self.logger)
+        #   ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+        #                                              arcs=net_par_obj.arcs,
+        #                                              val=net_par_obj.gamma,
+        #                                              ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+         #  ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points")
+         #  fig = ax.get_figure()
+         #  plt.tight_layout()
+         #  fig.savefig(join(self.path, "pic", "step_1_network_1_points_removed.png"), dpi=300)
+        #except BaseException as e:
+        #    self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+
+        #if True:
+        #    net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+
+        #    try:
+        #        ax = bmap_obj.plot(logger=self.logger)
+        #        ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+        #                                                arcs=net_par_obj.arcs,
+        #                                                val=net_par_obj.gamma,
+        #                                                ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+         #       ax.set_title("Coherence from temporal unwrapping\nAfter removing low quality arcs")
+        #        fig = ax.get_figure()
+        #        plt.tight_layout()
+        #        fig.savefig(join(self.path, "pic", "step_1_network_1_arcs_removed.png"), dpi=300)
+        #    except BaseException as e:
+        #        self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
         
         ############### DEM error spatial integration and GEOLOCATION ##################
         spatial_ref_idx = 0
