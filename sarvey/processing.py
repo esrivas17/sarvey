@@ -327,7 +327,7 @@ class Processing:
 
         fig = plt.figure(figsize=(15, 5))
         ax = fig.add_subplot()
-        ax.imshow(mask_valid_area, cmap=cmc.cm.cmaps["grayC"], alpha=0.5, zorder=10, vmin=0, vmax=1)
+        ax.imshow(mask_valid_area, cmap=cmc.cm.cmaps["grayC"], alpha=0.5, zorder=10, vmin=0, vmax=1, aspect='auto')
         bmap_obj.plot(ax=ax, logger=self.logger)
         coord_xy = np.array(np.where(cand_mask1)).transpose()
         val = np.ones_like(cand_mask1)
