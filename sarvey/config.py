@@ -87,6 +87,18 @@ class General(BaseModel, extra="forbid"):
         default=False
     )
 
+    quality_selection_method: str = Field(
+        title="amplitude dispersion or temporal coherence",
+        description="Select metric for pixel quality 'tcoh' and 'adi'.",
+        default='tcoh'
+    )
+
+    adi_path: str = Field(
+        title="Amplitude dispersion file path",
+        description="Amplitude dispersion",
+        default=""
+    )
+
     logging_level: str = Field(
         title="Logging level.",
         description="Set loggig level.",
@@ -132,6 +144,15 @@ class General(BaseModel, extra="forbid"):
         if (v != "ilp") & (v != "puma"):
             raise ValueError("Unwrapping method must be either 'ilp' or 'puma'.")
         return v
+    
+    @field_validator('adi_path')
+    def checkADIPath(cls, v):
+        """Check if the amplitude dispersion exists."""
+        if v:
+            if not os.path.exists(os.path.abspath(v)):
+                raise ValueError(f"Path is invalid: {os.path.abspath(v)}")
+            else:
+                return v
 
     @field_validator('logging_level')
     def checkLoggingLevel(cls, v):
