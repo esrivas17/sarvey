@@ -87,6 +87,18 @@ class General(BaseModel, extra="forbid"):
         default=False
     )
 
+    adi_path: str = Field(
+        title="Amplitude dispersion file path",
+        description="Amplitude dispersion",
+        default=""
+    )
+
+    quality_selection_method: str = Field(
+        title="amplitude dispersion or temporal coherence",
+        description="Select metric for pixel quality 'tcoh' and 'adi'.",
+        default='tcoh'
+    )
+
     logging_level: str = Field(
         title="Logging level.",
         description="Set loggig level.",
