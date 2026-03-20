@@ -434,10 +434,10 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=0.6
     )
 
-    #min_num_arc: int = Field(
-    #    title="Minimum number of arcs per point (deprecated)",
-    #    description="This parameter is deprecated and will be removed in a future version of the software.",
-    #    default=3)
+    min_num_arc: int = Field(
+        title="Minimum number of arcs per point (deprecated)",
+        description="This parameter is deprecated and will be removed in a future version of the software.",
+        default=3)
 
     #arc_coherence_demerror: float = Field(
     #    title="Arc unwrapping coherence for DEM error network",
