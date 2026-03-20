@@ -228,7 +228,7 @@ class Processing:
 
             fig = plt.figure(figsize=(15, 5))
             ax = fig.add_subplot()
-            im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1)
+            im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1, aspect='auto')
             auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
             ax.set_xlabel("Range")
             ax.set_ylabel("Azimuth")
@@ -260,7 +260,7 @@ class Processing:
 
             fig = plt.figure(figsize=(15, 5))
             ax = fig.add_subplot()
-            im = ax.imshow(adi, cmap=cmc.cm.cmaps["grayC_r"], vmin=0, vmax=1)
+            im = ax.imshow(adi, cmap=cmc.cm.cmaps["grayC_r"], vmin=0, vmax=1, aspect='auto')
             auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
             ax.set_xlabel("Range")
             ax.set_ylabel("Azimuth")
