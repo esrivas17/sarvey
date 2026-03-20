@@ -440,20 +440,20 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=3
     )
 
-    arc_coherence_demerror: float = Field(
-        title="Arc unwrapping coherence for DEM error network",
-        description="Set the arc unwrapping coherence threshold for the DEM error network.",
-        default=0.4)
+    #arc_coherence_demerror: float = Field(
+    #    title="Arc unwrapping coherence for DEM error network",
+     #   description="Set the arc unwrapping coherence threshold for the DEM error network.",
+     #   default=0.4)
 
-    min_num_arc_demerror: int = Field(
-        title="Minimum number of arcs per point fro DEM error estimation",
-        description="Set the minimum number of arcs per point.",
-        default=2)
+    #min_num_arc_demerror: int = Field(
+    #    title="Minimum number of arcs per point fro DEM error estimation",
+    #    description="Set the minimum number of arcs per point.",
+    #    default=2)
 
-    dem_error_bound_demerror_network: float = Field(
-        title="Bounds on DEM error for temporal unwrapping [m] of DEM error network",
-        description="Set the bound (symmetric) for the DEM error estimation in temporal unwrapping.",
-        default=200.0)
+    #dem_error_bound_demerror_network: float = Field(
+    #    title="Bounds on DEM error for temporal unwrapping [m] of DEM error network",
+    #    description="Set the bound (symmetric) for the DEM error estimation in temporal unwrapping.",
+    #    default=200.0)
     
     reference_p1_lon: Optional[float] = Field(title="Reference for spatial integration",
         description="Optional reference in lon,lat for spatial integration",     
@@ -565,11 +565,10 @@ class Filtering(BaseModel, extra="forbid"):
         default=0.8
     )
 
-    adi_p2: float = Field(
-        title="Maximum ADI threshold for second-order points",
-        description="Set the ADI threshold of second-order points for the filtering step.",
-        default=0.5
-    )
+    #adi_p2: float = Field(
+    #    title="Maximum ADI threshold for second-order points",
+    #    description="Set the ADI threshold of second-order points for the filtering step.",
+    #    default=0.5)
 
     apply_aps_filtering: bool = Field(
         title="Apply atmosphere filtering",
