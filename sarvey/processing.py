@@ -233,7 +233,7 @@ class Processing:
 
         fig = plt.figure(figsize=(15, 5))
         ax = fig.add_subplot()
-        im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1)
+        im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1, aspect='auto')
         auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
         ax.set_xlabel("Range")
         ax.set_ylabel("Azimuth")
@@ -267,11 +267,11 @@ class Processing:
 
         fig = plt.figure(figsize=(15, 5))
         ax = fig.add_subplot()
-        ax.imshow(mask_valid_area, cmap=cmc.cm.cmaps["grayC"], alpha=0.5, zorder=10, vmin=0, vmax=1)
+        ax.imshow(mask_valid_area, cmap=cmc.cm.cmaps["grayC"], alpha=0.5, zorder=10, vmin=0, vmax=1, aspect='auto')
         bmap_obj.plot(ax=ax, logger=self.logger)
         coord_xy = np.array(np.where(cand_mask1)).transpose()
         val = np.ones_like(cand_mask1)
-        sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=val[cand_mask1], s=0.5, cmap=cmc.cm.cmaps["lajolla_r"],
+        sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=val[cand_mask1], s=1, cmap=cmc.cm.cmaps["lajolla_r"],
                         vmin=1, vmax=2)  # set min, max to ensure that points are yellow
         cbar = plt.colorbar(sc, pad=0.03, shrink=0.5)
         cbar.ax.set_visible(False)  # make size of axis consistent with all others

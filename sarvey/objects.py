@@ -137,7 +137,7 @@ class AmplitudeImage:
         ax.imshow(self.background_map, cmap=cm.grayC)
         meta = {"ORBIT_DIRECTION": self.orbit_direction}
         auto_flip_direction(meta, ax=ax, print_msg=False)
-
+        ax.set_aspect('auto')
         ax.set_xlabel("Range")
         ax.set_ylabel("Azimuth")
 
