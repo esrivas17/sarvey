@@ -45,7 +45,7 @@ from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, Sma
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp, NetworkParameter_DEMError
 from sarvey.unwrapping import *
-from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints, selectPixels_old
+from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_UnevenTemporalCoherence
 from sarvey.triangulation import PointNetworkTriangulation, HeightTriangulation
@@ -249,7 +249,7 @@ class Processing:
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
         length, width, num_ifgs = ifg_stack_obj.getShape(dataset_name="ifgs")
 
-        cand_mask1 = selectPixels_old(path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
+        cand_mask1 = selectPixels(path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
             grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
