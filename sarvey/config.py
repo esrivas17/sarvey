@@ -368,6 +368,11 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=0.9
     )
 
+    adi_p1: float = Field(
+        title="Maximum ADI threshold for first-order points",
+        description="Set the ADI threshold of first-order points for the consistency check.",
+        default=0.25)
+
     grid_size: int = Field(
         title="Grid size [m]",
         description="Set the grid size in [m] for the consistency check. No grid is applied if 'grid_size' is Zero.",
@@ -433,24 +438,6 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         title="Minimum number of arcs per point (deprecated)",
         description="This parameter is deprecated and will be removed in a future version of the software.",
         default=3
-    )
-
-    arc_coherence_demerror: float = Field(
-        title="Arc unwrapping coherence for DEM error network",
-        description="Set the arc unwrapping coherence threshold for the DEM error network.",
-        default=0.4
-    )
-
-    min_num_arc_demerror: int = Field(
-        title="Minimum number of arcs per point fro DEM error estimation",
-        description="Set the minimum number of arcs per point.",
-        default=2
-    )
-
-    dem_error_bound_demerror_network: float = Field(
-        title="Bounds on DEM error for temporal unwrapping [m] of DEM error network",
-        description="Set the bound (symmetric) for the DEM error estimation in temporal unwrapping.",
-        default=200.0
     )
     
     reference_p1_lon: Optional[float] = Field(title="Reference for spatial integration",
@@ -562,6 +549,12 @@ class Filtering(BaseModel, extra="forbid"):
         title="Temporal coherence threshold",
         description="Set the temporal coherence threshold for the filtering step.",
         default=0.8
+    )
+
+    adi_p2: float = Field(
+        title="Maximum ADI threshold for second-order points",
+        description="Set the ADI threshold of second-order points for the filtering step.",
+        default=0.5
     )
 
     apply_aps_filtering: bool = Field(
@@ -690,11 +683,6 @@ class Densification(BaseModel, extra="forbid"):
         default=0.5
     )
 
-    gamma_thresh_demerror: float = Field(
-        title="Gamma threshold for arc coherence to obtain coarse dem error",
-        description="Gamma threshold for coarse DEM estimation",
-        default=0.5
-    )
 
     max_height_to_p1: int = Field(
         title="Maximum height to first-order points [m]",
