@@ -164,11 +164,6 @@ class Processing:
         plt.close(fig)
         # at this point just created folder pic and ifg_network.h5
 
-        msg = "#" * 10
-        msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
-        msg += "#" * 10
-        log.info(msg=msg)
-
         box_list, num_patches = ut.preparePatches(num_patches=self.config.general.num_patches,
                                                   width=slc_stack_obj.width,
                                                   length=slc_stack_obj.length,
@@ -179,18 +174,13 @@ class Processing:
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
         ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
                                      metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
-
-        # create placeholder in result file for datasets which are stored patch-wise
-        temp_coh_obj = BaseStack(file=join(self.path, "temporal_coherence.h5"), logger=log)
-        dshape = (slc_stack_obj.length, slc_stack_obj.width)
-        temp_coh_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
-                                    dshape=dshape, dtype=np.float32, mode="w", chunks=True)
-
+       
         if self.config.general.quality_selection_method == 'tcoh':
             msg = "#" * 10
             msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
             msg += "#" * 10
             log.info(msg=msg)
+
             # create placeholder in result file for datasets which are stored patch-wise
             temp_coh_obj = BaseStack(file=join(self.path, "temporal_coherence.h5"), logger=log)
             dshape = (slc_stack_obj.length, slc_stack_obj.width)
@@ -198,7 +188,7 @@ class Processing:
                                         dshape=dshape, dtype=np.float32, mode="w", chunks=True)
             
             if self.config.preparation.uneven_kernel_tempcoh:
-                log.info(msg=f"CALCULATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
+                log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
                 mean_amp_img = computeIfgs_And_UnevenTemporalCoherence(
                     path_temp_coh=join(self.path, "temporal_coherence.h5"),
                     path_ifgs=join(self.path, "ifg_stack.h5"),
@@ -240,7 +230,7 @@ class Processing:
 
         elif self.config.general.quality_selection_method == 'adi':
             msg = "#" * 10
-            msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS"
+            msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS AND READING AMPLITUDE DISPERSION"
             msg += "#" * 10
             log.info(msg=msg)
 
@@ -249,7 +239,6 @@ class Processing:
                 path_slc=join(self.config.general.input_path, "slcStack.h5"),
                 ifg_array=np.array(ifg_net_obj.ifg_list),
                 time_mask=time_mask,
-                wdw_size=self.config.preparation.filter_window_size,
                 num_boxes=num_patches,
                 box_list=box_list,
                 num_cores=self.config.general.num_cores,

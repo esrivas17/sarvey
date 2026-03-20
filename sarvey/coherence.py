@@ -290,7 +290,7 @@ def launchConvolve2d(args: tuple):
 
 
 def computeIfgsStack(*, path_ifgs: str, path_slc: str, ifg_array: np.ndarray,
-                                    time_mask: np.ndarray, wdw_size: int, num_boxes: int, box_list: list,
+                                    time_mask: np.ndarray, num_boxes: int, box_list: list,
                                     num_cores: int, logger: Logger):
     """ComputeIfgs stack without calculating temporal coherence.
 
