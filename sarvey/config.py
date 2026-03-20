@@ -668,7 +668,7 @@ class Densification(BaseModel, extra="forbid"):
     tcoef_bound: float = Field(
         title="Bounds on temperature coefficient",
         description="Set the bound (symmetric) temperature coefficient",
-        default=1
+        default=0.1
     )
     
     num_optimization_samples: int = Field(
