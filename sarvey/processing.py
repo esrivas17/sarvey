@@ -47,7 +47,7 @@ from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, Netw
 from sarvey.unwrapping import *
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints
 import sarvey.utils as ut
-from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_UnevenTemporalCoherence, computeIfgs
+from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_UnevenTemporalCoherence, computeIfgsStack
 from sarvey.triangulation import PointNetworkTriangulation, HeightTriangulation
 from sarvey.config import Config
 from sarvey.unwrapping_1d import temporalUnwrapping_demerr
@@ -293,8 +293,23 @@ class Processing:
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
         length, width, num_ifgs = ifg_stack_obj.getShape(dataset_name="ifgs")
 
-        cand_mask1 = selectPixels(path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
-            grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+        ############ selection of first-order points ###########
+
+        if self.config.general.quality_selection_method == 'tcoh':
+
+            cand_mask1 = selectPixels(
+                path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+
+        elif self.config.general.quality_selection_method == 'adi':
+            cand_mask1 = selectPixels(
+                path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+
+        else:
+            raise NotImplementedError
+
+        ############# end of selecting 1st order pixels ########
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         mask_valid_area = ut.detectValidAreas(bmap_obj=bmap_obj, logger=self.logger)
