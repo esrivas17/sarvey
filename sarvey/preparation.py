@@ -243,7 +243,7 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         cand_mask = quality <= thrsh
         grid_min_val = True
         unit = "ADI [ ]"
-        cmap = "lajolla_r"
+        cmap = "lajolla"
         logger.debug(f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
     
     else:
@@ -278,7 +278,6 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         logger.debug("Plotting selected pixels...")
         coord_xy = np.array(np.where(cand_mask)).transpose()
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
-        
         viewer.plotScatter(value=quality[cand_mask], coord=coord_xy, bmap_obj=bmap_obj, ttl="Selected pixels",
                            unit=unit, s=2, cmap=cmap, vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
