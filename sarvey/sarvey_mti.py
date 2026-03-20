@@ -109,8 +109,14 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
         proc_obj.runPreparation()
         m, s = divmod(time.time() - start_time_step, 60)
         logger.info(f"Finished step 0 PREPARATION normally in {m:02.0f} mins {s:02.1f} secs.")
-    required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",
+
+    if config.general.quality_selection_method == 'tcoh':
+        required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",
                       "temporal_coherence.h5"]
+    elif config.general.quality_selection_method == 'adi':
+        required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",]
+    else:
+        raise NotImplementedError
 
     if 1 in steps:
         start_time_step = time.time()
@@ -161,8 +167,17 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
         proc_obj.runFiltering()
         m, s = divmod(time.time() - start_time_step, 60)
         logger.info(f"Finished step 3 FILTERING normally in {m:02.0f} mins {s:02.1f} secs.")
-    coh_value = int(config.filtering.coherence_p2 * 100)
-    required_files.extend(["p1_aps.h5", f"p2_coh{coh_value}_ifg_wr.h5", f"p2_coh{coh_value}_aps.h5"])
+
+    if config.general.quality_selection_method == 'tcoh':
+        proxy_value = int(config.filtering.coherence_p2 * 100)
+        proxy_id = f"coh{proxy_value}"
+    elif config.general.quality_selection_method == 'adi':
+        proxy_value = int(config.filtering.adi_p2 * 100)
+        proxy_id = f"adi{proxy_value}"
+    else:
+        raise NotImplementedError
+    
+    required_files.extend(["p1_aps.h5", f"p2_{proxy_id}_ifg_wr.h5", f"p2_{proxy_id}_aps.h5"])
 
     if 4 in steps:
         start_time_step = time.time()
