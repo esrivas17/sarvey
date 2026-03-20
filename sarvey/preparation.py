@@ -178,7 +178,7 @@ def readCoherenceFromMiaplpy(*, path: str, box: tuple = None, logger: Logger) ->
     return temp_coh
 
 
-def selectPixels(*, path: str, selection_method: str, thrsh: float,
+def selectPixels_old(*, path: str, selection_method: str, thrsh: float,
                  grid_size: int = None, bool_plot: bool = False, logger: Logger):
     """Select pixels based on temporal coherence.
 
@@ -274,6 +274,118 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
 
     return cand_mask
 
+
+def selectPixels(*, path: str, selection_method: str, thrsh: float,
+                 grid_size: int = None, bool_plot: bool = False, logger: Logger):
+    """Select pixels based on temporal coherence.
+
+    Parameters
+    ----------
+    path: str
+        Path to the directory with the temporal_coherence.h5 file.
+    selection_method: str
+        Pixel selection method. Currently, only "temp_coh" is implemented.
+    thrsh: float
+        Threshold for pixel selection.
+    grid_size: int
+        Grid size for sparse pixel selection.
+    bool_plot: bool
+        Plot the selected pixels.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    cand_mask: np.ndarray
+        Mask with selected pixels.
+    """
+    quality = None
+    grid_min_val = None
+    cand_mask = None
+    unit = None
+    cmap = None
+    # compute candidates
+    if selection_method == "temp_coh":
+        tcoh_file = join(path, "temporal_coherence.h5")
+        logger.debug(f"Reading temporal coherence file: {tcoh_file}")
+        temp_coh_obj = BaseStack(file=tcoh_file, logger=logger)
+        quality = temp_coh_obj.read(dataset_name="temp_coh")
+        logger.debug(f"[Min, Max] of all temporal coherence pixels: [{np.min(quality):.2f}, {np.max(quality):.2f}].)")
+        logger.debug(f"[Min, Max] of all temporal coherence pixels excluding invalid values: "
+                     f"[{np.nanmin(quality):.2f}, {np.nanmax(quality):.2f}].)")
+        cand_mask = quality >= thrsh
+        grid_min_val = False
+        unit = "Temporal\nCoherence [ ]"
+        cmap = "lajolla"
+        logger.debug(f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
+
+    elif selection_method == "miaplpy":
+        error_msg = "This part is not developed yet. MiaplPy data is read in another way."
+        logger.error(error_msg)
+        raise NotImplementedError(error_msg)
+        # pl_coherence = readCoherenceFromMiaplpy(path=join(path, 'inverted', 'phase_series.h5'), box=None,
+        # logger=logger)
+        # cand_mask = pl_coherence >= thrsh
+        # quality = pl_coherence
+        # grid_min_val = False
+        # unit = "Phase-Linking\nCoherence [ ]"
+        # cmap = "lajolla"
+    
+    elif selection_method == "adi":
+        adi_obj = BaseStack(file=join(path, "amplitude_dispersion.h5"), logger=logger)
+        quality = adi_obj.read(dataset_name="adi")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels: [{np.min(quality):.2f}, {np.max(quality):.2f}].)")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels excluding invalid values: "
+                     f"[{np.nanmin(quality):.2f}, {np.nanmax(quality):.2f}].)")
+        cand_mask = quality <= thrsh
+        grid_min_val = True
+        unit = "ADI [ ]"
+        cmap = "lajolla_r"
+        logger.debug(f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
+    
+    else:
+        raise NotImplementedError
+
+
+    if grid_size is not None:  # -> sparse pixel selection
+        logger.debug(f"Select sparse pixels using grid size {grid_size} m.")
+        coord_utm_file = join(path, "coordinates_utm.h5")
+        logger.debug(f"Reading coordinates from file: {coord_utm_file}")
+        coord_utm_obj = CoordinatesUTM(file_path=coord_utm_file, logger=logger)
+        coord_utm_obj.open()
+        box_list = ut.createSpatialGrid(coord_utm_img=coord_utm_obj.coord_utm,
+                                        length=coord_utm_obj.coord_utm.shape[1],
+                                        width=coord_utm_obj.coord_utm.shape[2],
+                                        grid_size=grid_size,
+                                        logger=logger)[0]
+        logger.debug(f"Number of grid boxes for sparse pixel selection: {len(box_list)}.")
+        cand_mask_sparse = ut.selectBestPointsInGrid(box_list=box_list, quality=quality, sel_min=grid_min_val)
+        cand_mask &= cand_mask_sparse
+        logger.debug(f"Number of selected sparse pixels: {np.sum(cand_mask)}")
+        min_map_coord = np.min(coord_utm_obj.coord_utm[..., cand_mask], axis=1)
+        max_map_coord = np.max(coord_utm_obj.coord_utm[..., cand_mask], axis=1)
+        logger.debug(
+            f"[Min, Max] of map coordinates of selected points along first axis: "
+            f"[{min_map_coord[0]:.1f}, {max_map_coord[0]:.1f}].")
+        logger.debug(
+            f"[Min, Max] of map coordinates of selected points along second axis: "
+            f"[{min_map_coord[1]:.1f}, {max_map_coord[1]:.1f}].")
+
+    if bool_plot:
+        logger.debug("Plotting selected pixels...")
+        coord_xy = np.array(np.where(cand_mask)).transpose()
+        bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
+        
+        viewer.plotScatter(value=quality[cand_mask], coord=coord_xy, bmap_obj=bmap_obj, ttl="Selected pixels",
+                           unit=unit, s=2, cmap=cmap, vmin=0, vmax=1, logger=logger)
+        # if grid_size is not None:
+        #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
+        plt.tight_layout()
+        plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format(selection_method, thrsh)),
+                          dpi=300)
+        plt.close(plt.gcf())
+
+    return cand_mask
 
 def createArcsBetweenPoints(*, point_obj: Points, knn: int = None, max_arc_length: float = np.inf,
                             logger: Logger) -> np.ndarray:
