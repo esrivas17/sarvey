@@ -220,8 +220,9 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         grid_min_val = False
         unit = "Temporal\nCoherence [ ]"
         cmap = "lajolla"
+        logger.debug(f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
 
-    if selection_method == "miaplpy":
+    elif selection_method == "miaplpy":
         error_msg = "This part is not developed yet. MiaplPy data is read in another way."
         logger.error(error_msg)
         raise NotImplementedError(error_msg)
@@ -232,9 +233,23 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         # grid_min_val = False
         # unit = "Phase-Linking\nCoherence [ ]"
         # cmap = "lajolla"
+    
+    elif selection_method == "adi":
+        adi_obj = BaseStack(file=join(path, "amplitude_dispersion.h5"), logger=logger)
+        quality = adi_obj.read(dataset_name="adi")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels: [{np.min(quality):.2f}, {np.max(quality):.2f}].)")
+        logger.debug(f"[Min, Max] of all amplitude dispersion pixels excluding invalid values: "
+                     f"[{np.nanmin(quality):.2f}, {np.nanmax(quality):.2f}].)")
+        cand_mask = quality <= thrsh
+        grid_min_val = True
+        unit = "ADI [ ]"
+        cmap = "lajolla_r"
+        logger.debug(f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
+    
+    else:
+        raise NotImplementedError
 
-    logger.debug(
-        f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
+
     if grid_size is not None:  # -> sparse pixel selection
         logger.debug(f"Select sparse pixels using grid size {grid_size} m.")
         coord_utm_file = join(path, "coordinates_utm.h5")
@@ -263,6 +278,7 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         logger.debug("Plotting selected pixels...")
         coord_xy = np.array(np.where(cand_mask)).transpose()
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
+        
         viewer.plotScatter(value=quality[cand_mask], coord=coord_xy, bmap_obj=bmap_obj, ttl="Selected pixels",
                            unit=unit, s=2, cmap=cmap, vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
