@@ -145,7 +145,7 @@ class General(BaseModel, extra="forbid"):
             raise ValueError("Unwrapping method must be either 'ilp' or 'puma'.")
         return v
     
-     @field_validator('adi_path')
+    @field_validator('adi_path')
     def checkADIPath(cls, v):
         """Check if the amplitude dispersion exists."""
         if v:
@@ -434,21 +434,20 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=0.6
     )
 
-    min_num_arc: int = Field(
-        title="Minimum number of arcs per point (deprecated)",
-        description="This parameter is deprecated and will be removed in a future version of the software.",
-        default=3
-    )
+    #min_num_arc: int = Field(
+    #    title="Minimum number of arcs per point (deprecated)",
+    #    description="This parameter is deprecated and will be removed in a future version of the software.",
+    #    default=3)
 
     #arc_coherence_demerror: float = Field(
     #    title="Arc unwrapping coherence for DEM error network",
     #    description="Set the arc unwrapping coherence threshold for the DEM error network.",
     #    default=0.4)
 
-    min_num_arc_demerror: int = Field(
-        title="Minimum number of arcs per point fro DEM error estimation",
-        description="Set the minimum number of arcs per point.",
-        default=2)
+    #min_num_arc_demerror: int = Field(
+    #    title="Minimum number of arcs per point fro DEM error estimation",
+    #    description="Set the minimum number of arcs per point.",
+    #    default=2)
 
     #dem_error_bound_demerror_network: float = Field(
     #    title="Bounds on DEM error for temporal unwrapping [m] of DEM error network",
@@ -698,11 +697,10 @@ class Densification(BaseModel, extra="forbid"):
         default=0.5
     )
 
-    gamma_thresh_demerror: float = Field(
-        title="Gamma threshold for arc coherence to obtain coarse dem error",
-        description="Gamma threshold for coarse DEM estimation",
-        default=0.5
-    )
+    #gamma_thresh_demerror: float = Field(
+    #    title="Gamma threshold for arc coherence to obtain coarse dem error",
+    #    description="Gamma threshold for coarse DEM estimation",
+    #    default=0.5)
 
     max_height_to_p1: int = Field(
         title="Maximum height to first-order points [m]",
