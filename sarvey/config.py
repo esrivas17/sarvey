@@ -144,15 +144,6 @@ class General(BaseModel, extra="forbid"):
         if (v != "ilp") & (v != "puma"):
             raise ValueError("Unwrapping method must be either 'ilp' or 'puma'.")
         return v
-    
-     @field_validator('adi_path')
-    def checkADIPath(cls, v):
-        """Check if the amplitude dispersion exists."""
-        if v:
-            if not os.path.exists(os.path.abspath(v)):
-                raise ValueError(f"Path is invalid: {os.path.abspath(v)}")
-            else:
-                return v
 
     @field_validator('logging_level')
     def checkLoggingLevel(cls, v):
@@ -368,11 +359,6 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=0.9
     )
 
-    adi_p1: float = Field(
-        title="Maximum ADI threshold for first-order points",
-        description="Set the ADI threshold of first-order points for the consistency check.",
-        default=0.25)
-
     grid_size: int = Field(
         title="Grid size [m]",
         description="Set the grid size in [m] for the consistency check. No grid is applied if 'grid_size' is Zero.",
@@ -564,12 +550,6 @@ class Filtering(BaseModel, extra="forbid"):
         title="Temporal coherence threshold",
         description="Set the temporal coherence threshold for the filtering step.",
         default=0.8
-    )
-
-    adi_p2: float = Field(
-        title="Maximum ADI threshold for second-order points",
-        description="Set the ADI threshold of second-order points for the filtering step.",
-        default=0.5
     )
 
     apply_aps_filtering: bool = Field(
