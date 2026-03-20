@@ -1233,7 +1233,7 @@ class Processing:
             demerr_bound=self.config.densification.dem_error_bound,
             tcoef_bound=self.config.densification.tcoef_bound,
             max_height_p1=self.config.densification.max_height_to_p1,
-            gamma_thresh_demerror=self.config.densification.gamma_thresh_demerror,
+            gamma_selection_p1=self.config.densification.gamma_selection_p1,
             num_samples=self.config.densification.num_optimization_samples,
             num_cores=self.config.general.num_cores,
             logger=self.logger)

@@ -691,6 +691,11 @@ class Densification(BaseModel, extra="forbid"):
         default=100
     )
 
+    gamma_selection_p1: float = Field(
+        title="Arc unwrapping coherence threshold for densification",
+        description="Set arc unwrapping coherence threshold for choosing p1 in densification.",
+        default=0.5
+    )
 
     @field_validator('num_connections_to_p1')
     def checkNumConn1(cls, v):
