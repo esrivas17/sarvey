@@ -162,11 +162,6 @@ class Processing:
         fig = ifg_net_obj.plot()
         fig.savefig(join(self.path, "pic", "step_0_interferogram_network.png"), dpi=300)
         plt.close(fig)
-        # at this point just created folder pic and ifg_network.h5
-        msg = "#" * 10
-        msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
-        msg += "#" * 10
-        log.info(msg=msg)
 
         box_list, num_patches = ut.preparePatches(num_patches=self.config.general.num_patches,
                                                   width=slc_stack_obj.width,
@@ -915,11 +910,24 @@ class Processing:
             input_path=self.config.general.input_path)
 
         # select second-order points
-        cand_mask2 = selectPixels(
-            path=self.path, selection_method="temp_coh",
-            thrsh=self.config.filtering.coherence_p2,
-            grid_size=None, bool_plot=True,
-            logger=self.logger)  # first-order points are included in second-order points
+        if self.config.general.quality_selection_method == 'tcoh':
+            proxy_value = int(self.config.filtering.coherence_p2 * 100)
+            proxy_id = f"coh{proxy_value}"
+            cand_mask2 = selectPixels(
+                path=self.path, selection_method="temp_coh", thrsh=self.config.filtering.coherence_p2,
+                grid_size=None, bool_plot=True, logger=self.logger
+            )# first-order points are included in second-order points
+
+        elif self.config.general.quality_selection_method == 'adi':
+            proxy_value = int(self.config.filtering.adi_p2 * 100)
+            proxy_id = f"adi{proxy_value}"
+            cand_mask2 = selectPixels(
+                path=self.path, selection_method="adi", thrsh=self.config.filtering.adi_p2,
+                grid_size=None, bool_plot=True, logger=self.logger
+            )# first-order points are included in second-order points
+
+        else:
+            raise NotImplementedError
 
         if self.config.phase_linking.use_phase_linking_results:
             # read PL results
@@ -956,7 +964,7 @@ class Processing:
                 cbar.ax.set_visible(False)  # make size of axis consistent with all others
                 plt.tight_layout()
                 plt.title("Mask for phase linking points")
-                fig.savefig(join(self.path, "pic", "step_3_mask_p2_coh{}_phase_linking.png".format(coh_value)), dpi=300)
+                fig.savefig(join(self.path, "pic", "step_3_mask_p2_coh{}_phase_linking.png".format(proxy_id)), dpi=300)
                 plt.close(fig)
 
                 # mask points after plotting, so that available coherent points are visible in figure
@@ -993,10 +1001,10 @@ class Processing:
         cbar.ax.set_visible(False)  # make size of axis consistent with all others
         plt.tight_layout()
         plt.title("Mask for dense point set")
-        fig.savefig(join(self.path, "pic", "step_3_mask_p2_coh{}.png".format(coh_value)), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_3_mask_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
-        point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)), logger=self.logger)
+        point2_obj = Points(file_path=join(self.path, "p2_{}_ifg_wr.h5".format(proxy_id)), logger=self.logger)
         coord_xy = np.array(np.where(cand_mask2)).transpose()
         point_id2 = point_id_img[cand_mask2]
         point2_obj.prepare(
@@ -1050,9 +1058,9 @@ class Processing:
         point2_obj.writeToFile()
         del point2_obj, ifg_stack_obj
 
-        aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        aps2_obj = Points(file_path=join(self.path, "p2_{}_aps.h5".format(proxy_id)), logger=self.logger)
         aps2_obj.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
+            other_file_path=join(self.path, "p2_{}_ifg_wr.h5".format(proxy_id)),
             input_path=self.config.general.input_path
         )
 
@@ -1097,9 +1105,18 @@ class Processing:
         """RunDensificationTimeAndSpace."""
         coh_value = int(self.config.filtering.coherence_p2 * 100)
 
-        point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
+        if self.config.general.quality_selection_method == 'tcoh':
+            proxy_value = int(self.config.filtering.coherence_p2 * 100)
+            proxy_id = f"coh{proxy_value}"
+        elif self.config.general.quality_selection_method == 'adi':
+            proxy_value = int(self.config.filtering.adi_p2 * 100)
+            proxy_id = f"adi{proxy_value}"
+        else:
+            raise NotImplementedError
+
+        point2_obj = Points(file_path=join(self.path, "p2_{}_ifg_unw.h5".format(proxy_id)), logger=self.logger)
         point2_obj.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
+            other_file_path=join(self.path, "p2_{}_ifg_wr.h5".format(proxy_id)),
             input_path=self.config.general.input_path)  # wrapped phase
 
         # estimate parameters from unwrapped phase
@@ -1115,7 +1132,7 @@ class Processing:
         aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
         aps1_obj.open(input_path=self.config.general.input_path)
 
-        aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        aps2_obj = Points(file_path=join(self.path, "p2_{}_aps.h5".format(proxy_id)), logger=self.logger)
         aps2_obj.open(input_path=self.config.general.input_path)
 
         if self.config.filtering.mask_p2_file is None:
@@ -1234,7 +1251,7 @@ class Processing:
         fig = viewer.plotScatter(value=gamma, coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nBefore outlier removal", s=3.5,
                                  cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_coh{}.png".format(coh_value)), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
         mask_gamma = gamma >= self.config.densification.arc_unwrapping_coherence
@@ -1257,7 +1274,7 @@ class Processing:
         axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('Temp Coeff [mm/C]')
 
-        fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}.png".format(coh_value)),
+        fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_{}.png".format(proxy_id)),
                     dpi=300)
         plt.close(fig)
 
@@ -1265,7 +1282,7 @@ class Processing:
         fig = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
                                  cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_coh{}_reduced.png".format(coh_value)),
+        fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_{}_reduced.png".format(proxy_id)),
                     dpi=300)
         plt.close(fig)
 
@@ -1273,19 +1290,19 @@ class Processing:
                                  ttl="Mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_4_estimation_velocity_p2_coh{}.png".format(coh_value)), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_4_estimation_velocity_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-demerr[mask_gamma], coord=point2_obj.coord_xy, ttl="DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
                                  logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy, ttl="Temperature coef in [mm/C]",
                                  bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_coh{}.png".format(coh_value)), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
 
@@ -1341,9 +1358,9 @@ class Processing:
             ref_idx=0,
             logger=self.logger)
 
-        point_obj = Points(file_path=join(self.path, "p2_coh{}_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj = Points(file_path=join(self.path, "p2_{}_ts.h5".format(proxy_id)), logger=self.logger)
         point_obj.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
+            other_file_path=join(self.path, "p2_{}_ifg_unw.h5".format(proxy_id)),
             input_path=self.config.general.input_path
         )
         point_obj.phase = phase_ts
@@ -1425,6 +1442,15 @@ class Processing:
     def runDensificationSpace(self):
         """RunDensification."""
         coh_value = int(self.config.filtering.coherence_p2 * 100)
+
+        if self.config.general.quality_selection_method == 'tcoh':
+            proxy_value = int(self.config.filtering.coherence_p2 * 100)
+            proxy_id = f"coh{proxy_value}"
+        elif self.config.general.quality_selection_method == 'adi':
+            proxy_value = int(self.config.filtering.adi_p2 * 100)
+            proxy_id = f"adi{proxy_value}"
+        else:
+            raise NotImplementedError
 
         point_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
         point_obj.open(
