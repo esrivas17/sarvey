@@ -145,14 +145,14 @@ class General(BaseModel, extra="forbid"):
             raise ValueError("Unwrapping method must be either 'ilp' or 'puma'.")
         return v
 
-    @field_validator('adi_path')
-    def checkADIPath(cls, v):
-        """Check if the amplitude dispersion exists."""
-        if v:
-            if not os.path.exists(os.path.abspath(v)):
-                raise ValueError(f"Path is invalid: {os.path.abspath(v)}")
-            else:
-                return v
+    #@field_validator('adi_path')
+    #def checkADIPath(cls, v):
+    #    """Check if the amplitude dispersion exists."""
+    #    if v:
+    #        if not os.path.exists(os.path.abspath(v)):
+    #            raise ValueError(f"Path is invalid: {os.path.abspath(v)}")
+    #        else:
+    #            return v
 
     @field_validator('logging_level')
     def checkLoggingLevel(cls, v):
