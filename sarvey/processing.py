@@ -288,6 +288,20 @@ class Processing:
         del bmap_obj
         del mean_amp_img
 
+        temp_coh = temp_coh_obj.read(dataset_name="temp_coh")
+
+        fig = plt.figure(figsize=(15, 5))
+        ax = fig.add_subplot()
+        im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1)
+        auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
+        ax.set_xlabel("Range")
+        ax.set_ylabel("Azimuth")
+        plt.colorbar(im, pad=0.03, shrink=0.5)
+        plt.title("Temporal coherence")
+        plt.tight_layout()
+        fig.savefig(join(self.path, "pic", "step_0_temporal_phase_coherence.png"), dpi=300)
+        plt.close(fig)
+
     def runConsistencyCheck(self):
         """RunConsistencyCheck."""
         # 0) select candidates for first order points
