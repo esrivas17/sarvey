@@ -546,7 +546,8 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
     
     test_xvals = range(300,320)
     test_yvals = range(100,110)
-    
+    pixels_forced_to_zerogamma = list()
+
     for idx in range(num_points):
 
         p2 = idx_range[idx]
@@ -615,7 +616,8 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             #    plt.savefig(f"P{xp}_{yp}_ixp1_{ix}.png")
             #    plt.close()
 
-            if (np.abs(demerr_p2_coarse) <= max_height_p1) & (gamma_p2_coarse >= gamma_selection_p1):
+            #if (np.abs(demerr_p2_coarse) <= max_height_p1) & (gamma_p2_coarse >= gamma_selection_p1):
+            if gamma_p2_coarse >= gamma_selection_p1:
                 #print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.2f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
                 nearest_p1_filtered.append(np1dx)
                 npoints += 1
@@ -627,11 +629,12 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
              #       print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.2f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
                 
         if not nearest_p1_filtered:
-            nearest_p1_filtered = nearest_p1
+            #nearest_p1_filtered = nearest_p1
             demerr_p2[idx] = 0
             vel_p2[idx] = 0
             tcoef_p2[idx] = 0
             gamma_p2[idx] = 0
+            pixels_forced_to_zerogamma.append((xp, yp))
             #print(f"Pixels: {xp, yp} - making 0")
             continue
         else:
@@ -640,8 +643,8 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             #    idxsp1 = [global_point1_obj.coord_xy[p1x] for p1x in nearest_p1_filtered]
             #    print(f"P2:{xp, yp}\nP1 used: {idxsp1}\ndistances: {dist}")
             #####
-            if len(nearest_p1_filtered) >= nk:
-                nearest_p1_filtered = nearest_p1_filtered[:nk]
+            if len(nearest_p1_filtered) >= num_conn_p1:
+                nearest_p1_filtered = nearest_p1_filtered[:num_conn_p1]
 
         
         # compute arc observations to filtered nearest points with DEM err
@@ -657,6 +660,6 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
         prog_bar.update(counter + 1, every=np.int16(200),
                         suffix='{}/{} points'.format(counter + 1, num_points))
         counter += 1
-
+    print(f"POINTS TURNED TO ZERO GAMMA. {pixels_forced_to_zerogamma}")
     return idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2
         
