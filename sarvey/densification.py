@@ -661,7 +661,7 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             if len(nearest_p1_filtered) >= num_conn_p1:
                 nearest_p1_filtered = nearest_p1_filtered[:num_conn_p1]
         if xp in range(967, 970) and yp in range (414, 420):
-            p1used = [global_point1_obj.coord_xy[x] for x in nearest_p1]
+            p1used = [tuple(global_point1_obj.coord_xy[x]) for x in nearest_p1_filtered]
             print(f"Selected P1: {nearest_p1_filtered} - {p1used}")
         
         # compute arc observations to filtered nearest points with DEM err
