@@ -592,6 +592,7 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
 
         npoints = 0
         if xp in range(967, 970) and yp in range (414, 420):
+            print(f"Pixel P2: {xp, yp}")
 
         for ix, np1dx in zip(range(arc_phase_p1.shape[0]), nearest_p1):
             design_mat_demerr[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
