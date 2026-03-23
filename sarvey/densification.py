@@ -639,10 +639,14 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             continue
         else:
             #########
-            if xp in range(940, 990) and yp in range (400, 425):
-                print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.2f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
+            #if xp in range(940, 990) and yp in range (400, 425):
+            if xp in range(967, 970) and yp in range (414, 420):
+                print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
+                print(f"Nearest filtered P1: {nearest_p1_filtered}")
+                p1used = [global_point1_obj.coord_xy[x] for x in nearest_p1]
+                print(f"P1 used: {p1used}")
             #    idxsp1 = [global_point1_obj.coord_xy[p1x] for p1x in nearest_p1_filtered]
-                print(f"P2:{xp, yp}\nP1 used: {np1dx}\ndistances: {dist}")
+            #    print(f"P2:{xp, yp}\nP1 used: {np1dx}\ndistances: {dist}")
             #####
             if len(nearest_p1_filtered) >= num_conn_p1:
                 nearest_p1_filtered = nearest_p1_filtered[:num_conn_p1]
