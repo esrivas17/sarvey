@@ -639,9 +639,10 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             continue
         else:
             #########
-            #if xp == 308 and yp == 104:
+            if xp in range(940, 990) and yp in range (400, 425):
+                print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.2f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
             #    idxsp1 = [global_point1_obj.coord_xy[p1x] for p1x in nearest_p1_filtered]
-            #    print(f"P2:{xp, yp}\nP1 used: {idxsp1}\ndistances: {dist}")
+                print(f"P2:{xp, yp}\nP1 used: {np1dx}\ndistances: {dist}")
             #####
             if len(nearest_p1_filtered) >= num_conn_p1:
                 nearest_p1_filtered = nearest_p1_filtered[:num_conn_p1]
@@ -660,6 +661,6 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
         prog_bar.update(counter + 1, every=np.int16(200),
                         suffix='{}/{} points'.format(counter + 1, num_points))
         counter += 1
-    print(f"POINTS TURNED TO ZERO GAMMA. {pixels_forced_to_zerogamma}")
+    #print(f"POINTS TURNED TO ZERO GAMMA. {pixels_forced_to_zerogamma}")
     return idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2
         
