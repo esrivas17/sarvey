@@ -544,8 +544,8 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
     design_mat_demerr = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 1), dtype=np.float32)
     factor = 4 * np.pi / global_point2_obj.wavelength
     
-    test_xvals = range(300,320)
-    test_yvals = range(100,110)
+    test_xvals = range(955,980)
+    test_yvals = range(403,418)
     pixels_forced_to_zerogamma = list()
 
     for idx in range(num_points):
@@ -591,7 +591,7 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
         design_mat[:, 2] = factor * global_point2_obj.ifg_net_obj.temperatures_ifg
 
         npoints = 0
-        if xp in range(967, 970) and yp in range (414, 420):
+        if xp in test_xvals and yp in test_yvals:
             print(f"Pixel P2: {xp, yp}")
 
         for ix, np1dx in zip(range(arc_phase_p1.shape[0]), nearest_p1):
@@ -609,7 +609,7 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             #if (xp in test_xvals) and (yp in test_yvals):
             #    print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
 
-            if xp in range(967, 970) and yp in range (414, 420):
+            if xp in test_xvals and yp in test_yvals:
                 print(f"P1: {global_point1_obj.coord_xy[np1dx]}, dist: {dist[ix]} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
                 #print(f"Pixel P2: {xp, yp} - P1: {global_point1_obj.coord_xy[np1dx]}, dist: {dist[ix]}")
                 #print(f"demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
@@ -660,7 +660,7 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             #####
             if len(nearest_p1_filtered) >= num_conn_p1:
                 nearest_p1_filtered = nearest_p1_filtered[:num_conn_p1]
-        if xp in range(967, 970) and yp in range (414, 420):
+        if xp in test_xvals and yp in test_yvals:
             p1used = [tuple(global_point1_obj.coord_xy[x]) for x in nearest_p1_filtered]
             print(f"Selected P1: {nearest_p1_filtered} - {p1used}")
         
