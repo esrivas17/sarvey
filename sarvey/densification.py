@@ -591,6 +591,8 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
         design_mat[:, 2] = factor * global_point2_obj.ifg_net_obj.temperatures_ifg
 
         npoints = 0
+        if xp in range(967, 970) and yp in range (414, 420):
+
         for ix, np1dx in zip(range(arc_phase_p1.shape[0]), nearest_p1):
             design_mat_demerr[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
                             / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
@@ -607,9 +609,9 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             #    print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
 
             if xp in range(967, 970) and yp in range (414, 420):
-                print(f"Pixels: {xp, yp} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
-                print(f"Pixel P2: {xp, yp} - P1: {global_point1_obj.coord_xy[np1dx]}, dist: {dist[ix]}")
-                print(f"demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
+                print(f"P1: {global_point1_obj.coord_xy[np1dx]}, dist: {dist[ix]} - demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
+                #print(f"Pixel P2: {xp, yp} - P1: {global_point1_obj.coord_xy[np1dx]}, dist: {dist[ix]}")
+                #print(f"demerr: {demerr_p2_coarse:.2f}, vel: {vel_p2_coarse:.5f}, tcoef: {tcoef_p2_coarse:.4f}, coh: {gamma_p2_coarse:.2f}")
                 #print(f"Nearest filtered P1: {nearest_p1_filtered}")
                 #p1used = [global_point1_obj.coord_xy[x] for x in nearest_p1]
 
@@ -657,7 +659,9 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
             #####
             if len(nearest_p1_filtered) >= num_conn_p1:
                 nearest_p1_filtered = nearest_p1_filtered[:num_conn_p1]
-
+        if xp in range(967, 970) and yp in range (414, 420):
+            p1used = [global_point1_obj.coord_xy[x] for x in nearest_p1]
+            print(f"Selected P1: {nearest_p1_filtered} - {p1used}")
         
         # compute arc observations to filtered nearest points with DEM err
         arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1_filtered, :])))
