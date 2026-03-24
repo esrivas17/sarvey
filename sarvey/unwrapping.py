@@ -37,6 +37,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import structural_rank
 from scipy.sparse.linalg import lsqr
 from scipy.optimize import minimize
+from scipy.linalg import pinvh
 from logging import Logger
 
 from mintpy.utils import ptime
@@ -702,6 +703,93 @@ def spatialParameterIntegration_with_distance(*,
     return val_points
 
 
+def spatialParameterIntegration_withUncertainty(*,
+                                                val_arcs: np.ndarray,
+                                                arcs: np.ndarray,
+                                                coord_xy: np.ndarray,
+                                                weights: np.ndarray,
+                                                spatial_ref_idx: int = 0,
+                                                logger=None):
+    """
+    Spatial integration of arc parameters + uncertainty propagation.
+
+    Returns
+    -------
+    val_points : np.ndarray
+        Estimated parameters at points
+    std_points : np.ndarray
+        Standard deviation at each point
+    """
+
+    arcs = np.array(arcs)
+    num_points = coord_xy.shape[0]
+    num_arcs = arcs.shape[0]
+
+    # --- 1. Build design matrix A ---
+    A = np.zeros((num_arcs, num_points))
+    for i in range(num_arcs):
+        A[i, arcs[i][0]] = 1
+        A[i, arcs[i][1]] = -1
+
+    # --- 2. Remove reference column ---
+    A_red = np.delete(A, spatial_ref_idx, axis=1)
+
+    # --- 3. Apply weights (your formulation: WA x = Wd) ---
+    W = weights.reshape(-1, 1)
+    A_w = W * A_red
+    d_w = val_arcs.reshape(-1, 1) * W
+
+    A_w = csr_matrix(A_w)
+
+    # --- 4. Connectivity check ---
+    if structural_rank(A_w) < A_w.shape[1]:
+        raise Exception("Spatial point network is not connected.")
+
+    # --- 5. Solve LS ---
+    start_time = time.time()
+    x_hat = lsqr(A_w, d_w.flatten())[0]
+    logger and logger.debug(f"LS solved in {time.time() - start_time:.2f} sec")
+
+    # --- 6. Reconstruct full vector ---
+    val_points = np.zeros(num_points)
+    mask = np.ones(num_points, dtype=bool)
+    mask[spatial_ref_idx] = False
+    val_points[mask] = x_hat
+
+    # =====================================================
+    # ===== UNCERTAINTY PROPAGATION ========================
+    # =====================================================
+
+    # --- 7. Residuals ---
+    v = (A_w @ x_hat) - d_w.flatten()
+
+    # redundancy
+    r = num_arcs - (num_points - 1)
+
+    # variance factor
+    sigma0_sq = (v @ v) / r
+
+    # --- 8. Normal matrix ---
+    # IMPORTANT: P = W^2
+    W2 = weights**2
+    N = A_red.T @ (W2[:, None] * A_red)
+
+    # --- 9. Inverse (covariance of reduced system) ---
+    Qx = pinvh(N)   # robust symmetric pseudo-inverse
+
+    Cov_x = sigma0_sq * Qx
+
+    # --- 10. Standard deviation ---
+    std_red = np.sqrt(np.diag(Cov_x))
+
+    # reconstruct full vector
+    std_points = np.zeros(num_points)
+    std_points[mask] = std_red
+    std_points[spatial_ref_idx] = 0.0  # fixed reference
+
+    return val_points, std_points
+
+
 def removeBadPointsIteratively(*, net_obj: NetworkParameter, point_id: np.ndarray,
                                quality_thrsh: float, logger: Logger) -> [NetworkParameter, np.ndarray]:
     """
@@ -1035,6 +1123,70 @@ def removeBadArcsWithThresh(*,
 
     return net_obj
 
+def removeBadArcsWithThreshAndNRO(*,
+                             net_obj: NetworkParameter_Temp,
+                             quality_thrsh: float = 0.0,
+                             NRO: int,
+                             logger: Logger) -> NetworkParameter_Temp:
+    """Remove bad arcs iteratively from network based on quality threshold and Number of Redundant Observations.
+
+    Parameters
+    ----------
+    net_obj: NetworkParameter_Temp
+        The spatial NetworkParameter object.
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs. Default = 0.0.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: NetworkParameter_Temp
+        NetworkParameter object without the removed arcs.
+    """
+    logger.info(msg="Iteratively removing bad arcs with quality < {} and NRO: {}".format(quality_thrsh, NRO))
+
+    #graph = nx.Graph()
+    #for idx, arc in enumerate(net_obj.arcs):
+    #    graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
+
+        
+    graph = nx.DiGraph()
+    for idx, arc in enumerate(net_obj.arcs):
+        graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
+
+    start_point_ix = np.unique(net_obj.arcs[:,0])
+    graph.add_nodes_from(list(start_point_ix))
+
+    # keep edges list due to NRO
+    keep_edges = set()
+
+    for ix in start_point_ix:
+        outedges = list(graph.out_edges(ix, data=True))
+        if not outedges:
+            continue
+
+        edges_sorted = sorted(outedges, key=lambda x: x[2]['weight'][0])
+        edges_sorted = edges_sorted[:NRO]
+        for edge in edges_sorted:
+            keep_edges.add(edge[:2])
+
+    # bad arcs
+    bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
+    bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
+
+    logger.info(msg="Removing {} bad arc(s) due to quality threshold: {}".format(len(bad_arcs), quality_thrsh))
+    numbadarcs_NRO = net_obj.num_arcs - len(keep_edges)
+    logger.info(msg="Removing {} bad arc(s) due to NRO: {}".format(numbadarcs_NRO, NRO))
+
+    # Remove the bad arcs from threshold
+    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs) if ((arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs) and (arc[0], arc[1]) not in keep_edges]
+    mask = np.ones(net_obj.num_arcs, dtype=bool)
+    mask[bad_arc_indices] = False
+    net_obj.removeArcs(mask=mask)
+
+    return net_obj
+
 def RemovePointsKeepingLargestComponent(*,
                              net_obj: NetworkParameter_Temp,
                              point_id: np.ndarray,
@@ -1113,7 +1265,6 @@ def removeArcsFromNonExistingPoints(*,
     for idx, arc in enumerate(net_obj.arcs):
         graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
 
-    idxs_points = list(range(len(point_id)))
 
     # arcs not in points id
     bad_arcs = [(arc[0], arc[1]) for arc in net_obj.arcs if arc[0] not in point_id or arc[1] not in point_id]

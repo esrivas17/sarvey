@@ -453,6 +453,12 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         description="Set height threshhold for network",
         default=50
     )
+
+    NRO: int = Field(
+        title="Number of redundant observations",
+        description="Set Number of redundant observations in arc network",
+        default=9999
+    )
     
     
     @field_validator('coherence_p1')

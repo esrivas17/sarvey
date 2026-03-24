@@ -397,8 +397,12 @@ class Processing:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
         
         ######### removing bad arcs #####
-
-        net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        if self.config.consistency_check.NRO > 0:
+            net_par_obj = removeBadArcsWithThreshAndNRO(net_obj=net_par_obj, 
+                                                    quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, 
+                                                    NRO=self.config.consistency_check.NRO, logger=self.logger)
+        else:
+            net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
 
 
         try:
