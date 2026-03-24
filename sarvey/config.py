@@ -454,7 +454,7 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=50
     )
 
-    NRO: int = Field(
+    nro: int = Field(
         title="Number of redundant observations",
         description="Set Number of redundant observations in arc network",
         default=9999
