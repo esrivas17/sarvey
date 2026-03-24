@@ -245,7 +245,6 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         unit = "ADI [ ]"
         cmap = "lajolla_r"
         logger.debug(f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
-    
     else:
         raise NotImplementedError
 
@@ -287,6 +286,107 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format(selection_method, thrsh)),
                           dpi=300)
         plt.close(plt.gcf())
+
+    return cand_mask
+
+def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: float,
+                 grid_size: int = None, bool_plot: bool = False, logger: Logger):
+    """Select pixels based on temporal coherence.
+
+    Parameters
+    ----------
+    path: str
+        Path to the directory with the temporal_coherence.h5 file.
+    selection_method: str
+        Pixel selection method. Currently, only "temp_coh" is implemented.
+    thrsh: float
+        Threshold for pixel selection.
+    grid_size: int
+        Grid size for sparse pixel selection.
+    bool_plot: bool
+        Plot the selected pixels.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    cand_mask: np.ndarray
+        Mask with selected pixels.
+    """
+    quality_tcoh = None
+    quality_adi = None
+    grid_min_val = None
+    cand_mask = None
+    unit = None
+    cmap = None
+
+    # temporal coherence
+    tcoh_file = join(path, "temporal_coherence.h5")
+    logger.debug(f"Reading temporal coherence file: {tcoh_file}")
+    temp_coh_obj = BaseStack(file=tcoh_file, logger=logger)
+    quality_tcoh = temp_coh_obj.read(dataset_name="temp_coh")
+    cand_mask_tcoh = quality_tcoh <= thresh_tcoh
+    logger.debug(f"Number of selected pixels using {thresh_tcoh:.2f} temporal coherence threshold: {np.sum(cand_mask_tcoh)}")
+
+    # amplitude dispersion
+    adi_obj = BaseStack(file=join(path, "amplitude_dispersion.h5"), logger=logger)
+    quality_adi = adi_obj.read(dataset_name="adi")
+    cand_mask_adi = quality_adi <= thrsh_adi
+    logger.debug(f"Number of selected pixels using {thrsh_adi:.2f} ADI threshold: {np.sum(cand_mask_adi)}")
+
+    cand_mask = cand_mask_tcoh | cand_mask_adi
+
+
+    if grid_size is not None:  # -> sparse pixel selection
+        logger.debug(f"Select sparse pixels using grid size {grid_size} m.")
+        coord_utm_file = join(path, "coordinates_utm.h5")
+        logger.debug(f"Reading coordinates from file: {coord_utm_file}")
+        coord_utm_obj = CoordinatesUTM(file_path=coord_utm_file, logger=logger)
+        coord_utm_obj.open()
+        box_list = ut.createSpatialGrid(coord_utm_img=coord_utm_obj.coord_utm,
+                                        length=coord_utm_obj.coord_utm.shape[1],
+                                        width=coord_utm_obj.coord_utm.shape[2],
+                                        grid_size=grid_size,
+                                        logger=logger)[0]
+        logger.debug(f"Number of grid boxes for sparse pixel selection: {len(box_list)}.")
+        cand_mask_sparse_tcoh = ut.selectBestPointsInGrid(box_list=box_list, quality=quality_tcoh, sel_min=False)
+        cand_mask_sparse_adi = ut.selectBestPointsInGrid(box_list=box_list, quality=quality_adi, sel_min=True)
+        cand_mask_sparse = cand_mask_sparse_tcoh | cand_mask_sparse_adi
+        cand_mask &= cand_mask_sparse
+        logger.debug(f"Number of selected sparse pixels: {np.sum(cand_mask)}")
+        min_map_coord = np.min(coord_utm_obj.coord_utm[..., cand_mask], axis=1)
+        max_map_coord = np.max(coord_utm_obj.coord_utm[..., cand_mask], axis=1)
+        logger.debug(
+            f"[Min, Max] of map coordinates of selected points along first axis: "
+            f"[{min_map_coord[0]:.1f}, {max_map_coord[0]:.1f}].")
+        logger.debug(
+            f"[Min, Max] of map coordinates of selected points along second axis: "
+            f"[{min_map_coord[1]:.1f}, {max_map_coord[1]:.1f}].")
+
+    if bool_plot:
+        logger.debug("Plotting selected pixels...")
+        bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
+        
+        coord_xy = np.array(np.where(cand_mask_adi)).transpose()
+        viewer.plotScatter(value=quality_adi[cand_mask_adi], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels ADI: {thrsh_adi}",
+                           unit=unit, s=2, cmap="lajolla_r", vmin=0, vmax=1, logger=logger)
+        # if grid_size is not None:
+        #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
+        plt.tight_layout()
+        plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("ADI", thrsh_adi)),
+                          dpi=300)
+        plt.close(plt.gcf())
+
+        coord_xy = np.array(np.where(cand_mask_tcoh)).transpose()
+        viewer.plotScatter(value=quality_tcoh[cand_mask_tcoh], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels TCOH: {thresh_tcoh}",
+                           unit=unit, s=2, cmap="lajolla", vmin=0, vmax=1, logger=logger)
+        # if grid_size is not None:
+        #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
+        plt.tight_layout()
+        plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("TCOH", thresh_tcoh)),
+                          dpi=300)
+        plt.close(plt.gcf())
+
 
     return cand_mask
 
