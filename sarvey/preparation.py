@@ -317,25 +317,24 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
     quality_adi = None
     grid_min_val = None
     cand_mask = None
-    unit = None
-    cmap = None
 
     # temporal coherence
     tcoh_file = join(path, "temporal_coherence.h5")
     logger.debug(f"Reading temporal coherence file: {tcoh_file}")
     temp_coh_obj = BaseStack(file=tcoh_file, logger=logger)
     quality_tcoh = temp_coh_obj.read(dataset_name="temp_coh")
-    cand_mask_tcoh = quality_tcoh <= thresh_tcoh
-    logger.debug(f"Number of selected pixels using {thresh_tcoh:.2f} temporal coherence threshold: {np.sum(cand_mask_tcoh)}")
+    cand_mask_tcoh = quality_tcoh >= thresh_tcoh
+    logger.info(f"Number of selected pixels using {thresh_tcoh:.2f} temporal coherence threshold: {np.sum(cand_mask_tcoh)}")
 
     # amplitude dispersion
     adi_obj = BaseStack(file=join(path, "amplitude_dispersion.h5"), logger=logger)
     quality_adi = adi_obj.read(dataset_name="adi")
     cand_mask_adi = quality_adi <= thrsh_adi
-    logger.debug(f"Number of selected pixels using {thrsh_adi:.2f} ADI threshold: {np.sum(cand_mask_adi)}")
+    logger.info(f"Number of selected pixels using {thrsh_adi:.2f} ADI threshold: {np.sum(cand_mask_adi)}")
 
     cand_mask = cand_mask_tcoh | cand_mask_adi
 
+    logger.info(f"Number of selected pixels combined: {np.sum(cand_mask)}")
 
     if grid_size is not None:  # -> sparse pixel selection
         logger.debug(f"Select sparse pixels using grid size {grid_size} m.")
@@ -366,10 +365,9 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
     if bool_plot:
         logger.debug("Plotting selected pixels...")
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
-        
         coord_xy = np.array(np.where(cand_mask_adi)).transpose()
         viewer.plotScatter(value=quality_adi[cand_mask_adi], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels ADI: {thrsh_adi}",
-                           unit=unit, s=2, cmap="lajolla_r", vmin=0, vmax=1, logger=logger)
+                           unit="ADI [ ]", s=2, cmap="lajolla_r", vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
         plt.tight_layout()
@@ -377,9 +375,10 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
                           dpi=300)
         plt.close(plt.gcf())
 
+        bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
         coord_xy = np.array(np.where(cand_mask_tcoh)).transpose()
         viewer.plotScatter(value=quality_tcoh[cand_mask_tcoh], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels TCOH: {thresh_tcoh}",
-                           unit=unit, s=2, cmap="lajolla", vmin=0, vmax=1, logger=logger)
+                           unit="Temporal\nCoherence [ ]", s=2, cmap="lajolla", vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
         plt.tight_layout()

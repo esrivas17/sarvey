@@ -45,7 +45,7 @@ from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, Sma
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkParameter_Temp, NetworkParameter_DEMError
 from sarvey.unwrapping import *
-from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints
+from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints, selectPixelsWithADIandTCOH
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_UnevenTemporalCoherence, computeIfgsStack
 from sarvey.triangulation import PointNetworkTriangulation, HeightTriangulation
@@ -168,7 +168,7 @@ class Processing:
                                                   length=slc_stack_obj.length,
                                                   logger=log)
 
-        if self.config.general.quality_selection_method == 'tcoh':
+        if self.config.general.quality_selection_method == 'tcoh' or self.config.general.quality_selection_method == 'both':
             msg = "#" * 10
             msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
             msg += "#" * 10
@@ -300,6 +300,12 @@ class Processing:
             cand_mask1 = selectPixels(
                 path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
                 grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+
+        elif self.config.general.quality_selection_method == 'both':
+            cand_mask1 = selectPixelsWithADIandTCOH(path=self.path, 
+                                                    thrsh_adi=self.config.consistency_check.adi_p1, 
+                                                    thresh_tcoh=self.config.consistency_check.coherence_p1, 
+                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
 
         else:
             raise NotImplementedError
@@ -972,8 +978,15 @@ class Processing:
             cand_mask2 = selectPixels(
                 path=self.path, selection_method="adi", thrsh=self.config.filtering.adi_p2,
                 grid_size=None, bool_plot=True, logger=self.logger
-            )# first-order points are included in second-order points
-
+            )
+        elif self.config.general.quality_selection_method == 'both':
+            proxy_value_adi = int(self.config.filtering.adi_p2 * 100)
+            proxy_value_tcoh = int(self.config.filtering.coherence_p2 * 100)
+            proxy_id = f"adi{proxy_value_adi}_tcoh{proxy_value_tcoh}"
+            cand_mask2 = selectPixelsWithADIandTCOH(path=self.path, 
+                                                    thrsh_adi=self.config.consistency_check.adi_p2, 
+                                                    thresh_tcoh=self.config.consistency_check.coherence_p2, 
+                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
         else:
             raise NotImplementedError
 
@@ -1159,6 +1172,11 @@ class Processing:
         elif self.config.general.quality_selection_method == 'adi':
             proxy_value = int(self.config.filtering.adi_p2 * 100)
             proxy_id = f"adi{proxy_value}"
+        elif self.config.general.quality_selection_method == 'both':
+            proxy_value_adi = int(self.config.filtering.adi_p2 * 100)
+            proxy_value_tcoh = int(self.config.filtering.coherence_p2 * 100)
+            proxy_id = f"adi{proxy_value_adi}_tcoh{proxy_value_tcoh}"
+
         else:
             raise NotImplementedError
 
@@ -1497,6 +1515,10 @@ class Processing:
         elif self.config.general.quality_selection_method == 'adi':
             proxy_value = int(self.config.filtering.adi_p2 * 100)
             proxy_id = f"adi{proxy_value}"
+        elif self.config.general.quality_selection_method == 'both':
+            proxy_value_adi = int(self.config.filtering.adi_p2 * 100)
+            proxy_value_tcoh = int(self.config.filtering.coherence_p2 * 100)
+            proxy_id = f"adi{proxy_value_adi}_tcoh{proxy_value_tcoh}"
         else:
             raise NotImplementedError
 

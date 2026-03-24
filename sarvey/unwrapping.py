@@ -1160,6 +1160,7 @@ def removeBadArcsWithThreshAndNRO(*,
 
     # keep edges list due to NRO
     keep_edges = set()
+    remove_edges = set()
 
     for ix in start_point_ix:
         outedges = list(graph.out_edges(ix, data=True))
@@ -1168,21 +1169,33 @@ def removeBadArcsWithThreshAndNRO(*,
 
         edges_sorted = sorted(outedges, key=lambda x: x[2]['weight'][0])
         edges_sorted = edges_sorted[:NRO]
+        bad_edges = edges_sorted[NRO:]
+
         for edge in edges_sorted:
             keep_edges.add(edge[:2])
+        
+        for edge in bad_edges:
+            remove_edges.add(edge[:2])
 
     # bad arcs
     bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
     bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
 
+    logger.info(msg="Total number of arcs: {}".format(net_obj.num_arcs))
     logger.info(msg="Removing {} bad arc(s) due to quality threshold: {}".format(len(bad_arcs), quality_thrsh))
     numbadarcs_NRO = net_obj.num_arcs - len(keep_edges)
-    logger.info(msg="Removing {} bad arc(s) due to NRO: {}".format(numbadarcs_NRO, NRO))
+    logger.info(msg="Removing {} bad arc(s) due to NRO: {}".format(len(remove_edges), NRO))
+    logger.info(msg="Keep {} arc(s) due to NRO: {}".format(len(keep_edges), NRO))
 
     # Remove the bad arcs from threshold
-    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs) if ((arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs) and (arc[0], arc[1]) not in keep_edges]
+    bad_arc_indices = [idx for idx, arc in enumerate(net_obj.arcs) if ((arc[0], arc[1]) in bad_arcs or (arc[1], arc[0]) in bad_arcs) or ((arc[0], arc[1]) not in keep_edges)]
     mask = np.ones(net_obj.num_arcs, dtype=bool)
     mask[bad_arc_indices] = False
+
+    numbadarcs = np.sum(~mask)
+    numgoodarcs = np.sum(mask)
+    logger.info(msg="Arcs removed: {}, Arcs kept: {}".format(numbadarcs, numgoodarcs))
+
     net_obj.removeArcs(mask=mask)
 
     return net_obj
@@ -1266,7 +1279,7 @@ def removeArcsFromNonExistingPoints(*,
         graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
 
     idxs_points = list(range(len(point_id)))
-    
+
     # arcs not in points id
     bad_arcs = [(arc[0], arc[1]) for arc in net_obj.arcs if arc[0] not in point_id or arc[1] not in point_id]
     bad_arc_indices = [ix for ix, arc in enumerate(net_obj.arcs) if arc[0] not in idxs_points or arc[1] not in idxs_points]

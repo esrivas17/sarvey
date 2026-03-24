@@ -115,6 +115,8 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
                       "temporal_coherence.h5"]
     elif config.general.quality_selection_method == 'adi':
         required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",]
+    elif config.general.quality_selection_method == 'both':
+        required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5", "temporal_coherence.h5"]
     else:
         raise NotImplementedError
 
@@ -174,6 +176,11 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
     elif config.general.quality_selection_method == 'adi':
         proxy_value = int(config.filtering.adi_p2 * 100)
         proxy_id = f"adi{proxy_value}"
+    elif config.general.quality_selection_method == 'both':
+        proxy_value_adi = int(config.filtering.adi_p2 * 100)
+        proxy_value_tcoh = int(config.filtering.coherence_p2 * 100)
+        proxy_id = f"adi{proxy_value_adi}_tcoh{proxy_value_tcoh}"
+        required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5", "temporal_coherence.h5"]
     else:
         raise NotImplementedError
     
