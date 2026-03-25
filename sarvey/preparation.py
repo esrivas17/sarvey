@@ -327,9 +327,13 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
                                         grid_size=grid_size,
                                         logger=logger)[0]
         logger.debug(f"Number of grid boxes for sparse pixel selection: {len(box_list)}.")
+
         cand_mask_sparse_tcoh = ut.selectBestPointsInGrid(box_list=box_list, quality=quality_tcoh, sel_min=False)
         cand_mask_sparse_adi = ut.selectBestPointsInGrid(box_list=box_list, quality=quality_adi, sel_min=True)
-        cand_mask_sparse = cand_mask_sparse_tcoh | cand_mask_sparse_adi
+        #cand_mask_sparse = cand_mask_sparse_tcoh | cand_mask_sparse_adi
+        # I take always the minimum ADI if it is below the thresh otherwise the tcoh
+        cand_mask_sparse = ut.selectBestPointsInGrids(box_list=box_list, quality_adi=quality_adi, quality_tcoh=quality_tcoh, thrsh_adi=thrsh_adi)
+
         cand_mask &= cand_mask_sparse
         logger.debug(f"Number of selected sparse pixels: {np.sum(cand_mask)}")
         min_map_coord = np.min(coord_utm_obj.coord_utm[..., cand_mask], axis=1)

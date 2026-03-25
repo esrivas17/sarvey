@@ -631,6 +631,32 @@ def selectBestPointsInGrid(*, box_list: list, quality: np.ndarray, sel_min: bool
         cand_mask_sparse[idx_img] = True
     return cand_mask_sparse
 
+def selectBestPointsInGrids(*, box_list: list, quality_adi: np.ndarray, quality_tcoh: np.ndarray, thrsh_adi: np.float32):
+
+    cand_mask_sparse = np.zeros_like(quality_adi).astype(np.bool_)
+
+    for box in box_list:
+        qual_box_adi = quality_adi[box[1]:box[3], box[0]:box[2]]
+        qual_box_tcoh = quality_tcoh[box[1]:box[3], box[0]:box[2]]
+  
+        idx_box_adi = np.where(np.min(qual_box_adi) == qual_box_adi)
+        if np.min(idx_box_adi) <= thrsh_adi and np.min(idx_box_adi) != np.inf:
+            print("LOOP")
+            idx_box = np.where(np.min(qual_box_adi) == qual_box_adi)
+        elif np.min(idx_box_adi) == np.inf:  # no mininum value exists in this box
+            #print("LOOP")
+            #continue
+            idx_box = np.where(np.max(qual_box_tcoh) == qual_box_tcoh)
+        else:  # max
+            idx_box = np.where(np.max(qual_box_tcoh) == qual_box_tcoh)
+
+        if idx_box[0].shape[0] > 1:  # more than one index might be found, due to quality(PS) = 1 in MiaplPy
+            idx_box_tmp = [idx_box[0][0], idx_box[1][0]]
+            idx_box = idx_box_tmp
+        idx_img = (idx_box[0] + box[1], idx_box[1] + box[0])
+        cand_mask_sparse[idx_img] = True
+    return cand_mask_sparse
+
 
 def spatiotemporalConsistency(*, coord_utm: np.ndarray, phase: np.ndarray, wavelength: float, min_dist: int = 15,
                               max_dist: float = np.inf, knn: int = 50):
