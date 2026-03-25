@@ -641,13 +641,12 @@ def selectBestPointsInGrids(*, box_list: list, quality_adi: np.ndarray, quality_
   
         idx_box_adi = np.where(np.min(qual_box_adi) == qual_box_adi)
         if np.min(idx_box_adi) <= thrsh_adi and np.min(idx_box_adi) != np.inf:
-            print("LOOP")
             idx_box = np.where(np.min(qual_box_adi) == qual_box_adi)
         elif np.min(idx_box_adi) == np.inf:  # no mininum value exists in this box
             #print("LOOP")
             #continue
             idx_box = np.where(np.max(qual_box_tcoh) == qual_box_tcoh)
-        else:  # max
+        else:
             idx_box = np.where(np.max(qual_box_tcoh) == qual_box_tcoh)
 
         if idx_box[0].shape[0] > 1:  # more than one index might be found, due to quality(PS) = 1 in MiaplPy
