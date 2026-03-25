@@ -311,7 +311,6 @@ class Processing:
             raise NotImplementedError
 
         ############# end of selecting 1st order pixels ########
-
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         mask_valid_area = ut.detectValidAreas(bmap_obj=bmap_obj, logger=self.logger)
 
@@ -341,9 +340,9 @@ class Processing:
         plt.close(fig)
 
         if cand_mask1[cand_mask1].shape[0] == 0:
-            self.logger.error("No points selected for first-order points. Modify the coherence threshold.")
+            self.logger.error("No points selected for first-order points. Modify thresholds.")
             raise ValueError
-
+        
         # create unique point_id throughout the image to make it possible to mix first-order and second-order points
         # in the densification step. point_id is ordered so that it fits to anydata[mask].ravel() when loading the data.
         point_id_img = np.arange(0, length * width).reshape((length, width))
@@ -583,10 +582,10 @@ class Processing:
         #net_par_obj.writeToFile()
         
         #### testing ###
-        net_par_obj_test = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter_test.h5"),
-                                       logger=self.logger)
-        net_par_obj_test.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
-        net_par_obj_test.writeToFile()
+        #net_par_obj_test = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter_test.h5"),
+         #                              logger=self.logger)
+        #net_par_obj_test.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
+        #net_par_obj_test.writeToFile()
         #### end testing ###
 
         try:
@@ -602,7 +601,15 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        ######### removing bad arcs #####
+        if self.config.consistency_check.nro > 0:
+            net_par_obj = removeBadArcsWithThreshAndNRO(net_obj=net_par_obj, 
+                                                    quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, 
+                                                    NRO=self.config.consistency_check.nro, logger=self.logger)
+        else:
+            net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+
+        #net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
 
         net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)

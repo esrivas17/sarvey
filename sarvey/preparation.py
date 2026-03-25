@@ -291,28 +291,7 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
 
 def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: float,
                  grid_size: int = None, bool_plot: bool = False, logger: Logger):
-    """Select pixels based on temporal coherence.
 
-    Parameters
-    ----------
-    path: str
-        Path to the directory with the temporal_coherence.h5 file.
-    selection_method: str
-        Pixel selection method. Currently, only "temp_coh" is implemented.
-    thrsh: float
-        Threshold for pixel selection.
-    grid_size: int
-        Grid size for sparse pixel selection.
-    bool_plot: bool
-        Plot the selected pixels.
-    logger: Logger
-        Logging handler.
-
-    Returns
-    -------
-    cand_mask: np.ndarray
-        Mask with selected pixels.
-    """
     quality_tcoh = None
     quality_adi = None
     grid_min_val = None
@@ -365,6 +344,7 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
     if bool_plot:
         logger.debug("Plotting selected pixels...")
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
+        cand_mask_adi &=cand_mask_sparse_adi
         coord_xy = np.array(np.where(cand_mask_adi)).transpose()
         viewer.plotScatter(value=quality_adi[cand_mask_adi], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels ADI: {thrsh_adi}",
                            unit="ADI [ ]", s=2, cmap="lajolla_r", vmin=0, vmax=1, logger=logger)
@@ -376,6 +356,7 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
         plt.close(plt.gcf())
 
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
+        cand_mask_tcoh &=cand_mask_sparse_tcoh
         coord_xy = np.array(np.where(cand_mask_tcoh)).transpose()
         viewer.plotScatter(value=quality_tcoh[cand_mask_tcoh], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels TCOH: {thresh_tcoh}",
                            unit="Temporal\nCoherence [ ]", s=2, cmap="lajolla", vmin=0, vmax=1, logger=logger)
