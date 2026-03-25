@@ -744,16 +744,6 @@ class Processing:
 
         point_id_img = np.arange(0, point1_obj.length * point1_obj.width).reshape((point1_obj.length, point1_obj.width))
 
-        # add points in height based on percentiles of DEM error ######
-        # 10 percentile levels
-        n_bins = 5
-        percvals = np.percentile(demerr, np.linspace(50, 100, n_bins))
-        # index of closest sample to each percentile
-        idxs = np.array([np.argmin(np.abs(demerr - pv)) for pv in percvals])
-        idxs2d =  point1_obj.coord_xy[idxs,:]
-        #cand_mask_sparse[idxs2d[:,0], idxs2d[:,1]] = True
-        ####################################################################
-
         keep_id = point_id_img[np.where(cand_mask_sparse)]
         point1_obj.removePoints(keep_id=keep_id, input_path=self.config.general.input_path)
         point1_obj.writeToFile()  # to be able to load aps1 from this file having the same set of points
@@ -800,8 +790,8 @@ class Processing:
             proxy_value_tcoh = int(self.config.filtering.coherence_p2 * 100)
             proxy_id = f"adi{proxy_value_adi}_tcoh{proxy_value_tcoh}"
             cand_mask2 = selectPixelsWithADIandTCOH(path=self.path, 
-                                                    thrsh_adi=self.config.consistency_check.adi_p2, 
-                                                    thresh_tcoh=self.config.consistency_check.coherence_p2, 
+                                                    thrsh_adi=self.config.filtering.adi_p2, 
+                                                    thresh_tcoh=self.config.filtering.coherence_p2, 
                                                     grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
         else:
             raise NotImplementedError
