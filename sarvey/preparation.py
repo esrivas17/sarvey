@@ -330,6 +330,8 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
 
         cand_mask_sparse_tcoh = ut.selectBestPointsInGrid(box_list=box_list, quality=quality_tcoh, sel_min=False)
         cand_mask_sparse_adi = ut.selectBestPointsInGrid(box_list=box_list, quality=quality_adi, sel_min=True)
+        cand_mask_adi &=cand_mask_sparse_adi
+        cand_mask_tcoh &=cand_mask_sparse_tcoh
         #cand_mask_sparse = cand_mask_sparse_tcoh | cand_mask_sparse_adi
         # I take always the minimum ADI if it is below the thresh otherwise the tcoh
         cand_mask_sparse = ut.selectBestPointsInGrids(box_list=box_list, quality_adi=quality_adi, quality_tcoh=quality_tcoh, thrsh_adi=thrsh_adi)
@@ -348,27 +350,25 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
     if bool_plot:
         logger.debug("Plotting selected pixels...")
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
-        cand_mask_adi &=cand_mask_sparse_adi
         coord_xy = np.array(np.where(cand_mask_adi)).transpose()
         viewer.plotScatter(value=quality_adi[cand_mask_adi], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels ADI: {thrsh_adi}",
-                           unit="ADI [ ]", s=2, cmap="lajolla_r", vmin=0, vmax=1, logger=logger)
+                        unit="ADI [ ]", s=2, cmap="lajolla_r", vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
         plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("ADI", thrsh_adi)),
-                          dpi=300)
+                        dpi=300)
         plt.close(plt.gcf())
 
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
-        cand_mask_tcoh &=cand_mask_sparse_tcoh
         coord_xy = np.array(np.where(cand_mask_tcoh)).transpose()
         viewer.plotScatter(value=quality_tcoh[cand_mask_tcoh], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels TCOH: {thresh_tcoh}",
-                           unit="Temporal\nCoherence [ ]", s=2, cmap="lajolla", vmin=0, vmax=1, logger=logger)
+                        unit="Temporal\nCoherence [ ]", s=2, cmap="lajolla", vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
         plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("TCOH", thresh_tcoh)),
-                          dpi=300)
+                        dpi=300)
         plt.close(plt.gcf())
 
 

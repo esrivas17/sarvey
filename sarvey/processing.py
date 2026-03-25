@@ -366,7 +366,7 @@ class Processing:
                                        max_arc_length=self.config.consistency_check.max_arc_length,
                                        logger=self.logger)
         
-        net_obj = Network(file_path=join(self.path, "point_network_apriori.h5"), logger=self.logger)
+        net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
         net_obj.computeArcObservations(point_obj=point_obj,arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)
