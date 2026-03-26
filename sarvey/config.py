@@ -99,6 +99,18 @@ class General(BaseModel, extra="forbid"):
         default=""
     )
 
+    plotwidth: int = Field(
+        title="Plot width",
+        description="plot width",
+        default=15
+    )
+
+    plotheight: int = Field(
+        title="Plot height",
+        description="Plot height",
+        default=5
+    )
+
     logging_level: str = Field(
         title="Logging level.",
         description="Set loggig level.",

@@ -678,6 +678,6 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
         prog_bar.update(counter + 1, every=np.int16(200),
                         suffix='{}/{} points'.format(counter + 1, num_points))
         counter += 1
-    #print(f"POINTS TURNED TO ZERO GAMMA. {pixels_forced_to_zerogamma}")
+
     return idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2
         

@@ -215,7 +215,7 @@ class Processing:
             
             temp_coh = temp_coh_obj.read(dataset_name="temp_coh")
 
-            fig = plt.figure(figsize=(15, 5))
+            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
             ax = fig.add_subplot()
             im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1, aspect='auto')
             auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
@@ -252,7 +252,7 @@ class Processing:
             adi_obj = BaseStack(file=self.config.general.adi_path, logger=log)
             adi = adi_obj.read(dataset_name="adi")
 
-            fig = plt.figure(figsize=(15, 5))
+            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
             ax = fig.add_subplot()
             im = ax.imshow(adi, cmap=cmc.cm.cmaps["grayC_r"], vmin=0, vmax=1, aspect='auto')
             auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
@@ -272,7 +272,9 @@ class Processing:
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         bmap_obj.prepare(slc_stack_obj=slc_stack_obj, img=mean_amp_img, logger=self.logger)
-        ax = bmap_obj.plot(logger=self.logger)
+        fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+        ax = fig.add_subplot()
+        ax = bmap_obj.plot(ax=ax, logger=self.logger)
         img = ax.get_images()[0]
         cbar = plt.colorbar(img, pad=0.03, shrink=0.5)
         cbar.ax.set_visible(False)
@@ -324,7 +326,7 @@ class Processing:
 
         cand_mask1 &= mask_valid_area
 
-        fig = plt.figure(figsize=(15, 5))
+        fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
         ax = fig.add_subplot()
         ax.imshow(mask_valid_area, cmap=cmc.cm.cmaps["grayC"], alpha=0.5, zorder=10, vmin=0, vmax=1, aspect='auto')
         bmap_obj.plot(ax=ax, logger=self.logger)
@@ -359,7 +361,6 @@ class Processing:
         point_obj.writeToFile()
         del ifg_stack_obj, cand_mask1
 
-        ############ FIRST NETWORK ########
          # 1) create spatial network
         arcs = createArcsBetweenPoints(point_obj=point_obj,
                                        knn=self.config.consistency_check.num_nearest_neighbours,
@@ -390,14 +391,16 @@ class Processing:
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
         try:
-            ax = bmap_obj.plot(logger=self.logger)
+            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+            ax = fig.add_subplot()
+            ax = bmap_obj.plot(ax=ax, logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
                                                       arcs=net_par_obj.arcs, val=net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+                                                      ax=ax, linewidth=0.8, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_initial.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_arc_network.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
         
@@ -411,7 +414,9 @@ class Processing:
 
 
         try:
-           ax = bmap_obj.plot(logger=self.logger)
+           fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+           ax = fig.add_subplot()
+           ax = bmap_obj.plot(ax=ax, logger=self.logger)
            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
@@ -856,7 +861,7 @@ class Processing:
 
         cand_mask2 &= mask_valid_area
 
-        fig = plt.figure(figsize=(15, 5))
+        fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
         ax = fig.add_subplot()
         ax.imshow(mask_valid_area, cmap=cmc.cm.cmaps["grayC"], alpha=0.5, zorder=10, vmin=0, vmax=1)
         bmap_obj.plot(ax=ax, logger=self.logger)
