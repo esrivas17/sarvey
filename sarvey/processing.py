@@ -404,7 +404,7 @@ class Processing:
             ax.set_title("Coherence from temporal unwrapping")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_arc_network.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_network_arcs.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
         
@@ -428,7 +428,7 @@ class Processing:
            ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
            fig = ax.get_figure()
            plt.tight_layout()
-           fig.savefig(join(self.path, "pic", "step_1_network_arcs_removed.png"), dpi=300)
+           fig.savefig(join(self.path, "pic", "step_1_network_removed_arcs.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
@@ -455,7 +455,7 @@ class Processing:
            ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
            fig = ax.get_figure()
            plt.tight_layout()
-           fig.savefig(join(self.path, "pic", "step_1_network_points_removed.png"), dpi=300)
+           fig.savefig(join(self.path, "pic", "step_1_network_removed_points.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
         
