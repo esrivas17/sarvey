@@ -447,7 +447,7 @@ class Processing:
         try:
            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
            ax = fig.add_subplot()
-           ax = bmap_obj.plot(logger=self.logger)
+           ax = bmap_obj.plot(ax=ax, logger=self.logger)
            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
