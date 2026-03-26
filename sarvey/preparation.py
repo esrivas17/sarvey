@@ -366,10 +366,12 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
 
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
         coord_xy = np.array(np.where(cand_mask_tcoh)).transpose()
-        viewer.plotScatter(value=quality_tcoh[cand_mask_tcoh], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels TCOH: {thresh_tcoh}",
+        fig, _, _ = viewer.plotScatter(value=quality_tcoh[cand_mask_tcoh], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels TCOH: {thresh_tcoh}",
                         unit="Temporal\nCoherence [ ]", s=2, cmap="lajolla", vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
+        fig.set_figwidth(plotwidth)
+        fig.set_figheight(plotheight)
         plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("TCOH", thresh_tcoh)),
                         dpi=300)
