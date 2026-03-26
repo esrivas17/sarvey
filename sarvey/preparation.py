@@ -179,7 +179,7 @@ def readCoherenceFromMiaplpy(*, path: str, box: tuple = None, logger: Logger) ->
 
 
 def selectPixels(*, path: str, selection_method: str, thrsh: float,
-                 grid_size: int = None, bool_plot: bool = False, logger: Logger):
+                 grid_size: int = None, bool_plot: bool = False, plotwidth: int = 15, plotheight: int = 5,logger: Logger):
     """Select pixels based on temporal coherence.
 
     Parameters
@@ -277,11 +277,12 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         logger.debug("Plotting selected pixels...")
         coord_xy = np.array(np.where(cand_mask)).transpose()
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
-        
-        viewer.plotScatter(value=quality[cand_mask], coord=coord_xy, bmap_obj=bmap_obj, ttl="Selected pixels",
+        fig, _, _ = viewer.plotScatter(value=quality[cand_mask], coord=coord_xy, bmap_obj=bmap_obj, ttl="Selected pixels",
                            unit=unit, s=2, cmap=cmap, vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
+        fig.set_figwidth(plotwidth)
+        fig.set_figheight(plotheight)
         plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format(selection_method, thrsh)),
                           dpi=300)
@@ -290,7 +291,8 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
     return cand_mask
 
 def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: float,
-                 grid_size: int = None, bool_plot: bool = False, logger: Logger):
+                 grid_size: int = None, bool_plot: bool = False, plotwidth: int = 15, 
+                 plotheight: int = 5, logger: Logger):
 
     quality_tcoh = None
     quality_adi = None
@@ -351,10 +353,12 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
         logger.debug("Plotting selected pixels...")
         bmap_obj = AmplitudeImage(file_path=join(path, "background_map.h5"))
         coord_xy = np.array(np.where(cand_mask_adi)).transpose()
-        viewer.plotScatter(value=quality_adi[cand_mask_adi], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels ADI: {thrsh_adi}",
+        fig, _, _ = viewer.plotScatter(value=quality_adi[cand_mask_adi], coord=coord_xy, bmap_obj=bmap_obj, ttl=f"Selected pixels ADI: {thrsh_adi}",
                         unit="ADI [ ]", s=2, cmap="lajolla_r", vmin=0, vmax=1, logger=logger)
         # if grid_size is not None:
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
+        fig.set_figwidth(plotwidth)
+        fig.set_figheight(plotheight)
         plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("ADI", thrsh_adi)),
                         dpi=300)

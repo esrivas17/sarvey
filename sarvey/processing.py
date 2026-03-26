@@ -296,18 +296,22 @@ class Processing:
 
             cand_mask1 = selectPixels(
                 path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
-                grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
+                plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'adi':
             cand_mask1 = selectPixels(
                 path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
-                grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
+                plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'both':
             cand_mask1 = selectPixelsWithADIandTCOH(path=self.path, 
                                                     thrsh_adi=self.config.consistency_check.adi_p1, 
                                                     thresh_tcoh=self.config.consistency_check.coherence_p1, 
-                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
+                                                    plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, 
+                                                    logger=self.logger)
 
         else:
             raise NotImplementedError
@@ -441,6 +445,8 @@ class Processing:
         point_obj.writeToFile()
         
         try:
+           fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+           ax = fig.add_subplot()
            ax = bmap_obj.plot(logger=self.logger)
            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
                                                       arcs=net_par_obj.arcs,
@@ -468,8 +474,7 @@ class Processing:
         point_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point_obj.open(
             other_file_path=join(self.path, "p1_ifg_wr.h5"),
-            input_path=self.config.general.input_path
-        )
+            input_path=self.config.general.input_path)
 
         # reference point can be set arbitrarily, because outliers are removed.
         if self.config.consistency_check.reference_p1_lon:
@@ -500,6 +505,8 @@ class Processing:
                                  bmap_obj=bmap_obj, s=7, cmap="vanimo", symmetric=True,
                                  logger=self.logger)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
@@ -516,6 +523,8 @@ class Processing:
                                  bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)
         # plotting reference of network
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
@@ -533,6 +542,8 @@ class Processing:
                                  bmap_obj=bmap_obj, s=5, cmap="roma", symmetric=True,
                                  logger=self.logger)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
         plt.close(fig)
 
@@ -688,8 +699,8 @@ class Processing:
         point1_obj = Points(file_path=join(self.path, "p1_ts_filt.h5"), logger=self.logger)
         point1_obj.open(
             other_file_path=join(self.path, "p1_ts.h5"),
-            input_path=self.config.general.input_path
-        )
+            input_path=self.config.general.input_path)
+        
         p1_mask = point1_obj.createMask()  # used later for selecting psCand2 when a spatial mask AOI is given.
 
         # select only pixels which have low phase noise and are well distributed
@@ -719,6 +730,8 @@ class Processing:
         fig = viewer.plotScatter(value=auto_corr, coord=point1_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Temporal autocorrelation", unit="[ ]", s=3.5, cmap="lajolla",
                                  vmin=0, vmax=1, logger=self.logger)[0]
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_3_temporal_autocorrelation.png"), dpi=300)
         plt.close(fig)
 
@@ -759,6 +772,8 @@ class Processing:
                                      logger=self.logger)[:2]
         
         viewer.plotGridFromBoxList(box_list=box_list, ax=ax, edgecolor="k", linewidth=0.2)
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_3_stable_points.png"), dpi=300)
         plt.close(fig)
 
@@ -780,16 +795,17 @@ class Processing:
             proxy_id = f"coh{proxy_value}"
             cand_mask2 = selectPixels(
                 path=self.path, selection_method="temp_coh", thrsh=self.config.filtering.coherence_p2,
-                grid_size=None, bool_plot=True, logger=self.logger
-            )# first-order points are included in second-order points
+                grid_size=None, bool_plot=True, plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, 
+                logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'adi':
             proxy_value = int(self.config.filtering.adi_p2 * 100)
             proxy_id = f"adi{proxy_value}"
             cand_mask2 = selectPixels(
                 path=self.path, selection_method="adi", thrsh=self.config.filtering.adi_p2,
-                grid_size=None, bool_plot=True, logger=self.logger
-            )
+                grid_size=None, bool_plot=True, plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, 
+                logger=self.logger)
+            
         elif self.config.general.quality_selection_method == 'both':
             proxy_value_adi = int(self.config.filtering.adi_p2 * 100)
             proxy_value_tcoh = int(self.config.filtering.coherence_p2 * 100)
@@ -797,7 +813,9 @@ class Processing:
             cand_mask2 = selectPixelsWithADIandTCOH(path=self.path, 
                                                     thrsh_adi=self.config.filtering.adi_p2, 
                                                     thresh_tcoh=self.config.filtering.coherence_p2, 
-                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
+                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
+                                                    plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight,
+                                                    logger=self.logger)
         else:
             raise NotImplementedError
 
@@ -882,8 +900,7 @@ class Processing:
         point2_obj.prepare(
             point_id=point_id2,
             coord_xy=coord_xy,
-            input_path=self.config.general.input_path
-        )
+            input_path=self.config.general.input_path)
 
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
 
@@ -1128,6 +1145,8 @@ class Processing:
         fig = viewer.plotScatter(value=gamma, coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nBefore outlier removal", s=3.5,
                                  cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
@@ -1159,6 +1178,8 @@ class Processing:
         fig = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
                                  cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_{}_reduced.png".format(proxy_id)),
                     dpi=300)
         plt.close(fig)
@@ -1167,18 +1188,24 @@ class Processing:
                                  ttl="Mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_estimation_velocity_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-demerr[mask_gamma], coord=point2_obj.coord_xy, ttl="DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
                                  logger=self.logger)[0]
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy, ttl="Temperature coef in [mm/C]",
                                  bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=True,
                                  logger=self.logger)[0]
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
