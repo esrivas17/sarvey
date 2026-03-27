@@ -902,9 +902,7 @@ class Processing:
         val = np.ones_like(cand_mask2)
         sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=val[cand_mask2], s=0.5, cmap=cmc.cm.cmaps["lajolla_r"],
                         vmin=0, vmax=10)  # set min, max to ensure that points are yellow
-        cbar = plt.colorbar(sc, pad=0.03, shrink=0.5)
-        cbar.ax.set_visible(False)  # make size of axis consistent with all others
-        plt.tight_layout()
+        fig.set_constrained_layout(True)
         plt.title("Mask for dense point set")
         fig.savefig(join(self.path, "pic", "step_3_mask_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
