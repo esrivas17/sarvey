@@ -289,7 +289,7 @@ class Processing:
         fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight), constrained_layout=True)
         ax = fig.add_subplot()
         ax = bmap_obj.plot(ax=ax, logger=self.logger)
-        plt.tight_layout()
+        #plt.tight_layout()
         plt.gcf().savefig(join(self.path, "pic", "step_0_amplitude_image.png"), dpi=300)
         plt.close(plt.gcf())
         del bmap_obj
@@ -516,6 +516,7 @@ class Processing:
                                  bmap_obj=bmap_obj, s=7, cmap="vanimo", symmetric=True,
                                  logger=self.logger)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
+        fig.set_constrained_layout(True)
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
@@ -536,6 +537,7 @@ class Processing:
         # plotting reference of network
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
+        fig.set_constrained_layout(True)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
@@ -555,6 +557,7 @@ class Processing:
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
+        fig.set_constrained_layout(True)
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
         plt.close(fig)
 

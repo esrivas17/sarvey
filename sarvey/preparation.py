@@ -283,7 +283,8 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
         fig.set_figwidth(plotwidth)
         fig.set_figheight(plotheight)
-        plt.tight_layout()
+        fig.set_constrained_layout(True)
+        #plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format(selection_method, thrsh)),
                           dpi=300)
         plt.close(plt.gcf())
@@ -359,7 +360,8 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
         fig.set_figwidth(plotwidth)
         fig.set_figheight(plotheight)
-        plt.tight_layout()
+        fig.set_constrained_layout(True)
+        #plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("ADI", thrsh_adi)),
                         dpi=300)
         plt.close(plt.gcf())
@@ -372,7 +374,8 @@ def selectPixelsWithADIandTCOH(*, path: str, thrsh_adi: float, thresh_tcoh: floa
         #     psViewer.plotGridFromBoxList(box_list, ax=ax, edgecolor="k", linewidth=0.2)
         fig.set_figwidth(plotwidth)
         fig.set_figheight(plotheight)
-        plt.tight_layout()
+        fig.set_constrained_layout(True)
+        #plt.tight_layout()
         plt.gcf().savefig(join(path, "pic", "selected_pixels_{}_{}.png".format("TCOH", thresh_tcoh)),
                         dpi=300)
         plt.close(plt.gcf())
