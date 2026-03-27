@@ -272,7 +272,7 @@ class Processing:
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         bmap_obj.prepare(slc_stack_obj=slc_stack_obj, img=mean_amp_img, logger=self.logger)
-        fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+        fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight), constrained_layout=True)
         ax = fig.add_subplot()
         ax = bmap_obj.plot(ax=ax, logger=self.logger)
         img = ax.get_images()[0]
