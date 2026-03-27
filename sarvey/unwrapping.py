@@ -1168,10 +1168,10 @@ def removeBadArcsWithThreshAndNRO(*,
             continue
 
         edges_sorted = sorted(outedges, key=lambda x: x[2]['weight'][0])
-        edges_sorted = edges_sorted[:NRO]
+        good_edges = edges_sorted[:NRO]
         bad_edges = edges_sorted[NRO:]
 
-        for edge in edges_sorted:
+        for edge in good_edges:
             keep_edges.add(edge[:2])
         
         for edge in bad_edges:
