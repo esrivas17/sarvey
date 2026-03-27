@@ -289,7 +289,6 @@ class Processing:
         fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight), constrained_layout=True)
         ax = fig.add_subplot()
         ax = bmap_obj.plot(ax=ax, logger=self.logger)
-        #plt.tight_layout()
         plt.gcf().savefig(join(self.path, "pic", "step_0_amplitude_image.png"), dpi=300)
         plt.close(plt.gcf())
         del bmap_obj
@@ -351,7 +350,8 @@ class Processing:
                         vmin=1, vmax=2)  # set min, max to ensure that points are yellow
         cbar = plt.colorbar(sc, pad=0.03, shrink=0.5)
         cbar.ax.set_visible(False)  # make size of axis consistent with all others
-        plt.tight_layout()
+        fig.set_constrained_layout(True)
+        #plt.tight_layout()
         plt.title("Mask for first order point set")
         fig.savefig(join(self.path, "pic", "step_1_mask_p1.png"), dpi=300)
         plt.close(fig)
@@ -414,7 +414,8 @@ class Processing:
                                                       ax=ax, linewidth=0.8, cmap="lajolla", clim=(0, 1))
             ax.set_title("Coherence from temporal unwrapping")
             fig = ax.get_figure()
-            plt.tight_layout()
+            #plt.tight_layout()
+            fig.set_constrained_layout(True)
             fig.savefig(join(self.path, "pic", "step_1_network_arcs.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
@@ -438,7 +439,8 @@ class Processing:
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
            ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
            fig = ax.get_figure()
-           plt.tight_layout()
+           fig.set_constrained_layout(True)
+           #plt.tight_layout()
            fig.savefig(join(self.path, "pic", "step_1_network_removed_arcs.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
@@ -465,7 +467,8 @@ class Processing:
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
            ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
            fig = ax.get_figure()
-           plt.tight_layout()
+           fig.set_constrained_layout(True)
+           #plt.tight_layout()
            fig.savefig(join(self.path, "pic", "step_1_network_removed_points.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))

@@ -137,9 +137,11 @@ def plotScatter(*, value: np.ndarray, coord: np.ndarray, bmap_obj: AmplitudeImag
     if bmap_obj is not None:
         ax = bmap_obj.plot(logger=logger)
         fig = plt.gcf()
+        fig.set_constrained_layout(True)
     else:
         fig = plt.figure()
         ax = fig.add_subplot()
+        fig.set_constrained_layout(True)
 
     if symmetric:
         v_range = np.max(np.abs(value.ravel()))
@@ -153,7 +155,7 @@ def plotScatter(*, value: np.ndarray, coord: np.ndarray, bmap_obj: AmplitudeImag
     ax.set_title(ttl)
     # Set the aspect ratio
     ax.set_aspect("auto")
-    plt.tight_layout()
+    #plt.tight_layout()
     return fig, ax, cb
 
 
