@@ -435,7 +435,7 @@ class Processing:
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-           ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
+           ax.set_title("Coherence from temporal unwrapping")
            fig = ax.get_figure()
            fig.set_constrained_layout(True)
            #plt.tight_layout()
@@ -463,7 +463,7 @@ class Processing:
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-           ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points and arcs")
+           ax.set_title("Coherence from temporal unwrapping")
            fig = ax.get_figure()
            fig.set_constrained_layout(True)
            #plt.tight_layout()
