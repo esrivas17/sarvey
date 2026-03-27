@@ -1123,7 +1123,7 @@ def removeBadArcsWithThresh(*,
 
     return net_obj
 
-def removeBadArcsWithThreshAndNRO(*,
+def removeBadArcsWithThreshAndNRO_old(*,
                              net_obj: NetworkParameter_Temp,
                              quality_thrsh: float = 0.0,
                              NRO: int,
@@ -1184,7 +1184,7 @@ def removeBadArcsWithThreshAndNRO(*,
     logger.info(msg="Total number of arcs: {}".format(net_obj.num_arcs))
     logger.info(msg="Removing {} bad arc(s) due to quality threshold: {}".format(len(bad_arcs), quality_thrsh))
     numbadarcs_NRO = net_obj.num_arcs - len(keep_edges)
-    logger.info(msg="Removing {} bad arc(s) due to NRO: {}".format(len(remove_edges), NRO))
+    logger.info(msg="Ignoring {} arc(s) due to NRO: {}".format(len(remove_edges), NRO))
     logger.info(msg="Keep {} arc(s) due to NRO: {}".format(len(keep_edges), NRO))
 
     # Remove the bad arcs from threshold
@@ -1196,6 +1196,70 @@ def removeBadArcsWithThreshAndNRO(*,
     numgoodarcs = np.sum(mask)
     logger.info(msg="Arcs removed: {}, Arcs kept: {}".format(numbadarcs, numgoodarcs))
 
+    net_obj.removeArcs(mask=mask)
+
+    return net_obj
+
+def removeBadArcsWithThreshAndNRO(*,
+                             net_obj: NetworkParameter_Temp,
+                             quality_thrsh: float = 0.0,
+                             NRO: int,
+                             logger: Logger) -> NetworkParameter_Temp:
+    """Remove bad arcs iteratively from network based on quality threshold and Number of Redundant Observations."""
+
+    logger.info(msg=f"Iteratively removing bad arcs with quality < {quality_thrsh} and NRO: {NRO}")
+
+    # --- Build directed graph ---
+    graph = nx.DiGraph()
+    for idx, (i, j) in enumerate(net_obj.arcs):
+        graph.add_edge(i, j, weight=1 - net_obj.gamma[idx])
+
+    start_point_ix = np.unique(net_obj.arcs[:, 0])
+    graph.add_nodes_from(start_point_ix)
+
+    # --- NRO filtering ---
+    keep_edges = set()
+    remove_edges = set()
+
+    for ix in start_point_ix:
+        outedges = list(graph.out_edges(ix, data=True))
+        if not outedges:
+            continue
+
+        # sort by weight (ascending → best first)
+        edges_sorted = sorted(outedges, key=lambda x: x[2]['weight'])
+
+        good_edges = edges_sorted[:NRO]
+        bad_edges = edges_sorted[NRO:]
+
+        for (i, j, _) in good_edges:
+            keep_edges.add((i, j) if i < j else (j, i))
+
+        for (i, j, _) in bad_edges:
+            remove_edges.add((i, j) if i < j else (j, i))
+
+    bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
+
+    logger.info(msg=f"Total number of arcs: {net_obj.num_arcs}")
+    logger.info(msg=f"Removing {np.sum(bad_arc_mask)} bad arc(s) due to quality threshold: {quality_thrsh}")
+    logger.info(msg=f"Ignoring {len(remove_edges)} arc(s) due to NRO: {NRO}")
+    logger.info(msg=f"Keep {len(keep_edges)} arc(s) due to NRO: {NRO}")
+
+    # --- Fast filtering (single pass, O(N)) ---
+    mask = np.ones(net_obj.num_arcs, dtype=bool)
+
+    for idx, (i, j) in enumerate(net_obj.arcs):
+        key = (i, j) if i < j else (j, i)
+
+        if bad_arc_mask[idx] or key not in keep_edges:
+            mask[idx] = False
+
+    # --- Stats ---
+    numbadarcs = np.sum(~mask)
+    numgoodarcs = np.sum(mask)
+    logger.info(msg=f"Arcs removed: {numbadarcs}, Arcs kept: {numgoodarcs}")
+
+    # --- Apply removal ---
     net_obj.removeArcs(mask=mask)
 
     return net_obj
