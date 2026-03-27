@@ -1198,7 +1198,7 @@ class Processing:
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-vel[mask_gamma], coord=point2_obj.coord_xy,
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True, unit=r"$\Delta$ v (m/year)"
+                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True, unit=r"$\Delta$ v (m/year)",
                                  logger=self.logger)[0]
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
