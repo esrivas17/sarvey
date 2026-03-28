@@ -1215,7 +1215,7 @@ class Processing:
 
         fig, _, cb = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy,
                                  bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=True, unit=r"$\Delta \alpha$" + "\n(mm/°C)",
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
         cb.ax_tick_params(labelsize=8)
