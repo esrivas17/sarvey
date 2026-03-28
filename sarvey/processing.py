@@ -1206,18 +1206,19 @@ class Processing:
         plt.close(fig)
 
         fig = viewer.plotScatter(value=-demerr[mask_gamma], coord=point2_obj.coord_xy,
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True, unit=r"$\Delta$h" + "\n(m)", 
+                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True, unit=r"$\Delta$h (m)", 
                                  logger=self.logger)[0]
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
-        fig = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy,
+        fig, _, cb = viewer.plotScatter(value=-tcoef[mask_gamma]*1000, coord=point2_obj.coord_xy,
                                  bmap_obj=bmap_obj, s=4, cmap="roma", symmetric=True, unit=r"$\Delta \alpha$" + "\n(mm/°C)",
                                  logger=self.logger)[0]
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
+        cb.ax_tick_params(labelsize=8)
         fig.savefig(join(self.path, "pic", "step_4_estimation_temp_coefficient_p2_{}.png".format(proxy_id)), dpi=300)
         plt.close(fig)
 
