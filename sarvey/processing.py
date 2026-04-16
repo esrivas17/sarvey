@@ -227,19 +227,20 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_0_temporal_phase_coherence.png"), dpi=300)
             plt.close(fig)
 
-            adi_obj = BaseStack(file=self.config.general.adi_path, logger=log)
-            adi = adi_obj.read(dataset_name="adi")
+            if self.config.general.quality_selection_method == 'both':
+                adi_obj = BaseStack(file=self.config.general.adi_path, logger=log)
+                adi = adi_obj.read(dataset_name="adi")
 
-            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight), constrained_layout=True)
-            ax = fig.add_subplot()
-            im = ax.imshow(adi, cmap=cmc.cm.cmaps["grayC_r"], vmin=0, vmax=1, aspect='auto')
-            auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
-            ax.set_xlabel("Range")
-            ax.set_ylabel("Azimuth")
-            plt.colorbar(im, pad=0.03, shrink=0.5)
-            plt.title("Amplitude dispersion")
-            fig.savefig(join(self.path, "pic", "step_0_amplitude_dispersion.png"), dpi=300)
-            plt.close(fig)
+                fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight), constrained_layout=True)
+                ax = fig.add_subplot()
+                im = ax.imshow(adi, cmap=cmc.cm.cmaps["grayC_r"], vmin=0, vmax=1, aspect='auto')
+                auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
+                ax.set_xlabel("Range")
+                ax.set_ylabel("Azimuth")
+                plt.colorbar(im, pad=0.03, shrink=0.5)
+                plt.title("Amplitude dispersion")
+                fig.savefig(join(self.path, "pic", "step_0_amplitude_dispersion.png"), dpi=300)
+                plt.close(fig)
 
         elif self.config.general.quality_selection_method == 'adi':
             msg = "#" * 10
