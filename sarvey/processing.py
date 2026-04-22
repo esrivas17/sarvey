@@ -51,8 +51,7 @@ from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_Un
 from sarvey.triangulation import PointNetworkTriangulation, HeightTriangulation
 from sarvey.config import Config
 from sarvey.unwrapping_1d import temporalUnwrapping_demerr
-from sarvey.unwrapping_temperature import temporalUnwrapping_3v
-from sarvey.unwrapping_hyptesting import temporalUnwrapping_3v_ttest
+from sarvey.unwrapping_temperature import temporalUnwrapping_3v, temporalUnwrapping_3v_hytest
 from sarvey.geolocation import calculateGeolocationCorrection
 
 
@@ -397,7 +396,7 @@ class Processing:
         #                                        num_cores=self.config.general.num_cores,
         #                                        logger=self.logger)
 
-        demerr, vel, tcoef, gamma = temporalUnwrapping_3v_ttest(ifg_net_obj=point_obj.ifg_net_obj,
+        demerr, vel, tcoef, gamma = temporalUnwrapping_3v_hytest(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
