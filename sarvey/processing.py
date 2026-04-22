@@ -156,7 +156,7 @@ class Processing:
             fig = ifg_net_obj.plot_temperature()
             fig.savefig(join(self.path, "pic", "step_0_temperature_ts.png"), dpi=300)
             plt.close(fig)
-        
+
         ifg_net_obj.writeToFile(path=join(self.path, "ifg_network.h5"), logger=log)
         log.debug(msg=f"temporal baselines: {np.unique(np.round(np.abs(ifg_net_obj.tbase_ifg) * 365.25).astype(int))}")
 
@@ -180,13 +180,13 @@ class Processing:
             ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
             ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
                                         metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
-            
+
             # create placeholder in result file for datasets which are stored patch-wise
             temp_coh_obj = BaseStack(file=join(self.path, "temporal_coherence.h5"), logger=log)
             dshape = (slc_stack_obj.length, slc_stack_obj.width)
             temp_coh_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
                                         dshape=dshape, dtype=np.float32, mode="w", chunks=True)
-            
+
             if self.config.preparation.uneven_kernel_tempcoh:
                 log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
                 mean_amp_img = computeIfgs_And_UnevenTemporalCoherence(
@@ -213,7 +213,7 @@ class Processing:
                     box_list=box_list,
                     num_cores=self.config.general.num_cores,
                     logger=log)
-            
+
             temp_coh = temp_coh_obj.read(dataset_name="temp_coh")
 
             fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight), constrained_layout=True)
@@ -254,7 +254,7 @@ class Processing:
             ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
             ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
                                      metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
-        
+
             mean_amp_img = computeIfgsStack(
                 path_ifgs=join(self.path, "ifg_stack.h5"),
                 path_slc=join(self.config.general.input_path, "slcStack.h5"),
@@ -264,7 +264,7 @@ class Processing:
                 box_list=box_list,
                 num_cores=self.config.general.num_cores,
                 logger=log)
-            
+
             adi_obj = BaseStack(file=self.config.general.adi_path, logger=log)
             adi = adi_obj.read(dataset_name="adi")
 
@@ -308,21 +308,21 @@ class Processing:
 
             cand_mask1 = selectPixels(
                 path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
-                grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True,
                 plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'adi':
             cand_mask1 = selectPixels(
                 path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
-                grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
+                grid_size=self.config.consistency_check.grid_size, bool_plot=True,
                 plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'both':
-            cand_mask1 = selectPixelsWithADIandTCOH(path=self.path, 
-                                                    thrsh_adi=self.config.consistency_check.adi_p1, 
-                                                    thresh_tcoh=self.config.consistency_check.coherence_p1, 
-                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
-                                                    plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, 
+            cand_mask1 = selectPixelsWithADIandTCOH(path=self.path,
+                                                    thrsh_adi=self.config.consistency_check.adi_p1,
+                                                    thresh_tcoh=self.config.consistency_check.coherence_p1,
+                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True,
+                                                    plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight,
                                                     logger=self.logger)
 
         else:
@@ -359,7 +359,7 @@ class Processing:
         if cand_mask1[cand_mask1].shape[0] == 0:
             self.logger.error("No points selected for first-order points. Modify thresholds.")
             raise ValueError
-        
+
         # create unique point_id throughout the image to make it possible to mix first-order and second-order points
         # in the densification step. point_id is ordered so that it fits to anydata[mask].ravel() when loading the data.
         point_id_img = np.arange(0, length * width).reshape((length, width))
@@ -381,22 +381,22 @@ class Processing:
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
                                        logger=self.logger)
-        
+
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
         net_obj.computeArcObservations(point_obj=point_obj,arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)
 
-        demerr1, vel1, tcoef1, gamma1 = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
-                                                net_obj=net_obj,
-                                                wavelength=point_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                coef_bound=self.config.consistency_check.tcoef_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
-        
+        #demerr1, vel1, tcoef1, gamma1 = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
+        #                                        net_obj=net_obj,
+        #                                        wavelength=point_obj.wavelength,
+        #                                       velocity_bound=self.config.consistency_check.velocity_bound,
+        #                                        demerr_bound=self.config.consistency_check.dem_error_bound,
+        #                                        coef_bound=self.config.consistency_check.tcoef_bound,
+        #                                        num_samples=self.config.consistency_check.num_optimization_samples,
+        #                                        num_cores=self.config.general.num_cores,
+        #                                        logger=self.logger)
+
         demerr, vel, tcoef, gamma = temporalUnwrapping_3v_ttest(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
@@ -406,12 +406,12 @@ class Processing:
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
-        
+
         net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
         net_par_obj.writeToFile()
-        
+
         # PLOT
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
@@ -429,11 +429,11 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_1_network_arcs.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-        
+
         ######### removing bad arcs #####
         if self.config.consistency_check.nro > 0:
-            net_par_obj = removeBadArcsWithThreshAndNRO(net_obj=net_par_obj, 
-                                                    quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, 
+            net_par_obj = removeBadArcsWithThreshAndNRO(net_obj=net_par_obj,
+                                                    quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
                                                     NRO=self.config.consistency_check.nro, logger=self.logger)
         else:
             net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
@@ -463,10 +463,10 @@ class Processing:
 
         if not net_par_obj.isNetworkConnected(point_obj.num_points):
             raise Exception("Network disconnected")
-        
+
         net_par_obj.writeToFile()
         point_obj.writeToFile()
-        
+
         try:
            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
            ax = fig.add_subplot()
@@ -482,7 +482,7 @@ class Processing:
            fig.savefig(join(self.path, "pic", "step_1_network_removed_points.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-        
+
 
 
     def runUnwrappingTimeAndSpace(self):
@@ -509,7 +509,7 @@ class Processing:
             spatial_ref_idx = tree_p1.query([reflat, reflon])[-1]
         else:
             spatial_ref_idx = 0
-        
+
         ref_lalo = point_obj.coord_lalo[spatial_ref_idx]
         ref_xy = point_obj.coord_xy[spatial_ref_idx]
         self.logger.info(msg=f"coordinate for reference: {ref_lalo}")
@@ -554,7 +554,7 @@ class Processing:
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
-        
+
         #temperature coefficient
         self.logger.info(msg="Integrate temperature coefficient.")
         tcoef = spatialParameterIntegration(val_arcs=net_par_obj.tcoef,
@@ -727,7 +727,7 @@ class Processing:
         point1_obj.open(
             other_file_path=join(self.path, "p1_ts.h5"),
             input_path=self.config.general.input_path)
-        
+
         p1_mask = point1_obj.createMask()  # used later for selecting psCand2 when a spatial mask AOI is given.
 
         # select only pixels which have low phase noise and are well distributed
@@ -797,7 +797,7 @@ class Processing:
                                      bmap_obj=bmap_obj, ttl="Selected pixels for APS estimation",
                                      unit="Auto-correlation\n[ ]", s=5, cmap="lajolla", vmin=0, vmax=1,
                                      logger=self.logger)[:2]
-        
+
         viewer.plotGridFromBoxList(box_list=box_list, ax=ax, edgecolor="k", linewidth=0.2)
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
@@ -822,7 +822,7 @@ class Processing:
             proxy_id = f"coh{proxy_value}"
             cand_mask2 = selectPixels(
                 path=self.path, selection_method="temp_coh", thrsh=self.config.filtering.coherence_p2,
-                grid_size=None, bool_plot=True, plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, 
+                grid_size=None, bool_plot=True, plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight,
                 logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'adi':
@@ -830,17 +830,17 @@ class Processing:
             proxy_id = f"adi{proxy_value}"
             cand_mask2 = selectPixels(
                 path=self.path, selection_method="adi", thrsh=self.config.filtering.adi_p2,
-                grid_size=None, bool_plot=True, plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, 
+                grid_size=None, bool_plot=True, plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight,
                 logger=self.logger)
-            
+
         elif self.config.general.quality_selection_method == 'both':
             proxy_value_adi = int(self.config.filtering.adi_p2 * 100)
             proxy_value_tcoh = int(self.config.filtering.coherence_p2 * 100)
             proxy_id = f"adi{proxy_value_adi}_tcoh{proxy_value_tcoh}"
-            cand_mask2 = selectPixelsWithADIandTCOH(path=self.path, 
-                                                    thrsh_adi=self.config.filtering.adi_p2, 
-                                                    thresh_tcoh=self.config.filtering.coherence_p2, 
-                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True, 
+            cand_mask2 = selectPixelsWithADIandTCOH(path=self.path,
+                                                    thrsh_adi=self.config.filtering.adi_p2,
+                                                    thresh_tcoh=self.config.filtering.coherence_p2,
+                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True,
                                                     plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight,
                                                     logger=self.logger)
         else:
@@ -1219,7 +1219,7 @@ class Processing:
         plt.close(fig)
 
         fig, _, cb = viewer.plotScatter(value=-demerr[mask_gamma], coord=point2_obj.coord_xy,
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True, unit=r"$\Delta$h (m)", 
+                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True, unit=r"$\Delta$h (m)",
                                  logger=self.logger)
         cb.ax.title.set(fontsize=10)
         fig.set_figwidth(self.config.general.plotwidth)
@@ -1239,7 +1239,7 @@ class Processing:
 
         self.logger.info(msg="Remove phase contributions from mean velocity "
                              "and DEM correction and temperature from wrapped phase of points.")
-        
+
         #pred_phase_demerr, pred_phase_vel = ut.predictPhase(
         #    obj=point2_obj,
         #    vel=vel[mask_gamma],
@@ -1307,7 +1307,7 @@ class Processing:
         #    num_cores=1,  # self.config.general.num_cores,
         #    ref_idx=0,
         #    logger=self.logger)
-        
+
         #point_obj_res = Points(file_path=join(self.path, "p2_coh{}_res_ts.h5".format(coh_value)), logger=self.logger)
         #point_obj_res.open(
         #    other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
@@ -1325,7 +1325,7 @@ class Processing:
         #    num_cores=1,  # self.config.general.num_cores,
         #    ref_idx=0,
         #    logger=self.logger)
-        
+
         #point_obj_res = Points(file_path=join(self.path, "p2_coh{}_pred_ts.h5".format(coh_value)), logger=self.logger)
         #point_obj_res.open(
         #    other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
@@ -1343,7 +1343,7 @@ class Processing:
         #    num_cores=1,  # self.config.general.num_cores,
         #    ref_idx=0,
         #    logger=self.logger)
-        
+
         #point_obj_res = Points(file_path=join(self.path, "p2_coh{}_tcoef_ts.h5".format(coh_value)), logger=self.logger)
         #point_obj_res.open(
         #    other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
@@ -1361,7 +1361,7 @@ class Processing:
         #    num_cores=1,  # self.config.general.num_cores,
         #    ref_idx=0,
         #    logger=self.logger)
-        
+
        # point_obj_res = Points(file_path=join(self.path, "p2_coh{}_without_tcoef_ts.h5".format(coh_value)), logger=self.logger)
        # point_obj_res.open(
        #     other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),

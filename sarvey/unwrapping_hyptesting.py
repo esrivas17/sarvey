@@ -275,20 +275,14 @@ def objFuncTemporalCoherenceTCoef(x, *args):
     # equalize the gradients in both directions
     x[0] *= scale_tcoef
 
-    pred_phase = np.matmul(design_mat, x)
+    pred_phase = design_mat*x
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
     return 1 - gamma
 
 def gradientSearchTemporalCoherenceTCoef(*, scale_tcoef: float, obs_phase: np.ndarray,
                                     design_mat: np.ndarray, x0: np.ndarray):
-    opt_res = minimize(
-        objFuncTemporalCoherenceTCoef,
-        x0,
-        args=(design_mat, obs_phase, scale_tcoef),
-        bounds=((-1, 1)),
-        method='L-BFGS-B'
-    )
+    opt_res = minimize(objFuncTemporalCoherenceTCoef, x0,  args=(design_mat, obs_phase, scale_tcoef),  bounds=[(-1, 1)], method='L-BFGS-B')
     gamma = 1 - opt_res.fun
     tcoef = opt_res.x[0] * scale_tcoef
     return tcoef, gamma
@@ -439,7 +433,7 @@ def launchAmbiguityFunction3VarSearchTtest(parameters: tuple):
     vel: np.ndarray
     gamma: np.ndarray
     """
-    (arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, 
+    (arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength,
      velocity_bound, demerr_bound, tcoef_bound, num_samples) = parameters
 
     demerr = np.zeros((num_arcs, 1), dtype=np.float32)
@@ -538,43 +532,49 @@ def searchTemporalCoherence_3v_ttest(*, demerr_range: np.ndarray, vel_range: np.
     residuals1 = (obs_phase - pred_phase.T).ravel()
     gamma1 = np.abs(np.mean(np.exp(1j * residuals1)))
 
-
     """
     ESTIMATING THERMAL EXPANSION COEFFICIENT WITH HYPOTHESIS TESTING
     """
-    tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=obs_phase-residuals1, design_mat=design_mat[:, 2], val_range=tcoef_range)
+    tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=residuals1, design_mat=design_mat[:,2], val_range=tcoef_range)
     scale_tcoef = tcoef_range.max()
-    tcoef, gamma = gradientSearchTemporalCoherenceTCoef(scale_tcoef=scale_tcoef, obs_phase=residuals1, design_mat=design_mat[:,-1], x0=np.array([tcoef/scale_tcoef]).T)
+    tcoef, gamma = gradientSearchTemporalCoherenceTCoef(scale_tcoef=scale_tcoef, obs_phase=residuals1, design_mat=design_mat[:,2], x0=np.array([tcoef/scale_tcoef]).T)
 
+    pred_phase_tcoef = design_mat[:,-1] * np.array([tcoef])
+    residuals_tcoef = residuals1 - pred_phase_tcoef
     pred_phase = np.matmul(design_mat, np.array([demerr, vel, tcoef]))
     residuals2 = obs_phase - pred_phase
     gamma2 = np.abs(np.mean(np.exp(1j * residuals2)))
 
     """
     T TESTING
+    Is adding the thermal term improving the model enough relative to noise?
+
+    t = tcoef / SE(tcoef), where SE: standard error
+
+    SE(tcoef) = sqrt(sigma² * inv(Xt*X))
     """
 
     # degrees of freedom
-    n = len(residuals2)
+    n = len(residuals_tcoef)
     p = 1
-    dof = n - p
+    dof = n - p # n: observations and p: predictors
 
     # variance
-    sigma2 = (residuals2 @ residuals2) / dof
+    sigma2 = (residuals_tcoef @ residuals_tcoef) / dof
 
-    # variance of beta
-    var_beta = sigma2 / (design_mat[:,-1].T @ design_mat[:,-1])[0, 0]
-    std_beta = np.sqrt(var_beta)
+    # standard error
+    T_standard = design_mat[:,-1] - design_mat[:,-1].mean()
+    std_tcoef = np.sqrt(sigma2 / (T_standard @ T_standard))
 
     # --- t-test --- #
-    t_val = tcoef / std_beta
+    t_val = tcoef / std_tcoef
     t_crit = stats.t.ppf(1 - 0.05/2, dof)
 
     significant = abs(t_val) > t_crit
 
-    print("beta:", tcoef)
-    print("t:", t_val)
-    print("significant:", significant)
+    #print("beta:", tcoef)
+    #print("t:", t_val)
+    #print("significant:", significant)
 
     # decision
     if not (abs(t_val) > t_crit):
@@ -804,7 +804,7 @@ def spatialParameterIntegration_with_distance_and_redundancy(*,
         degree[idx2] += 1
 
 
-    
+
     # redundancy factor
     k_arc = np.sqrt(degree[p1_idx] * degree[p2_idx])
     w_red = 1 / k_arc
@@ -1139,7 +1139,7 @@ def removeBadPointsIteratively_3v(*, net_obj: NetworkParameter_Temp, point_id: n
         graph.remove_node(worst_node)
         logger.debug("Removing point %d with median coherence %.2f",
                      point_id[worst_node], median_coherence[worst_node])
-        
+
         del median_coherence[worst_node]
 
     # checking if points have no connections after node removal
@@ -1250,7 +1250,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
 
     bad_arc_mask = (net_obj.gamma < quality_thrsh).ravel()
     bad_arcs = [(arc[0], arc[1]) for idx, arc in enumerate(net_obj.arcs) if bad_arc_mask[idx]]
-    
+
     #### graph0
     nnods = graph0.number_of_nodes()
     graph0.remove_edges_from(bad_arcs)
@@ -1258,7 +1258,7 @@ def removeArcsAndPointsKeepLargestConnectedComponent(*,
     graph = graph0.subgraph(largest_cc).copy()
     newnnods = graph.number_of_nodes()
     remove_nodes = list(set(graph0.nodes()).difference(largest_cc))
-    
+
     for arc in net_obj.arcs:
         arc = tuple(arc)
         if arc not in bad_arcs:
@@ -1354,7 +1354,7 @@ def removeBadArcsWithThreshAndNRO_old(*,
     #for idx, arc in enumerate(net_obj.arcs):
     #    graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
 
-        
+
     graph = nx.DiGraph()
     for idx, arc in enumerate(net_obj.arcs):
         graph.add_edge(arc[0], arc[1], weight=1-net_obj.gamma[idx])
@@ -1377,7 +1377,7 @@ def removeBadArcsWithThreshAndNRO_old(*,
 
         for edge in good_edges:
             keep_edges.add(edge[:2])
-        
+
         for edge in bad_edges:
             remove_edges.add(edge[:2])
 
