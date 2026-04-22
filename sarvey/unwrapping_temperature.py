@@ -1317,8 +1317,9 @@ def oneDimSearchTemporalCoherence_3variables_hytest(*, demerr_range: np.ndarray,
     std_tcoef = np.sqrt(sigma2 * XtX_inv[-1,-1])
 
     # --- t-test --- #
+    alpha = 0.01
     t_val = tcoef / std_tcoef
-    t_crit = stats.t.ppf(1 - 0.05/2, dof)
+    t_crit = stats.t.ppf(1 - alpha/2, dof)
 
     # decision
     if not (abs(t_val) > t_crit):
