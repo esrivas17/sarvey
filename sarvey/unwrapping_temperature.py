@@ -1291,7 +1291,7 @@ def oneDimSearchTemporalCoherence_3variables_hytest(*, demerr_range: np.ndarray,
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
-    pred_phase_veldemerr = np.matmul(design_mat, np.array([demerr, vel]))
+    pred_phase_veldemerr = np.matmul(design_mat[:,:2], np.array([demerr, vel]))
     residuals_tcoef = pred_phase - pred_phase_veldemerr
 
     """
