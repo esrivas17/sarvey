@@ -387,7 +387,7 @@ class Processing:
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)
 
-        demerr, vel, tcoef, gamma = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
+        demerr1, vel1, tcoef1, gamma1 = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
@@ -397,7 +397,7 @@ class Processing:
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
         
-        demerr2, vel2, tcoef2, gamma2 = temporalUnwrapping_3v_ttest(ifg_net_obj=point_obj.ifg_net_obj,
+        demerr, vel, tcoef, gamma = temporalUnwrapping_3v_ttest(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
