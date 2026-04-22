@@ -400,15 +400,15 @@ class Processing:
         # histogram
         fig = plt.figure(figsize=(16, 5))
         axs = fig.subplots(1, 3)
-        axs[0].hist(tcoef1*1000, bins=200)
+        axs[0].hist(tcoef1*1000, bins=1000)
         axs[0].set_ylabel('Absolute frequency')
         axs[0].set_xlabel('Temp Coeff [mm/C]')
 
-        axs[1].hist(demerr1, bins=200)
+        axs[1].hist(demerr1, bins=1000)
         axs[1].set_ylabel('Absolute frequency')
         axs[1].set_xlabel('DEM error [m]')
 
-        axs[2].hist(vel1*100, bins=200)
+        axs[2].hist(vel1*100, bins=1000)
         axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('Velocity [cm/yer]')
 
@@ -430,15 +430,15 @@ class Processing:
         # histogram
         fig = plt.figure(figsize=(16, 5))
         axs = fig.subplots(1, 3)
-        axs[0].hist(tcoef*1000, bins=200)
+        axs[0].hist(tcoef*1000, bins=1000)
         axs[0].set_ylabel('Absolute frequency')
         axs[0].set_xlabel('Temp Coeff [mm/C]')
 
-        axs[1].hist(demerr, bins=200)
+        axs[1].hist(demerr, bins=1000)
         axs[1].set_ylabel('Absolute frequency')
         axs[1].set_xlabel('DEM error [m]')
 
-        axs[2].hist(vel*100, bins=200)
+        axs[2].hist(vel*100, bins=1000)
         axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('Velocity [cm/yer]')
 
