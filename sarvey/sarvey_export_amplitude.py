@@ -53,6 +53,7 @@ from sarvey.console import showLogoSARvey
 from sarvey.objects import Points
 import sarvey.utils as ut
 from sarvey.geolocation import calculateGeolocationCorrection
+import pdb
 
 
 warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
@@ -90,11 +91,14 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     amp_ts = np.abs(slc[:, cols, rows]).T
     amp_db_ts = 20 * np.log10(amp_ts)
 
+    points_mean_amp = np.nanmean(amp_db_ts, axis=1)
+    points_std_amp = np.nanstd(amp_db_ts, axis=1)
+
     vel, demerr, tcoef, _, coherence, omega, residuals = ut.estimateParameters_t(obj=point_obj, ifg_space=False)
 
     stc = ut.spatiotemporalConsistency(coord_utm=point_obj.coord_utm, phase=point_obj.phase,
                                        wavelength=point_obj.wavelength)
-
+    
     point_obj.phase *= point_obj.wavelength / (4 * np.pi)  # in [m]
 
     utm_crs_list = query_utm_crs_info(
@@ -142,6 +146,9 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     df_points.insert(5, 'st_consistency', stc * 1000)  # in [mm]
     df_points.insert(6, 'dem_error', demerr)  # in [m]
     df_points.insert(7, 'dem', point_obj.height)  # in [m]
+    df_points.insert(8, 'mean_amp', points_mean_amp)
+    df_points.insert(9, 'std_amp', points_std_amp)
+
 
     df_points.columns = [col[:10] for col in df_points.columns]
 
