@@ -1362,7 +1362,7 @@ def temporalUnwrapping_3v_hytest(*, ifg_net_obj: IfgNetwork, net_obj: Network,  
     gamma: np.ndarray
     """
     msg = "#" * 10
-    msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION "
+    msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION WITH HYPOTHESIS TESTING FOR THERMAL COEFFICIENT "
     msg += "#" * 10
     logger.info(msg=msg)
 
