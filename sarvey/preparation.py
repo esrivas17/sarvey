@@ -220,7 +220,7 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         grid_min_val = False
         unit = "Temporal\nCoherence [ ]"
         cmap = "lajolla"
-        logger.debug(f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
+        logger.info(f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
 
     elif selection_method == "miaplpy":
         error_msg = "This part is not developed yet. MiaplPy data is read in another way."
@@ -244,7 +244,7 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         grid_min_val = True
         unit = "ADI [ ]"
         cmap = "lajolla_r"
-        logger.debug(f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
+        logger.info(f"Number of selected pixels using {thrsh:.2f} ADI threshold: {np.sum(cand_mask)}")
     else:
         raise NotImplementedError
 
