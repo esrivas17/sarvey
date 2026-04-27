@@ -396,6 +396,7 @@ class Processing:
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)
 
+        """
         demerr1, vel1, tcoef1, gamma1 = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
@@ -422,8 +423,10 @@ class Processing:
         axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('Velocity [cm/yer]')
 
+
         fig.savefig(join(self.path, "pic", "step_1_tempunwrapping_params_original.png"), dpi=300)
         plt.close(fig)
+        """
         ###################
 
         demerr, vel, tcoef, gamma = temporalUnwrapping_3v_hytest(ifg_net_obj=point_obj.ifg_net_obj,
