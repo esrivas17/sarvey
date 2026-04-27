@@ -879,7 +879,7 @@ class Processing:
             cand_mask2 = selectPixelsWithADIandTCOH(path=self.path,
                                                     thrsh_adi=self.config.filtering.adi_p2,
                                                     thresh_tcoh=self.config.filtering.coherence_p2,
-                                                    grid_size=self.config.consistency_check.grid_size, bool_plot=True,
+                                                    grid_size=None, bool_plot=True,
                                                     plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight,
                                                     logger=self.logger)
         else:
