@@ -29,6 +29,8 @@
 
 """Processing module for SARvey."""
 from os.path import join
+import os
+import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 from logging import Logger
@@ -311,12 +313,20 @@ class Processing:
                 plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'adi':
+            if os.path.isfile(self.config.general.adi_path):
+                shutil.copy(self.config.general.adi_path, join(self.path, "amplitude_dispersion.h5"))
+            else:
+                raise Exception(f"{self.config.general.adi_path} is not a file")
             cand_mask1 = selectPixels(
                 path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
                 grid_size=self.config.consistency_check.grid_size, bool_plot=True,
                 plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'both':
+            if os.path.isfile(self.config.general.adi_path):
+                shutil.copy(self.config.general.adi_path, join(self.path, "amplitude_dispersion.h5"))
+            else:
+                raise Exception(f"{self.config.general.adi_path} is not a file")
             cand_mask1 = selectPixelsWithADIandTCOH(path=self.path,
                                                     thrsh_adi=self.config.consistency_check.adi_p1,
                                                     thresh_tcoh=self.config.consistency_check.coherence_p1,
