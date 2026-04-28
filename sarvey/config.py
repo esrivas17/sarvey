@@ -459,12 +459,6 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
     reference_p1_lat: Optional[float] = Field(title="Reference for spatial integration",
         description="Optional reference in lon,lat for spatial integration",     
         default=None)
-    
-    max_arc_height: int = Field(
-        title="Height threshhold for network creation",
-        description="Set height threshhold for network",
-        default=50
-    )
 
     nro: int = Field(
         title="Number of redundant observations",
