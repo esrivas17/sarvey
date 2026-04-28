@@ -1292,15 +1292,6 @@ class Processing:
         self.logger.info(msg="Remove phase contributions from mean velocity "
                              "and DEM correction and temperature from wrapped phase of points.")
 
-        #pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-        #    obj=point2_obj,
-        #    vel=vel[mask_gamma],
-        #    demerr=demerr[mask_gamma],
-        #    ifg_space=True,
-        #    logger=self.logger
-        #)
-        #pred_phase = pred_phase_demerr + pred_phase_vel
-
 
         pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(
             obj=point2_obj, vel=vel[mask_gamma], demerr=demerr[mask_gamma], tcoef=tcoef[mask_gamma],
@@ -1406,22 +1397,22 @@ class Processing:
         #point_obj_res.writeToFile()
 
         # saving time series without tcoef
-       # phase_without_tcoef = ut.invertIfgNetwork(
-        #    phase=unw_phase_without_tcoef,
-        #    num_points=point2_obj.num_points,
-        #    ifg_net_obj=point2_obj.ifg_net_obj,
-        #    num_cores=1,  # self.config.general.num_cores,
-        #    ref_idx=0,
-        #    logger=self.logger)
+        if self.config.densification.save_without_tcoef:
+            phase_without_tcoef = ut.invertIfgNetwork(
+                phase=unw_phase_without_tcoef,
+                num_points=point2_obj.num_points,
+                ifg_net_obj=point2_obj.ifg_net_obj,
+                num_cores=1,  # self.config.general.num_cores,
+                ref_idx=0,
+                logger=self.logger)
 
-       # point_obj_res = Points(file_path=join(self.path, "p2_coh{}_without_tcoef_ts.h5".format(coh_value)), logger=self.logger)
-       # point_obj_res.open(
-       #     other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
-       #     input_path=self.config.general.input_path
-       # )
-       # point_obj_res.phase = phase_without_tcoef
+            point_obj_res = Points(file_path=join(self.path, "p2_{}_ts_without_tcoef.h5".format(proxy_id)), logger=self.logger)
+            point_obj_res.open(
+                other_file_path=join(self.path, "p2_{}_ifg_unw.h5".format(proxy_id)),
+                input_path=self.config.general.input_path)
+            point_obj_res.phase = phase_without_tcoef
 
-       # point_obj_res.writeToFile()
+            point_obj_res.writeToFile()
 
     def runDensificationSpace(self):
         """RunDensification."""

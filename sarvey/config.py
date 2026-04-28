@@ -701,18 +701,16 @@ class Densification(BaseModel, extra="forbid"):
         default=0.5
     )
 
-
-    max_height_to_p1: int = Field(
-        title="Maximum height to first-order points [m]",
-        description="Set threshold on the height between first-order points and to be temporally unwrapped"
-                    "second-order point.",
-        default=100
-    )
-
     gamma_selection_p1: float = Field(
         title="Arc unwrapping coherence threshold for densification",
         description="Set arc unwrapping coherence threshold for choosing p1 in densification.",
         default=0.5
+    )
+
+    save_without_tcoef: bool = Field(
+        title="Falg to save ts without thermal component",
+        description="boolean value to save ts without thermal expansion component",
+        default=False
     )
 
     @field_validator('num_connections_to_p1')
