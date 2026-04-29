@@ -449,7 +449,7 @@ def densifyNetwork_temp(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np
 
 def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, tcoef_p1: np.ndarray, 
                         point2_obj: Points, num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,  tcoef_bound: float, 
-                        max_height_p1: int, gamma_selection_p1: float, num_samples: int, num_cores: int = 1, logger: Logger):
+                        gamma_selection_p1: float, num_samples: int, num_cores: int = 1, logger: Logger):
 
     msg = "#" * 10
     msg += " DENSIFICATION WITH SECOND-ORDER POINTS CONSTRAINED WITH DEMERROR "
@@ -474,7 +474,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
     if num_cores == 1:
         globalvariables(tree_p1=tree_p1, point1_obj=point1_obj, point2_obj=point2_obj, demod_phase1=demod_phase1)
         #densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
-        args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1, max_height_p1, 
+        args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1, 
                 gamma_selection_p1, demerr_bound, velocity_bound, tcoef_bound, num_samples)
         idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkDEMConstraint(args)
     else:
@@ -483,7 +483,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
             num_cores = point2_obj.num_points if num_cores > point2_obj.num_points else num_cores
             # avoids having less samples than cores
             idx = ut.splitDatasetForParallelProcessing(num_samples=point2_obj.num_points, num_cores=num_cores)
-            args = [(idx_range, idx_range.shape[0], num_conn_p1, max_dist_p1, max_height_p1, gamma_selection_p1, 
+            args = [(idx_range, idx_range.shape[0], num_conn_p1, max_dist_p1, gamma_selection_p1, 
                      demerr_bound, velocity_bound, tcoef_bound, num_samples) for idx_range in idx]
 
             results = pool.map_async(launchDensifyNetworkDEMConstraint, args, chunksize=1)
@@ -524,7 +524,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
 
 def launchDensifyNetworkDEMConstraint(args: tuple):
 
-    (idx_range, num_points, num_conn_p1, max_dist_p1, max_height_p1, gamma_selection_p1, demerr_bound, velocity_bound, tcoef_bound, num_samples) = args
+    (idx_range, num_points, num_conn_p1, max_dist_p1, gamma_selection_p1, demerr_bound, velocity_bound, tcoef_bound, num_samples) = args
 
     counter = 0
     prog_bar = ptime.progressBar(maxValue=num_points)
