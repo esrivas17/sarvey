@@ -560,7 +560,8 @@ class Processing:
             spatial_ref_idx = tree_p1.query([reflat, reflon])[-1]
         else:
             spatial_ref_idx = 0
-
+            
+        self.logger.info(msg=f"Spatial reference ix: {spatial_ref_idx}")
         ref_lalo = point_obj.coord_lalo[spatial_ref_idx]
         ref_xy = point_obj.coord_xy[spatial_ref_idx]
         self.logger.info(msg=f"coordinate for reference: {ref_lalo}")
