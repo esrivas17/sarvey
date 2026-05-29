@@ -580,7 +580,6 @@ def launchDensifyNetworkDEMConstraint(args: tuple):
         mask[:3] = True  # ensure that always at least the three closest points are used
         nearest_p1 = nearest_p1[mask]
         
-        # height filter -  i do not know the height of p2 so quickly estimate the relative height with closest p1 points
         nearest_p1_filtered = list()
         arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1, :])))
 

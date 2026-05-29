@@ -536,7 +536,6 @@ class Processing:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
 
-
     def runUnwrappingTimeAndSpace(self):
         """RunTemporalAndSpatialUnwrapping."""
         #net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
