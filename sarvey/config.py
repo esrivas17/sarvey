@@ -378,6 +378,14 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
         default=3
     )
 
+    reference_p1_lon: Optional[float] = Field(title="Reference for spatial integration",
+        description="Optional reference in lon,lat for spatial integration",     
+        default=None)
+    
+    reference_p1_lat: Optional[float] = Field(title="Reference for spatial integration",
+        description="Optional reference in lon,lat for spatial integration",     
+        default=None)
+
     @field_validator('coherence_p1')
     def checkCoherenceP1(cls, v):
         """Check if the temporal coherence threshold is valid."""

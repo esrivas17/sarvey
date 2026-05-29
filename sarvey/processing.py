@@ -426,8 +426,16 @@ class Processing:
         )
 
         # reference point can be set arbitrarily, because outliers are removed.
-        spatial_ref_idx = 0
+        if self.config.consistency_check.reference_p1_lon:
+            reflon = self.config.consistency_check.reference_p1_lon
+            reflat = self.config.consistency_check.reference_p1_lat
+            from scipy.spatial import KDTree
+            tree_p1 = KDTree(point_obj.coord_lalo)
+            spatial_ref_idx = tree_p1.query([reflat, reflon])[-1]
+        else:
+            spatial_ref_idx = 0
 
+        self.logger.info(msg=f"Spatial reference ix: {spatial_ref_idx}")
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
         self.logger.info(msg="Integrate parameters from arcs to points.")
