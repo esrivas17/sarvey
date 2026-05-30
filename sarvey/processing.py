@@ -558,8 +558,10 @@ class Processing:
             from scipy.spatial import KDTree
             tree_p1 = KDTree(point_obj.coord_lalo)
             spatial_ref_idx = tree_p1.query([reflat, reflon])[-1]
+            spatial_ref_idx_experiment = 0
         else:
             spatial_ref_idx = 0
+            spatial_ref_idx_experiment = 0
             
         self.logger.info(msg=f"Spatial reference ix: {spatial_ref_idx}")
         ref_lalo = point_obj.coord_lalo[spatial_ref_idx]
@@ -575,6 +577,21 @@ class Processing:
                                              coord_xy=point_obj.coord_xy,
                                              weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        # experiment
+        demerr_exp = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
+                                             arcs=net_par_obj.arcs,
+                                             coord_xy=point_obj.coord_xy,
+                                             weights=net_par_obj.gamma,
+                                             spatial_ref_idx=spatial_ref_idx_experiment, logger=self.logger)
+        color = 'skyblue'
+        fig7, (ax11, ax12, ax13) = plt.subplots(3, 1, figsize=(7, 11))
+        ax11.hist(demerr - demerr_exp, bins=20, density=True, alpha=0.45,
+            color=color, edgecolor=color)
+        ax11.set_title('DEM error difference', fontsize=11)
+        ax11.set_xlabel("Value")
+        ax11.set_ylabel("Density")
+        #### end experiment ###
 
         fig, axf, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
@@ -594,6 +611,21 @@ class Processing:
                                           coord_xy=point_obj.coord_xy,
                                           weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        # experiment
+        vel_exp = spatialParameterIntegration(val_arcs=net_par_obj.vel,
+                                          arcs=net_par_obj.arcs,
+                                          coord_xy=point_obj.coord_xy,
+                                          weights=net_par_obj.gamma,
+                                          spatial_ref_idx=spatial_ref_idx_experiment, logger=self.logger)
+        veldiff = vel - vel_exp
+        veldiff *= 1000
+        ax12.hist(veldiff, bins=20, density=True, alpha=0.45,
+            color=color, edgecolor=color)
+        ax12.set_title('Velocity difference', fontsize=11)
+        ax12.set_xlabel("Value")
+        ax12.set_ylabel("Density")
+        #### end experiment ###
 
         fig, axf, _ = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
@@ -614,6 +646,26 @@ class Processing:
                                           coord_xy=point_obj.coord_xy,
                                           weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        # experiment
+        tcoef_exp = spatialParameterIntegration(val_arcs=net_par_obj.tcoef,
+                                          arcs=net_par_obj.arcs,
+                                          coord_xy=point_obj.coord_xy,
+                                          weights=net_par_obj.gamma,
+                                          spatial_ref_idx=spatial_ref_idx_experiment, logger=self.logger)
+        
+        tcoefdiff = tcoef - tcoef_exp 
+        tcoefdiff *= 1000
+        ax13.hist(tcoef, bins=20, density=True, alpha=0.45,
+            color=color, edgecolor=color)
+        ax13.set_title('Thermal coeff. difference', fontsize=11)
+        ax13.set_xlabel("Value")
+        ax13.set_ylabel("Density")
+        fig7.suptitle(f"References: ix {spatial_ref_idx} and  ix: {spatial_ref_idx_experiment}", fontsize=14)
+        fig7.set_constrained_layout(True)
+        fig7.savefig(join(self.path, "pic", "step_2_histograms_ref_difference.png"), dpi=300)
+        plt.close(fig7)
+        #### end experiment ###
 
         fig, axf, _ = viewer.plotScatter(value=-tcoef, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: temperature coefficient [m / C]",
