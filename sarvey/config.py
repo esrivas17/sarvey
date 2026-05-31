@@ -123,6 +123,12 @@ class General(BaseModel, extra="forbid"):
         default="logfiles/"
     )
 
+    referencetopeakhist: bool = Field(
+        title="Reference to peak of histogram",
+        description="If set to false it will leave phase with reference chosen before hand",
+        default=True
+    )
+
     @field_validator('input_path')
     def checkPathInputs(cls, v):
         """Check if the input path exists."""
