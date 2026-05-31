@@ -452,7 +452,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
                         gamma_selection_p1: float, num_samples: int, num_cores: int = 1, logger: Logger):
 
     msg = "#" * 10
-    msg += " DENSIFICATION WITH SECOND-ORDER POINTS CONSTRAINED WITH DEMERROR "
+    msg += " DENSIFICATION WITH SECOND-ORDER POINTS "
     msg += "#" * 10
     logger.info(msg=msg)
     start_time = time.time()
