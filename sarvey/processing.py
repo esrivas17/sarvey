@@ -503,8 +503,10 @@ class Processing:
 
         # adjust reference to peak of histogram
         point_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
-        point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
+        
+        if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+            point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
 
@@ -568,8 +570,10 @@ class Processing:
 
         # adjust reference to peak of histogram
         point_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
-        point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
+        
+        if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+            point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
         del point_obj
@@ -1070,8 +1074,10 @@ class Processing:
         unw_phase = unw_res_phase + pred_phase
 
         point2_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
-        point2_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
+        
+        if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
+            point2_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point2_obj.writeToFile()
 
@@ -1125,8 +1131,10 @@ class Processing:
 
         # adjust reference to peak of histogram
         point_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
-        point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
+        
+        if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+            point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
         del point_obj

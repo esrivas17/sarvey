@@ -75,6 +75,12 @@ class General(BaseModel, extra="forbid"):
         default='puma'
     )
 
+    referencetopeakhist: bool = Field(
+        title="Reference to peak of histogram",
+        description="If set to false it will leave phase with reference chosen before hand",
+        default=True
+    )
+
     logging_level: str = Field(
         title="Logging level.",
         description="Set loggig level.",
