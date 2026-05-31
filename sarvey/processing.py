@@ -662,12 +662,12 @@ class Processing:
         unw_phase = unw_res_phase + pred_phase
         # unw_phase = unw_res_phase  # debug: don't add phase back.
 
-        # adjust reference to peak of histogram
         point_obj.phase = unw_phase
         #vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
-        vel = ut.estimateParameters_t(obj=point_obj, ifg_space=True)[0]
-
+        
+        # adjust reference to peak of histogram
         if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters_t(obj=point_obj, ifg_space=True)[0]
             point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
@@ -747,11 +747,12 @@ class Processing:
                                       method=self.config.general.spatial_unwrapping_method,
                                       edges=arcs,
                                       num_cores=self.config.general.num_cores, logger=self.logger)
-
-        # adjust reference to peak of histogram
+  
         point_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+        
+        # adjust reference to peak of histogram
         if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
             point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
@@ -1322,8 +1323,8 @@ class Processing:
 
         point2_obj.phase = unw_phase
         #vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
-        vel = ut.estimateParameters_t(obj=point2_obj, ifg_space=True)[0]
         if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters_t(obj=point2_obj, ifg_space=True)[0]
             point2_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point2_obj.writeToFile()
@@ -1460,11 +1461,12 @@ class Processing:
                                       method=self.config.general.spatial_unwrapping_method,
                                       edges=arcs,
                                       num_cores=self.config.general.num_cores, logger=self.logger)
-
-        # adjust reference to peak of histogram
+        
         point_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
+        
+        # adjust reference to peak of histogram
         if self.config.general.referencetopeakhist:
+            vel = ut.estimateParameters(obj=point_obj, ifg_space=True)[0]
             point_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point_obj.writeToFile()
