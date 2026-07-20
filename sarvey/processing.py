@@ -41,14 +41,15 @@ from mintpy.utils.plot import auto_flip_direction
 from sarvey import viewer
 from sarvey.densification import densifyNetwork
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
-from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
-                                SmallBaselineNetwork, StarNetwork)
+#from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
+ #                               SmallBaselineNetwork, StarNetwork)
+from sarvey.ifg_network_piecewise import StarNetwork, SmallTemporalBaselinesNetwork
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
 from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, spatialUnwrapping,
                                removeBadArcsIteratively, removeBadPointsIteratively)
-from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
+from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_excavation_date
 import sarvey.utils as ut
-from sarvey.coherence import computeIfgsAndTemporalCoherence
+from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsStack
 from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
 
@@ -92,39 +93,73 @@ class Processing:
         log.info(msg=f"Stop date: {date_list[-1]}")
         log.info(msg=f"Number of SLC: {num_slc}")
 
+        ix_date_excavation = ix_from_excavation_date(date_list=date_list, excavation_date=self.config.preparation.excavation_date)
+
+        time_mask_pre, num_slc_pre, date_list_pre = createTimeMaskFromDates(
+            start_date=self.config.preparation.start_date,
+            stop_date=self.config.preparation.excavation_date,
+            date_list=slc_stack_obj.dateList,
+            logger=log
+        )
+        log.info(msg=f"Start date: {date_list_pre[0]}")
+        log.info(msg=f"Excavation date: {date_list_pre[-1]}")
+        log.info(msg=f"Number of SLC: {num_slc_pre}")
+
+        time_mask_exca, num_slc_exca, date_list_exca = createTimeMaskFromDates(
+            start_date=self.config.preparation.excavation_date,
+            stop_date=self.config.preparation.end_date,
+            date_list=slc_stack_obj.dateList,
+            logger=log
+        )
+        log.info(msg=f"Excavation date: {date_list_exca[0]}")
+        log.info(msg=f"Stop date: {date_list_exca[-1]}")
+        log.info(msg=f"Number of SLC: {num_slc_exca}")
+
         msg = "#" * 10
-        msg += " DESIGN IFG NETWORK "
+        msg += " DESIGN IFG NETWORKS: PRE-EXCAVATION AND EXCAVATION PERIOD "
         msg += "#" * 10
         log.info(msg=msg)
 
         ifg_net_obj = None
         if self.config.preparation.ifg_network_type == "star":
             ifg_net_obj = StarNetwork()
-            ifg_net_obj.configure(
-                pbase=slc_stack_obj.pbase[time_mask],
+            ifg_net_obj.configure_breakpoint(pbase=slc_stack_obj.pbase[time_mask],
                 tbase=slc_stack_obj.tbase[time_mask],
                 ref_idx=int(np.floor(num_slc/2)),
-                dates=date_list
-            )
+                dates=date_list,
+                ix_break=ix_date_excavation)
+            
             log.info(msg="Star ifg network")
+
         elif self.config.preparation.ifg_network_type == "sb":
-            ifg_net_obj = SmallBaselineNetwork()
-            ifg_net_obj.configure(pbase=slc_stack_obj.pbase[time_mask],
-                                  tbase=slc_stack_obj.tbase[time_mask],
+            raise NotImplementedError
+            ifgnet_pre_obj = SmallBaselineNetwork()
+            ifgnet_pre_obj.configure(pbase=slc_stack_obj.pbase[time_mask_pre],
+                                  tbase=slc_stack_obj.tbase[time_mask_pre],
                                   num_link=self.config.preparation.num_ifgs,
                                   max_tbase=self.config.preparation.max_tbase,
-                                  dates=date_list)
-            log.info(msg="Small baseline network")
+                                  dates=date_list_pre)
+            log.info(msg="Small baseline network - Pre excavation")
+
+            ifgnet_exca_obj = SmallBaselineNetwork()
+            ifgnet_exca_obj.configure(pbase=slc_stack_obj.pbase[time_mask_exca],
+                                  tbase=slc_stack_obj.tbase[time_mask_exca],
+                                  num_link=self.config.preparation.num_ifgs,
+                                  max_tbase=self.config.preparation.max_tbase,
+                                  dates=date_list_exca)
+            log.info(msg="Small baseline network - Excavation")
+
         elif self.config.preparation.ifg_network_type == "stb":
             ifg_net_obj = SmallTemporalBaselinesNetwork()
-            ifg_net_obj.configure(
+            ifg_net_obj.configure_breakpoint(
                 pbase=slc_stack_obj.pbase[time_mask],
                 tbase=slc_stack_obj.tbase[time_mask],
                 num_link=self.config.preparation.num_ifgs,
-                dates=date_list
-            )
+                dates=date_list,
+                ix_break=ix_date_excavation)
             log.info(msg="Small temporal baseline network")
         elif self.config.preparation.ifg_network_type == "stb_year":
+            raise NotImplementedError
             ifg_net_obj = SmallBaselineYearlyNetwork()
             ifg_net_obj.configure(
                 pbase=slc_stack_obj.pbase[time_mask],
@@ -134,6 +169,7 @@ class Processing:
             )
             log.info(msg="Small temporal baseline and yearly ifg network")
         elif self.config.preparation.ifg_network_type == "delaunay":
+            raise NotImplementedError
             ifg_net_obj = DelaunayNetwork()
             ifg_net_obj.configure(
                 pbase=slc_stack_obj.pbase[time_mask],
@@ -144,10 +180,19 @@ class Processing:
 
         ifg_net_obj.writeToFile(path=join(self.path, "ifg_network.h5"), logger=log)
         log.debug(msg=f"temporal baselines: {np.unique(np.round(np.abs(ifg_net_obj.tbase_ifg) * 365.25).astype(int))}")
-
         fig = ifg_net_obj.plot()
         fig.savefig(join(self.path, "pic", "step_0_interferogram_network.png"), dpi=300)
         plt.close(fig)
+
+        fig = ifg_net_obj.plot_pre()
+        fig.savefig(join(self.path, "pic", "step_0_interferogram_network_pre.png"), dpi=300)
+        plt.close(fig)
+
+        fig = ifg_net_obj.plot_exca()
+        fig.savefig(join(self.path, "pic", "step_0_interferogram_network_exca.png"), dpi=300)
+        plt.close(fig)
+
+        
         # at this point just created folder pic and ifg_network.h5
         msg = "#" * 10
         msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS & ESTIMATE TEMPORAL COHERENCE "
@@ -164,6 +209,20 @@ class Processing:
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
         ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
                                      metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
+
+        import pdb
+        pdb.set_trace()
+
+        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_pre_obj.num_ifgs)
+        ifg_stack_pre_obj = BaseStack(file=join(self.path, "ifg_stack_pre.h5"), logger=log)
+        ifg_stack_pre_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
+                                     metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_pre_obj.num_ifgs))
+        
+        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_exca_obj.num_ifgs)
+        ifg_stack_exca_obj = BaseStack(file=join(self.path, "ifg_stack_exca.h5"), logger=log)
+        ifg_stack_exca_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
+                                     metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_exca_obj.num_ifgs))
+
 
         # create placeholder in result file for datasets which are stored patch-wise
         temp_coh_obj = BaseStack(file=join(self.path, "temporal_coherence.h5"), logger=log)
@@ -182,6 +241,27 @@ class Processing:
             box_list=box_list,
             num_cores=self.config.general.num_cores,
             logger=log)
+
+        # compute ifg for pre excavation and during the excavation periods
+        mean_amp_img_pre = computeIfgsStack(
+                path_ifgs=join(self.path, "ifg_stack_pre.h5"),
+                path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                ifg_array=np.array(ifg_net_pre_obj.ifg_list),
+                time_mask=time_mask_pre,
+                num_boxes=num_patches,
+                box_list=box_list,
+                num_cores=self.config.general.num_cores,
+                logger=log)
+        
+        mean_amp_img_exca = computeIfgsStack(
+                path_ifgs=join(self.path, "ifg_stack_exca.h5"),
+                path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                ifg_array=np.array(ifg_net_exca_obj.ifg_list),
+                time_mask=time_mask_exca,
+                num_boxes=num_patches,
+                box_list=box_list,
+                num_cores=self.config.general.num_cores,
+                logger=log)
 
         # store auxilliary datasets for faster access during processing
         coord_utm_obj = CoordinatesUTM(file_path=join(self.path, "coordinates_utm.h5"), logger=self.logger)
@@ -219,6 +299,10 @@ class Processing:
         # 0) select candidates for first order points
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
         length, width, num_ifgs = ifg_stack_obj.getShape(dataset_name="ifgs")
+
+        ifg_stack_pre_obj =  BaseStack(file=join(self.path, "ifg_stack_pre.h5"), logger=self.logger)
+
+        ifg_stack_exca_obj = BaseStack(file=join(self.path, "ifg_stack_exca.h5"), logger=self.logger)
 
         cand_mask1 = selectPixels(
             path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
@@ -267,8 +351,7 @@ class Processing:
         point_obj.prepare(
             point_id=point_id1,
             coord_xy=coord_xy,
-            input_path=self.config.general.input_path
-        )
+            input_path=self.config.general.input_path)
 
         point_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
@@ -276,6 +359,25 @@ class Processing:
 
         point_obj.writeToFile()
         del ifg_stack_obj, cand_mask1
+
+        point_pre_obj = Points(file_path=join(self.path, "p1_ifg_wr_pre.h5"), logger=self.logger)
+        point_pre_obj.prepare(
+            point_id=point_id1,
+            coord_xy=coord_xy,
+            input_path=self.config.general.input_path)
+        point_pre_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_pre_obj, dataset_name="ifgs",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
+                                                point_id_img=point_id_img, logger=self.logger)
+
+
+        point_exca_obj = Points(file_path=join(self.path, "p1_ifg_wr_exca.h5"), logger=self.logger)
+        point_exca_obj.prepare(
+            point_id=point_id1,
+            coord_xy=coord_xy,
+            input_path=self.config.general.input_path)
+        point_exca_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_exca_obj, dataset_name="ifgs",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
+                                                point_id_img=point_id_img, logger=self.logger)
 
         # 1) create spatial network
         arcs = createArcsBetweenPoints(point_obj=point_obj,
@@ -285,10 +387,20 @@ class Processing:
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
         net_obj.computeArcObservations(
             point_obj=point_obj,
-            arcs=arcs
-        )
+            arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
+
+        # spatial network pre and during excavation
+        net_pre_obj = Network(file_path=join(self.path, "point_network_pre.h5"), logger=self.logger)
+        net_pre_obj.computeArcObservations(point_obj=point_pre_obj, arcs=arcs)
+        net_pre_obj.writeToFile()
+        net_pre_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
+
+        net_exca_obj = Network(file_path=join(self.path, "point_network_exca.h5"), logger=self.logger)
+        net_exca_obj.computeArcObservations(point_obj=point_exca_obj, arcs=arcs)
+        net_exca_obj.writeToFile()
+        net_exca_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
         demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
@@ -298,16 +410,44 @@ class Processing:
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
-
+        
+        demerr_pre, vel_pre, gamma_pre = temporalUnwrapping(ifg_net_obj=point_pre_obj.ifg_net_obj,
+                                                net_obj=net_pre_obj,
+                                                wavelength=point_obj.wavelength,
+                                                velocity_bound=self.config.consistency_check.velocity_bound,
+                                                demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                num_samples=self.config.consistency_check.num_optimization_samples,
+                                                num_cores=self.config.general.num_cores,
+                                                logger=self.logger)
+        
+        demerr_exca, vel_exca, gamma_exca = temporalUnwrapping(ifg_net_obj=point_exca_obj.ifg_net_obj,
+                                                net_obj=net_exca_obj,
+                                                wavelength=point_obj.wavelength,
+                                                velocity_bound=self.config.consistency_check.velocity_bound,
+                                                demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                num_samples=self.config.consistency_check.num_optimization_samples,
+                                                num_cores=self.config.general.num_cores,
+                                                logger=self.logger)
+        
         net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(
             net_obj=net_obj,
             demerr=demerr,
             vel=vel,
-            gamma=gamma
-        )
+            gamma=gamma)
         net_par_obj.writeToFile()
+
+        net_par_pre_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter_pre.h5"),
+                                       logger=self.logger)
+        net_par_pre_obj.prepare(net_obj=net_pre_obj, demerr=demerr_pre, vel=vel_pre, gamma=gamma_pre)
+        net_par_pre_obj.writeToFile()
+
+        net_par_exca_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter_exca.h5"),
+                                       logger=self.logger)
+        net_par_exca_obj.prepare(net_obj=net_exca_obj, demerr=demerr_exca, vel=vel_exca, gamma=gamma_exca)
+        net_par_exca_obj.writeToFile()
+
 
         # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
@@ -329,8 +469,8 @@ class Processing:
             net_obj=net_par_obj,
             point_id=point_obj.point_id,
             quality_thrsh=self.config.consistency_check.point_median_coherence,
-            logger=self.logger
-        )
+            logger=self.logger)
+        
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
 
         try:

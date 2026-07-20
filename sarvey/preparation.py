@@ -127,6 +127,11 @@ def createTimeMaskFromDates(*, start_date: str, stop_date: str, date_list: list,
 
     return time_mask, num_slc, result_date_list
 
+def ix_from_excavation_date(*, date_list: list, excavation_date):
+    date_list = [datetime.date(year=int(d[:4]), month=int(d[4:6]), day=int(d[6:])) for d in date_list]
+    excavation_date = datetime.date(year=int(excavation_date[:4]), month=int(excavation_date[4:6]), day=int(excavation_date[6:]))
+    ix = np.argmin([np.abs(d-excavation_date) for d in date_list])
+    return ix
 
 def readSlcFromMiaplpy(*, path: str, box: tuple = None, logger: Logger) -> np.ndarray:
     """Read SLC data from phase-linking results of Miaplpy.

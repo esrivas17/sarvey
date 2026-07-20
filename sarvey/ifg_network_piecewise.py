@@ -39,7 +39,7 @@ from logging import Logger
 from scipy.spatial import Delaunay
 
 
-class IfgNetwork:
+class IfgNetworkPiecewise:
     """Abstract class/interface for different types of interferogram networks."""
 
     ifg_list: Union[list, np.ndarray] = None
@@ -54,6 +54,26 @@ class IfgNetwork:
         self.tbase_ifg = None
         self.num_ifgs = None
         self.dates = list()
+
+        # pre-xcavation
+        self.pbase_pre = None
+        self.tbase_pre = None
+        self.num_images_pre = None
+        self.pbase_ifg_pre = None
+        self.tbase_ifg_pre = None
+        self.num_ifgs_pre = None
+        self.dates_pre = list()
+        self.ifg_list_pre = list()
+        
+        # excavation
+        self.pbase_exca = None
+        self.tbase_exca = None
+        self.num_images_exca = None
+        self.pbase_ifg_exca = None
+        self.tbase_ifg_exca = None
+        self.num_ifgs_exca = None
+        self.dates_exca = list()
+        self.ifg_list_exca = list()
 
     def plot(self):
         """Plot the network of interferograms."""
@@ -75,6 +95,54 @@ class IfgNetwork:
         axs[1].set_xlabel('temporal baseline [days]')
 
         axs[2].hist(self.pbase_ifg, bins=100)
+        axs[2].set_ylabel('Absolute frequency')
+        axs[2].set_xlabel('perpendicular baseline [m]')
+        return fig
+    
+    def plot_pre(self):
+        """Plot the network of interferograms."""
+        fig = plt.figure(figsize=(15, 5))
+        axs = fig.subplots(1, 3)
+        dt = [datetime.date.fromisoformat(d) for d in self.dates_pre]
+        axs[0].plot(dt, self.pbase_pre, 'ko')
+        for idx in self.ifg_list_pre:
+            xx = np.array([dt[idx[0]], dt[idx[1]]])
+            yy = np.array([self.pbase_pre[idx[0]], self.pbase_pre[idx[1]]])
+            axs[0].plot(xx, yy, 'k-')
+        axs[0].set_ylabel('perpendicular baseline [m]')
+        axs[0].set_xlabel('temporal baseline [years]')
+        axs[0].set_title('Network of interferograms')
+        fig.autofmt_xdate()
+
+        axs[1].hist(self.tbase_ifg_pre * 365.25, bins=100)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('temporal baseline [days]')
+
+        axs[2].hist(self.pbase_ifg_pre, bins=100)
+        axs[2].set_ylabel('Absolute frequency')
+        axs[2].set_xlabel('perpendicular baseline [m]')
+        return fig
+
+    def plot_exca(self):
+        """Plot the network of interferograms."""
+        fig = plt.figure(figsize=(15, 5))
+        axs = fig.subplots(1, 3)
+        dt = [datetime.date.fromisoformat(d) for d in self.dates_exca]
+        axs[0].plot(dt, self.pbase_exca, 'ko')
+        for idx in self.ifg_list_exca:
+            xx = np.array([dt[idx[0]], dt[idx[1]]])
+            yy = np.array([self.pbase_exca[idx[0]], self.pbase_exca[idx[1]]])
+            axs[0].plot(xx, yy, 'k-')
+        axs[0].set_ylabel('perpendicular baseline [m]')
+        axs[0].set_xlabel('temporal baseline [years]')
+        axs[0].set_title('Network of interferograms')
+        fig.autofmt_xdate()
+
+        axs[1].hist(self.tbase_ifg_exca * 365.25, bins=100)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('temporal baseline [days]')
+
+        axs[2].hist(self.pbase_ifg_exca, bins=100)
         axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('perpendicular baseline [m]')
         return fig
@@ -111,6 +179,39 @@ class IfgNetwork:
                 self.dates = None
                 print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
 
+            # pre
+            self.num_images_pre = f.attrs["num_images_pre"]
+            self.num_ifgs_pre = f.attrs["num_ifgs_pre"]
+
+            self.tbase_ifg_pre = f['tbase_ifg_pre'][:]
+            self.pbase_ifg_pre = f['pbase_ifg_pre'][:]
+            self.tbase_pre = f['tbase_pre'][:]
+            self.pbase_pre = f['pbase_pre'][:]
+            self.ifg_list_pre = f['ifg_list_pre'][:]
+            try:
+                self.dates_pre = f['dates_pre'][:]
+                self.dates_pre = [date.decode("utf-8") for date in self.dates_pre]
+            except KeyError as ke:
+                self.dates_pre = None
+                print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
+
+            # excavation
+            self.num_images_pre = f.attrs["num_images_exca"]
+            self.num_ifgs_pre = f.attrs["num_ifgs_exca"]
+
+            self.tbase_ifg_exca = f['tbase_ifg_exca'][:]
+            self.pbase_ifg_exca = f['pbase_ifg_exca'][:]
+            self.tbase_exca = f['tbase_exca'][:]
+            self.pbase_exca = f['pbase_exca'][:]
+            self.ifg_list_exca = f['ifg_list_exca'][:]
+            try:
+                self.dates_exca = f['dates_exca'][:]
+                self.dates_exca = [date.decode("utf-8") for date in self.dates_exca]
+            except KeyError as ke:
+                self.dates_exca = None
+                print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
+
+
             f.close()
 
     def writeToFile(self, *, path: str, logger: Logger):
@@ -129,6 +230,8 @@ class IfgNetwork:
             os.remove(path)
 
         dates = np.array(self.dates, dtype=np.bytes_)
+        dates_pre = np.array(self.dates_pre, dtype=np.bytes_)
+        dates_exca = np.array(self.dates_exca, dtype=np.bytes_)
 
         with h5py.File(path, 'w') as f:
             f.attrs["num_images"] = self.num_images
@@ -141,8 +244,30 @@ class IfgNetwork:
             f.create_dataset('ifg_list', data=self.ifg_list)
             f.create_dataset('dates', data=dates)
 
+            # pre excavation
+            f.attrs["num_images_pre"] = self.num_images
+            f.attrs["num_ifgs_pre"] = self.num_ifgs
 
-class StarNetwork(IfgNetwork):
+            f.create_dataset('tbase_ifg_pre', data=self.tbase_ifg)
+            f.create_dataset('pbase_ifg_pre', data=self.pbase_ifg)
+            f.create_dataset('tbase_pre', data=self.tbase)
+            f.create_dataset('pbase_pre', data=self.pbase)
+            f.create_dataset('ifg_list_pre', data=self.ifg_list)
+            f.create_dataset('dates_pre', data=dates_pre)
+
+            # excavation
+            f.attrs["num_images_exca"] = self.num_images
+            f.attrs["num_ifgs_exca"] = self.num_ifgs
+
+            f.create_dataset('tbase_ifg_exca', data=self.tbase_ifg)
+            f.create_dataset('pbase_ifg_exca', data=self.pbase_ifg)
+            f.create_dataset('tbase_exca', data=self.tbase)
+            f.create_dataset('pbase_exca', data=self.pbase)
+            f.create_dataset('ifg_list_exca', data=self.ifg_list)
+            f.create_dataset('dates_exca', data=dates_exca)
+
+
+class StarNetwork(IfgNetworkPiecewise):
     """Star network of interferograms (single-reference)."""
 
     def configure(self, *, pbase: np.ndarray, tbase: np.ndarray, ref_idx: int, dates: list):
@@ -179,6 +304,11 @@ class StarNetwork(IfgNetwork):
         self.num_images = pbase.shape[0]
         self.dates = dates
 
+        for i in range(self.num_images):
+            if i == ref_idx:
+                continue
+            self.ifg_list.append((ref_idx, i))
+
         self.pbase_ifg = np.delete(self.pbase - self.pbase[ref_idx], ref_idx)
         self.tbase_ifg = np.delete(self.tbase - self.tbase[ref_idx], ref_idx)
         self.num_ifgs = self.num_images - 1
@@ -189,8 +319,20 @@ class StarNetwork(IfgNetwork):
         self.tbase_exca = tbase[ix_break:]/365.25
         self.pbase_pre = pbase[:ix_break]
         self.pbase_exca = pbase[ix_break:]
+        self.dates_pre = dates[:ix_break]
+        self.dates_exca = dates[ix_break:]
         self.num_images_pre = self.tbase_pre.shape[0]
         self.num_images_exca = self.tbase_exca.shape[0]
+
+        for i in range(self.num_images_pre):
+                if i == ref_idx:
+                    continue
+                self.ifg_list_pre.append((ref_idx, i))
+
+        for i in range(self.num_images_exca):            
+            if i == ref_idx:
+                continue
+            self.ifg_list_exca.append((ref_idx, i))
 
         if ref_idx < ix_break:
             self.pbase_ifg_pre = np.delete(self.pbase_pre - self.pbase[ref_idx], ref_idx)
@@ -209,7 +351,7 @@ class StarNetwork(IfgNetwork):
 
 
 
-class SmallTemporalBaselinesNetwork(IfgNetwork):
+class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
     """Small temporal baselines network of interferograms without restrictions on the perpendicular baselines."""
 
     def configure(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list):
@@ -243,139 +385,54 @@ class SmallTemporalBaselinesNetwork(IfgNetwork):
         self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
         self.num_ifgs = self.pbase_ifg.shape[0]
 
+    def configure_breakpoint(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list, ix_break: int):
+            self.pbase = pbase
+            self.tbase = tbase / 365.25
+            self.num_images = pbase.shape[0]
+            self.dates = dates
 
-class SmallBaselineNetwork(IfgNetwork):
-    """Small baseline network of interferograms restricting both temporal and spatial baselines."""
+            for i in range(self.num_images):
+                for j in range(num_link):
+                    if i + j + 1 >= self.num_images:
+                        continue
+                    self.ifg_list.append((i, i + j + 1))
 
-    def configure(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int, max_tbase: int, dates: list):
-        """Create list of interferograms containing the indices of the images and computes baselines.
+            self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
 
-        Parameter
-        -----------
-        pbase: np.ndarray
-            perpendicular baselines of the SAR acquisitions.
-        tbase: np.ndarray
-            temporal baselines of the SAR acquisitions.
-        max_tbase: int
-            maximum temporal baseline in [days] (default: None).
-        num_link: int
-            number of links within the range of maximum temporal baseline.
-        dates: list
-            Dates of the acquisitions.
-        """
-        self.pbase = pbase
-        self.tbase = tbase / 365.25
-        self.num_images = pbase.shape[0]
-        self.dates = dates
-        flag_restrict_to_max_tbase = False
-
-        # in this section use tbase in [days] (function argument, not self.)
-        for i in range(self.num_images - 1):
-
-            if i + 1 < self.num_images - 1:
-                # always use one connection to nearest neighbour in time
-                self.ifg_list.append((i, i + 1))
-            else:
-                self.ifg_list.append((i, i + 1))
-                break
-            # compute index corresponding to max_tbase for current time
-            diff = np.abs(tbase - (tbase[i] + max_tbase))
-            max_idx = np.where(diff == diff.min())[0][0]
-            self.ifg_list.append((i, max_idx))
-
-            if max_idx == i:  # no further images between i and max_idx
-                flag_restrict_to_max_tbase = True
-                continue
-
-            # spread the rest of the links over the remaining time steps in between
-            links = np.floor(np.arange(i, max_idx, (max_idx - i) / (num_link - 1)))[1:].astype(int)
-            for link in links:
-                self.ifg_list.append((i, link))
-        self.ifg_list = np.unique(self.ifg_list, axis=0)
-
-        if flag_restrict_to_max_tbase:
-            warnings.warn(f"Cannot restrict ifgs to maximum temporal baseline of {max_tbase} days.")
-
-        self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
-
-        self.pbase_ifg = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list])
-        self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
-        self.num_ifgs = self.pbase_ifg.shape[0]
+            self.pbase_ifg = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list])
+            self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
+            self.num_ifgs = self.pbase_ifg.shape[0]
 
 
-class DelaunayNetwork(IfgNetwork):
-    """Delaunay network of interferograms which restricts both the temporal and perpendicular baselines."""
+            # pre and excavation configuration
+            self.tbase_pre = tbase[:ix_break]/365.25
+            self.tbase_exca = tbase[ix_break:]/365.25
+            self.pbase_pre = pbase[:ix_break]
+            self.pbase_exca = pbase[ix_break:]
+            self.dates_pre = dates[:ix_break]
+            self.dates_exca = dates[ix_break:]
+            self.num_images_pre = self.tbase_pre.shape[0]
+            self.num_images_exca = self.tbase_exca.shape[0]
 
-    def configure(self, *, pbase: np.ndarray, tbase: np.ndarray, dates: list):
-        """Create list of interferograms containing the indices of the images and computes baselines.
+            for i in range(0, ix_break):
+                for j in range(num_link):
+                    if i + j + 1 >= self.num_images:
+                        continue
+                    self.ifg_list_pre.append((i, i + j + 1))
 
-        Parameter
-        -----------
-        pbase: np.ndarray
-            perpendicular baselines of the SAR acquisitions, array
-        tbase: np.ndarray
-            temporal baselines of the SAR acquisitions, array
-        dates: list
-            Dates of the acquisitions, list.
-        """
-        self.pbase = pbase
-        self.tbase = tbase / 365.25
-        self.num_images = pbase.shape[0]
-        self.dates = dates
-        scale = 0.25
+            for i in range(ix_break, self.num_images):            
+                for j in range(num_link):
+                    if i + j + 1 >= self.num_images:
+                        continue
+                    self.ifg_list_exca.append((i, i + j + 1))
 
-        network = Delaunay(points=np.stack([self.pbase, self.tbase * 365.25 * scale]).T)
-        for p1, p2, p3 in network.simplices:
-            self.ifg_list.append((p1, p2))
-            self.ifg_list.append((p1, p3))
-            self.ifg_list.append((p2, p3))
-        self.ifg_list = np.unique(self.ifg_list, axis=0)
+            self.pbase_ifg_pre = np.array([self.pbase_pre[idx[1]] - self.pbase_pre[idx[0]] for idx in self.ifg_list_pre])
+            self.tbase_ifg_pre = np.array([self.tbase_pre[idx[1]] - self.tbase_pre[idx[0]] for idx in self.ifg_list_pre])
+            self.num_ifgs_pre = self.pbase_ifg_pre.shape[0]
 
-        self.pbase_ifg = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list])
-        self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
-        self.num_ifgs = self.pbase_ifg.shape[0]
+            self.pbase_ifg_exca = np.array([self.pbase_exca[idx[1]] - self.pbase_exca[idx[0]] for idx in self.ifg_list_exca])
+            self.tbase_ifg_exca = np.array([self.tbase_exca[idx[1]] - self.tbase_exca[idx[0]] for idx in self.ifg_list_exca])
+            self.num_ifgs_exca = self.pbase_ifg_exca.shape[0]
 
 
-class SmallBaselineYearlyNetwork(IfgNetwork):
-    """Small baseline network of interferograms with yearly connections."""
 
-    def configure(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list):
-        """Create list of interferograms containing the indices of the images and computes baselines.
-
-        Parameter
-        -----------
-        pbase: np.ndarray
-            perpendicular baselines of the SAR acquisitions, array
-        tbase: np.ndarray
-            temporal baselines of the SAR acquisitions, array
-        num_link: int
-            Number of consecutive links in time connecting acquisitions.
-        dates: list
-            Dates of the acquisitions, list.
-        """
-        self.pbase = pbase
-        self.tbase = tbase / 365.25
-        self.num_images = pbase.shape[0]
-        self.dates = dates
-
-        # add small temporal baselines
-        for i in range(self.num_images):
-            for j in range(num_link):
-                if i + j + 1 >= self.num_images:
-                    continue
-                self.ifg_list.append((i, i + j + 1))
-
-        # add yearly ifgs
-        for i in range(self.num_images):
-            # find index of image at roughly one year distance
-            diff = np.abs(tbase - (tbase[i] + 365.25))
-            year_idx = np.where(diff == diff.min())[0][0]
-            if year_idx != self.num_images - 1:  # avoid connections to the last image
-                self.ifg_list.append((i, year_idx))
-
-        self.ifg_list = np.unique(self.ifg_list, axis=0)
-        self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
-
-        self.pbase_ifg = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list])
-        self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
-        self.num_ifgs = self.pbase_ifg.shape[0]

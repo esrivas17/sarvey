@@ -238,6 +238,12 @@ class Preparation(BaseModel, extra="forbid"):
         default=None
     )
 
+    excavation_date: str = Field(
+        title="End date",
+        description="Format: YYYY-MM-DD.",
+        default=None
+    )
+
     ifg_network_type: str = Field(
         title="Interferogram network type.",
         description="Set the intererogram network type: 'sb' (small baseline), 'stb' (small temporal baseline), "

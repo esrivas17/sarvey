@@ -660,6 +660,66 @@ class Points:
         # refresh by reopening all external data
         self.openExternalData(input_path=input_path)
 
+class PointsPiecewise(Points):
+    def __init__(self, *, file_path: str, logger: Logger):
+        """Init.
+
+        Parameters
+        ----------
+        file_path: str
+             ath to filename
+        logger: Logger
+            Logging handler.
+        """
+        self.ifg_net_obj = IfgNetwork()  # use parent class here which doesn't know and care about 'star' or 'sb'
+        self.ifg_net_pre_obj = IfgNetwork()
+        self.ifg_net_exca_obj = IfgNetwork()
+        self.coord_utm = None
+        self.coord_lalo = None
+        self.height = None
+        self.slant_range = None
+        self.loc_inc = None
+        self.file_path = file_path
+        self.logger = logger
+
+    def openExternalData(self, *, input_path: str):
+        """Load data which is stored in slcStack.h5, geometryRadar.h5, ifg_network.h5 and coordinates_utm.h5."""
+        # 1) read IfgNetwork
+        self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
+        self.ifg_net_pre_obj.open(path=join(dirname(self.file_path), "ifg_network_pre_excavation.h5"))
+        self.ifg_net_exca_obj.open(path=join(dirname(self.file_path), "ifg_network_excavation.h5"))
+
+
+        # 2) read metadata from slcStack
+        slc_stack_obj = slcStack(join(input_path, "slcStack.h5"))
+        slc_stack_obj.open(print_msg=False)
+        self.wavelength = np.float64(slc_stack_obj.metadata["WAVELENGTH"])
+        self.length = slc_stack_obj.length  # y-coordinate axis (azimut)
+        self.width = slc_stack_obj.width  # x-coordinate axis (range)
+
+        # 3) read from geometry file
+        mask = self.createMask()
+
+        geom_path = join(input_path, "geometryRadar.h5")
+
+        # load geometry data
+        loc_inc, meta = readfile.read(geom_path, datasetName='incidenceAngle')
+        loc_inc *= np.pi / 180  # in [rad]
+        slant_range = readfile.read(geom_path, datasetName='slantRangeDistance')[0]
+        height = readfile.read(geom_path, datasetName='height')[0]
+        lat = readfile.read(geom_path, datasetName='latitude')[0]
+        lon = readfile.read(geom_path, datasetName='longitude')[0]
+
+        self.loc_inc = loc_inc[mask].ravel()
+        self.slant_range = slant_range[mask].ravel()
+        self.height = height[mask].ravel()
+        self.coord_lalo = np.array([lat[mask].ravel(), lon[mask].ravel()]).transpose()
+
+        # 4) read UTM coordinates
+        coord_utm_obj = CoordinatesUTM(file_path=join(dirname(self.file_path), "coordinates_utm.h5"),
+                                       logger=self.logger)
+        coord_utm_obj.open()
+        self.coord_utm = coord_utm_obj.coord_utm[:, mask].transpose()
 
 class Network:
     """Spatial network of PS candidates."""
