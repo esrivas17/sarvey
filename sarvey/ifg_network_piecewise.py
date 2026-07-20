@@ -103,7 +103,7 @@ class IfgNetworkPiecewise:
         """Plot the network of interferograms."""
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 3)
-        dt = [datetime.date.fromisoformat(d) for d in self.dates_pre]
+        dt = [datetime.date.fromisoformat(d) for d in self.dates]
         axs[0].plot(dt, self.pbase_pre, 'ko')
         for idx in self.ifg_list_pre:
             xx = np.array([dt[idx[0]], dt[idx[1]]])
@@ -127,7 +127,7 @@ class IfgNetworkPiecewise:
         """Plot the network of interferograms."""
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 3)
-        dt = [datetime.date.fromisoformat(d) for d in self.dates_exca]
+        dt = [datetime.date.fromisoformat(d) for d in self.dates]
         axs[0].plot(dt, self.pbase_exca, 'ko')
         for idx in self.ifg_list_exca:
             xx = np.array([dt[idx[0]], dt[idx[1]]])

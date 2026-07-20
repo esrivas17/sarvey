@@ -52,7 +52,7 @@ import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsStack
 from sarvey.triangulation import PointNetworkTriangulation
 from sarvey.config import Config
-
+import pdb
 
 class Processing:
     """Processing."""
