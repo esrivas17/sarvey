@@ -104,10 +104,11 @@ class IfgNetworkPiecewise:
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 3)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
-        axs[0].plot(dt, self.pbase_pre, 'ko')
+        dt_pre = [datetime.date.fromisoformat(d) for d in self.dates_pre]
+        axs[0].plot(dt_pre, self.pbase_pre, 'ko')
         for idx in self.ifg_list_pre:
             xx = np.array([dt[idx[0]], dt[idx[1]]])
-            yy = np.array([self.pbase_pre[idx[0]], self.pbase_pre[idx[1]]])
+            yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
             axs[0].plot(xx, yy, 'k-')
         axs[0].set_ylabel('perpendicular baseline [m]')
         axs[0].set_xlabel('temporal baseline [years]')
@@ -128,10 +129,11 @@ class IfgNetworkPiecewise:
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 3)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
-        axs[0].plot(dt, self.pbase_exca, 'ko')
+        dt_exca = [datetime.date.fromisoformat(d) for d in self.dates_exca]
+        axs[0].plot(dt_exca, self.pbase_exca, 'ko')
         for idx in self.ifg_list_exca:
             xx = np.array([dt[idx[0]], dt[idx[1]]])
-            yy = np.array([self.pbase_exca[idx[0]], self.pbase_exca[idx[1]]])
+            yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
             axs[0].plot(xx, yy, 'k-')
         axs[0].set_ylabel('perpendicular baseline [m]')
         axs[0].set_xlabel('temporal baseline [years]')
