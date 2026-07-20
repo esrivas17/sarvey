@@ -324,12 +324,12 @@ class StarNetwork(IfgNetworkPiecewise):
         self.num_images_pre = self.tbase_pre.shape[0]
         self.num_images_exca = self.tbase_exca.shape[0]
 
-        for i in range(self.num_images_pre):
+        for i in range(0, ix_break):
                 if i == ref_idx:
                     continue
                 self.ifg_list_pre.append((ref_idx, i))
 
-        for i in range(self.num_images_exca):            
+        for i in range(ix_break, self.num_images):            
             if i == ref_idx:
                 continue
             self.ifg_list_exca.append((ref_idx, i))
