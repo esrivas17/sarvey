@@ -660,6 +660,7 @@ class Points:
         # refresh by reopening all external data
         self.openExternalData(input_path=input_path)
 
+
 class PointsPiecewise(Points):
     def __init__(self, *, file_path: str, logger: Logger):
         """Init.
@@ -682,13 +683,68 @@ class PointsPiecewise(Points):
         self.file_path = file_path
         self.logger = logger
 
+    def prepare(self, *, point_id: np.ndarray, coord_xy: np.ndarray, input_path: str):
+        """Assign point_id and radar coordinates to the object.
+
+        Store the point_id and radar coordinates of the scatterers in the object (not file) and read further
+        attributes from external files (ifg_network.h5, slcStack.h5, geometryRadar.h5, coordinates_utm.h5).
+
+        Parameters
+        ----------
+        point_id: np.ndarray
+            point_id of the scatterers.
+        coord_xy: np.ndarray
+            radar coordinates of the scatterers.
+        input_path: str
+            path to input files (slcStack.h5, geometryRadar.h5).
+        """
+        self.point_id = point_id
+        self.coord_xy = coord_xy
+        self.num_points = self.coord_xy.shape[0]
+        self.phase = None
+        self.phase_pre = None
+        self.phase_exca = None
+        self.openExternalData(input_path=input_path)
+    
+    def writeToFile(self):
+        """Write data to .h5 file (num_points, coord_xy, point_id, phase)."""
+        self.logger.info(msg="write data to {}...".format(self.file_path))
+
+        if exists(self.file_path):
+            os.remove(self.file_path)
+
+        with h5py.File(self.file_path, 'w') as f:
+            f.attrs["num_points"] = self.num_points
+            f.create_dataset('coord_xy', data=self.coord_xy)
+            f.create_dataset('point_id', data=self.point_id)
+            f.create_dataset('phase', data=self.phase)
+            f.create_dataset('phase_pre', data=self.phase_pre)
+            f.create_dataset('phase_exca', data=self.phase_exca)
+
+    def open(self, input_path: str, other_file_path: str = None):
+        # 1) read own data: coord_xy, phase, point_id, num_points, reference_point_idx
+        if other_file_path is not None:
+            path = other_file_path
+        else:
+            path = self.file_path
+        self.logger.info(msg="read from {}".format(path))
+
+        with h5py.File(path, 'r') as f:
+            self.num_points = f.attrs["num_points"]
+            self.coord_xy = f["coord_xy"][:]
+            self.point_id = f["point_id"][:]
+            self.phase = f["phase"][:]
+            self.phase_pre = f["phase_pre"][:]
+            self.phase_exca = f["phase_exca"][:]
+
+        self.openExternalData(input_path=input_path)
+
     def openExternalData(self, *, input_path: str):
         """Load data which is stored in slcStack.h5, geometryRadar.h5, ifg_network.h5 and coordinates_utm.h5."""
         # 1) read IfgNetwork
         self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
         self.ifg_net_pre_obj.open(path=join(dirname(self.file_path), "ifg_network_pre_excavation.h5"))
         self.ifg_net_exca_obj.open(path=join(dirname(self.file_path), "ifg_network_excavation.h5"))
-
 
         # 2) read metadata from slcStack
         slc_stack_obj = slcStack(join(input_path, "slcStack.h5"))
@@ -805,8 +861,7 @@ class Network:
         self.loc_inc = np.zeros((self.num_arcs,))
         self.slant_range = np.zeros((self.num_arcs,))
         for idx, arc in enumerate(self.arcs):
-            self.phase[idx, :] = np.angle(
-                np.exp(1j * point_obj.phase[arc[0], :]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], :])))
+            self.phase[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], :]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], :])))
             self.loc_inc[idx] = np.mean([point_obj.loc_inc[arc[0]], point_obj.loc_inc[arc[1]]])
             self.slant_range[idx] = np.mean([point_obj.slant_range[arc[0]], point_obj.slant_range[arc[1]]])
 

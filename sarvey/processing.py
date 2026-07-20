@@ -44,7 +44,7 @@ from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 #from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
  #                               SmallBaselineNetwork, StarNetwork)
 from sarvey.ifg_network_piecewise import StarNetwork, SmallTemporalBaselinesNetwork
-from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
+from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, PointsPiecewise
 from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, spatialUnwrapping,
                                removeBadArcsIteratively, removeBadPointsIteratively)
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_excavation_date
@@ -210,18 +210,15 @@ class Processing:
         ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
                                      metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
 
-        import pdb
-        pdb.set_trace()
-
-        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_pre_obj.num_ifgs)
+        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_obj.num_ifgs_pre)
         ifg_stack_pre_obj = BaseStack(file=join(self.path, "ifg_stack_pre.h5"), logger=log)
         ifg_stack_pre_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
-                                     metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_pre_obj.num_ifgs))
+                                     metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs_pre))
         
-        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_exca_obj.num_ifgs)
+        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_obj.num_ifgs_exca)
         ifg_stack_exca_obj = BaseStack(file=join(self.path, "ifg_stack_exca.h5"), logger=log)
         ifg_stack_exca_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
-                                     metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_exca_obj.num_ifgs))
+                                     metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs_exca))
 
 
         # create placeholder in result file for datasets which are stored patch-wise
@@ -241,27 +238,25 @@ class Processing:
             box_list=box_list,
             num_cores=self.config.general.num_cores,
             logger=log)
-
-        # compute ifg for pre excavation and during the excavation periods
-        mean_amp_img_pre = computeIfgsStack(
-                path_ifgs=join(self.path, "ifg_stack_pre.h5"),
+        
+        _ = computeIfgsStack(path_ifgs=join(self.path, "ifg_stack_pre.h5"),
                 path_slc=join(self.config.general.input_path, "slcStack.h5"),
-                ifg_array=np.array(ifg_net_pre_obj.ifg_list),
+                ifg_array=np.array(ifg_net_obj.ifg_list_pre),
                 time_mask=time_mask_pre,
                 num_boxes=num_patches,
                 box_list=box_list,
                 num_cores=self.config.general.num_cores,
                 logger=log)
         
-        mean_amp_img_exca = computeIfgsStack(
-                path_ifgs=join(self.path, "ifg_stack_exca.h5"),
+        _ = computeIfgsStack(path_ifgs=join(self.path, "ifg_stack_exca.h5"),
                 path_slc=join(self.config.general.input_path, "slcStack.h5"),
-                ifg_array=np.array(ifg_net_exca_obj.ifg_list),
+                ifg_array=np.array(ifg_net_obj.ifg_list_exca),
                 time_mask=time_mask_exca,
                 num_boxes=num_patches,
                 box_list=box_list,
                 num_cores=self.config.general.num_cores,
                 logger=log)
+
 
         # store auxilliary datasets for faster access during processing
         coord_utm_obj = CoordinatesUTM(file_path=join(self.path, "coordinates_utm.h5"), logger=self.logger)
@@ -306,8 +301,7 @@ class Processing:
 
         cand_mask1 = selectPixels(
             path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
-            grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger
-        )
+            grid_size=self.config.consistency_check.grid_size, bool_plot=True, logger=self.logger)
 
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         mask_valid_area = ut.detectValidAreas(bmap_obj=bmap_obj, logger=self.logger)
@@ -348,10 +342,7 @@ class Processing:
         point_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)
         point_id1 = point_id_img[cand_mask1]
 
-        point_obj.prepare(
-            point_id=point_id1,
-            coord_xy=coord_xy,
-            input_path=self.config.general.input_path)
+        point_obj.prepare(point_id=point_id1, coord_xy=coord_xy, input_path=self.config.general.input_path)
 
         point_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
@@ -384,10 +375,9 @@ class Processing:
                                        knn=self.config.consistency_check.num_nearest_neighbours,
                                        max_arc_length=self.config.consistency_check.max_arc_length,
                                        logger=self.logger)
+        
         net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(
-            point_obj=point_obj,
-            arcs=arcs)
+        net_obj.computeArcObservations(point_obj=point_obj, arcs=arcs)
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
@@ -431,11 +421,7 @@ class Processing:
         
         net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
-        net_par_obj.prepare(
-            net_obj=net_obj,
-            demerr=demerr,
-            vel=vel,
-            gamma=gamma)
+        net_par_obj.prepare(net_obj=net_obj, demerr=demerr, vel=vel, gamma=gamma)
         net_par_obj.writeToFile()
 
         net_par_pre_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter_pre.h5"),

@@ -156,6 +156,20 @@ class IfgNetworkPiecewise:
             a[i, self.ifg_list[i][0]] = 1
             a[i, self.ifg_list[i][1]] = -1
         return a
+    
+    def getDesignMatrixPre(self):
+        a = np.zeros((self.num_ifgs_pre, self.num_images_pre))
+        for i in range(len(self.ifg_list_pre)):
+            a[i, self.ifg_list_pre[i][0]] = 1
+            a[i, self.ifg_list_pre[i][1]] = -1
+        return a
+    
+    def getDesignMatrixExca(self):
+        a = np.zeros((self.num_ifgs_exca, self.num_images_exca))
+        for i in range(len(self.ifg_list_exca)):
+            a[i, self.ifg_list_exca[i][0]] = 1
+            a[i, self.ifg_list_exca[i][1]] = -1
+        return a
 
     def open(self, *, path: str):
         """Read stored information from already existing.h5 file.
