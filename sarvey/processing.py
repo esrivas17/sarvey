@@ -93,7 +93,7 @@ class Processing:
         log.info(msg=f"Stop date: {date_list[-1]}")
         log.info(msg=f"Number of SLC: {num_slc}")
 
-        ix_date_excavation = ix_from_excavation_date(date_list=date_list, excavation_date=self.config.preparation.excavation_date)
+        ix_date_excavation = ix_from_excavation_date(date_list=slc_stack_obj.dateList, excavation_date=self.config.preparation.excavation_date)
 
         time_mask_pre, num_slc_pre, date_list_pre = createTimeMaskFromDates(
             start_date=self.config.preparation.start_date,

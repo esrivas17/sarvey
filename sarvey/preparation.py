@@ -129,7 +129,7 @@ def createTimeMaskFromDates(*, start_date: str, stop_date: str, date_list: list,
 
 def ix_from_excavation_date(*, date_list: list, excavation_date):
     date_list = [datetime.date(year=int(d[:4]), month=int(d[4:6]), day=int(d[6:])) for d in date_list]
-    excavation_date = datetime.date(year=int(excavation_date[:4]), month=int(excavation_date[4:6]), day=int(excavation_date[6:]))
+    excavation_date = datetime.date.fromisoformat(excavation_date)
     ix = np.argmin([np.abs(d-excavation_date) for d in date_list])
     return ix
 
