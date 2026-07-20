@@ -351,22 +351,16 @@ class Processing:
         point_obj.writeToFile()
         del ifg_stack_obj, cand_mask1
 
-        point_pre_obj = Points(file_path=join(self.path, "p1_ifg_wr_pre.h5"), logger=self.logger)
-        point_pre_obj.prepare(
-            point_id=point_id1,
-            coord_xy=coord_xy,
-            input_path=self.config.general.input_path)
-        point_pre_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_pre_obj, dataset_name="ifgs",
+        #### points piecewise
+        point_piecewise_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_wr_piecewise.h5"), logger=self.logger)
+        point_piecewise_obj.prepare(point_id=point_id1, coord_xy=coord_xy, input_path=self.config.general.input_path)
+        point_piecewise_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
                                                 point_id_img=point_id_img, logger=self.logger)
-
-
-        point_exca_obj = Points(file_path=join(self.path, "p1_ifg_wr_exca.h5"), logger=self.logger)
-        point_exca_obj.prepare(
-            point_id=point_id1,
-            coord_xy=coord_xy,
-            input_path=self.config.general.input_path)
-        point_exca_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_exca_obj, dataset_name="ifgs",
+        point_piecewise_obj.phase_pre = ut.readPhasePatchwise(stack_obj=ifg_stack_pre_obj, dataset_name="ifgs",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
+                                                point_id_img=point_id_img, logger=self.logger)
+        point_piecewise_obj.phase_exca = ut.readPhasePatchwise(stack_obj=ifg_stack_exca_obj, dataset_name="ifgs",
                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
                                                 point_id_img=point_id_img, logger=self.logger)
 
