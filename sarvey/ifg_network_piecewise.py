@@ -268,22 +268,22 @@ class IfgNetworkPiecewise:
             f.attrs["num_ifgs_pre"] = self.num_ifgs_pre
             f.attrs["ix_breakpoint"] = self.ix_breakpoint
 
-            f.create_dataset('tbase_ifg_pre', data=self.tbase_ifg)
-            f.create_dataset('pbase_ifg_pre', data=self.pbase_ifg)
-            f.create_dataset('tbase_pre', data=self.tbase)
-            f.create_dataset('pbase_pre', data=self.pbase)
-            f.create_dataset('ifg_list_pre', data=self.ifg_list)
+            f.create_dataset('tbase_ifg_pre', data=self.tbase_ifg_pre)
+            f.create_dataset('pbase_ifg_pre', data=self.pbase_ifg_pre)
+            f.create_dataset('tbase_pre', data=self.tbase_pre)
+            f.create_dataset('pbase_pre', data=self.pbase_pre)
+            f.create_dataset('ifg_list_pre', data=self.ifg_list_pre)
             f.create_dataset('dates_pre', data=dates_pre)
 
             # excavation
             f.attrs["num_images_exca"] = self.num_images_exca
             f.attrs["num_ifgs_exca"] = self.num_ifgs_exca
 
-            f.create_dataset('tbase_ifg_exca', data=self.tbase_ifg)
-            f.create_dataset('pbase_ifg_exca', data=self.pbase_ifg)
-            f.create_dataset('tbase_exca', data=self.tbase)
-            f.create_dataset('pbase_exca', data=self.pbase)
-            f.create_dataset('ifg_list_exca', data=self.ifg_list)
+            f.create_dataset('tbase_ifg_exca', data=self.tbase_ifg_exca)
+            f.create_dataset('pbase_ifg_exca', data=self.pbase_ifg_exca)
+            f.create_dataset('tbase_exca', data=self.tbase_exca)
+            f.create_dataset('pbase_exca', data=self.pbase_exca)
+            f.create_dataset('ifg_list_exca', data=self.ifg_list_exca)
             f.create_dataset('dates_exca', data=dates_exca)
 
 
