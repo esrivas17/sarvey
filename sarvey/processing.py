@@ -341,7 +341,7 @@ class Processing:
         point_id1 = point_id_img[cand_mask1]
         
         #### points piecewise
-        point_piecewise_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_wr_piecewise.h5"), logger=self.logger)
+        point_piecewise_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)
         point_piecewise_obj.prepare(point_id=point_id1, coord_xy=coord_xy, input_path=self.config.general.input_path)
         point_piecewise_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
