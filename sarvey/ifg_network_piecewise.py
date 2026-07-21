@@ -264,7 +264,7 @@ class IfgNetworkPiecewise:
             f.create_dataset('dates', data=dates)
 
             # pre excavation
-            f.attrs["num_images_pre"] = self.num_images
+            f.attrs["num_images_pre"] = self.num_images_pre
             f.attrs["num_ifgs_pre"] = self.num_ifgs
             f.attrs["ix_breakpoint"] = self.ix_breakpoint
 
@@ -276,7 +276,7 @@ class IfgNetworkPiecewise:
             f.create_dataset('dates_pre', data=dates_pre)
 
             # excavation
-            f.attrs["num_images_exca"] = self.num_images
+            f.attrs["num_images_exca"] = self.num_images_exca
             f.attrs["num_ifgs_exca"] = self.num_ifgs
 
             f.create_dataset('tbase_ifg_exca', data=self.tbase_ifg)
