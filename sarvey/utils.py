@@ -41,6 +41,7 @@ from mintpy.utils import ptime
 
 from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage, PointsPiecewise, NetworkPiecewise, NetworkParameterPiecewise
 from sarvey.ifg_network import IfgNetwork
+from sarvey.ifg_network_piecewise import IfgNetworkPiecewise
 
 
 def convertBboxToBlock(*, bbox: tuple):
@@ -228,9 +229,10 @@ def predictPhase(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, dem
     return pred_phase_demerr, pred_phase_vel
 
 def predictPhasePiecewise(*, obj: [NetworkParameterPiecewise, PointsPiecewise], vel: np.ndarray = None, demerr: np.ndarray = None,
-                 ifg_space: bool = True, logger: Logger):
+                          vel_pre: np.ndarray = None, demerr_pre: np.ndarray = None, vel_exca: np.ndarray = None, demerr_exca: np.ndarray = None,
+                        ifg_space: bool = True, logger: Logger):
 
-    if isinstance(obj, Points):
+    if isinstance(obj, PointsPiecewise):
         if (vel is None) or (demerr is None):
             logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
             raise ValueError
@@ -243,7 +245,7 @@ def predictPhasePiecewise(*, obj: [NetworkParameterPiecewise, PointsPiecewise], 
             loc_inc=obj.loc_inc,
             ifg_space=ifg_space
         )
-    elif isinstance(obj, NetworkParameter):
+    elif isinstance(obj, NetworkParameterPiecewise):
         pred_phase_demerr, pred_phase_vel = predictPhaseCore(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
@@ -257,6 +259,38 @@ def predictPhasePiecewise(*, obj: [NetworkParameterPiecewise, PointsPiecewise], 
         logger.error(msg="'obj' must be instance of 'points' or 'networkParameter'!")
         raise TypeError
     return pred_phase_demerr, pred_phase_vel
+
+def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: float, vel: np.ndarray, vel_pre:np.ndarray, vel_exca:np.ndarray,
+                     demerr: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
+    factor = 4 * np.pi / wavelength
+
+    if ifg_space:
+        tbase = ifg_net_obj.tbase_ifg
+        pbase = ifg_net_obj.pbase_ifg
+
+    else:
+        tbase = ifg_net_obj.tbase
+        pbase = ifg_net_obj.pbase
+
+
+    # compute phase due to DEM error
+    pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+
+    # compute phase due to velocity
+    ix_break = ifg_net_obj.ix_breakpoint
+    disp = np.empty((tbase.size, vel_pre.size), dtype=float)
+    before = tbase < tbase[ix_break]
+    after = ~before
+
+    # pre excavation
+    disp[before] = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
+
+    # during excavation
+    disp[after] = (tbase[after][:, np.newaxis]* vel_exca[np.newaxis, :])
+    pred_phase_vel = factor * disp
+    #pred_phase_vel = factor * tbase[:, np.newaxis] * vel
+
+    return pred_phase_demerr.T, pred_phase_vel.T
 
 
 def predictPhaseCore(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,

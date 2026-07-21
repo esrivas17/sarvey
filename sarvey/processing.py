@@ -451,7 +451,7 @@ class Processing:
                             demerr_pre=demerr_pre, vel_pre=vel_pre, gamma_pre=gamma_pre, 
                             demerr_exca=demerr_exca, vel_exca=vel_exca, gamma_exca=gamma_exca)
         net_par_obj.redefine_gamma()
-        net_par_obj.writeToFile())
+        net_par_obj.writeToFile()
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
@@ -590,13 +590,11 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_exca.png"), dpi=300)
         plt.close(fig)
 
-
+        # predict piecewise phase
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-            obj=point_obj, vel=vel, demerr=demerr,
-            ifg_space=True, logger=self.logger
-        )
+        pred_phase_demerr, pred_phase_vel = ut.predictPhasePiecewise(obj=point_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
+            ifg_space=True, logger=self.logger)
         pred_phase = pred_phase_demerr + pred_phase_vel
 
         wr_phase = point_obj.phase
