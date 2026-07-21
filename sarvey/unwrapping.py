@@ -202,7 +202,7 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.nda
 
     # improve initial estimate with gradient descent approach
     scale_demerr = demerr_range.max()
-    scale_vel = vel_range.max()
+    scale_vel = np.max(np.abs(vel_range))
 
     demerr, vel, gamma = gradientSearchTemporalCoherence(
         scale_vel=scale_vel,
