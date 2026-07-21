@@ -75,6 +75,8 @@ class IfgNetworkPiecewise:
         self.dates_exca = list()
         self.ifg_list_exca = list()
 
+        self.ix_breakpoint = None
+
     def plot(self):
         """Plot the network of interferograms."""
         fig = plt.figure(figsize=(15, 5))
@@ -198,6 +200,7 @@ class IfgNetworkPiecewise:
             # pre
             self.num_images_pre = f.attrs["num_images_pre"]
             self.num_ifgs_pre = f.attrs["num_ifgs_pre"]
+            self.ix_breakpoint = f.attrs["ix_breakpoint"]
 
             self.tbase_ifg_pre = f['tbase_ifg_pre'][:]
             self.pbase_ifg_pre = f['pbase_ifg_pre'][:]
@@ -263,6 +266,7 @@ class IfgNetworkPiecewise:
             # pre excavation
             f.attrs["num_images_pre"] = self.num_images
             f.attrs["num_ifgs_pre"] = self.num_ifgs
+            f.attrs["ix_breakpoint"] = self.ix_breakpoint
 
             f.create_dataset('tbase_ifg_pre', data=self.tbase_ifg)
             f.create_dataset('pbase_ifg_pre', data=self.pbase_ifg)

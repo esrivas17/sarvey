@@ -39,7 +39,7 @@ from logging import Logger
 
 from mintpy.utils import ptime
 
-from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage
+from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage, PointsPiecewise, NetworkPiecewise, NetworkParameterPiecewise
 from sarvey.ifg_network import IfgNetwork
 
 
@@ -199,6 +199,37 @@ def predictPhase(*, obj: [NetworkParameter, Points], vel: np.ndarray = None, dem
     TypeError
         obj is of the wrong type
     """
+    if isinstance(obj, Points):
+        if (vel is None) or (demerr is None):
+            logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
+            raise ValueError
+        pred_phase_demerr, pred_phase_vel = predictPhaseCore(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=vel,
+            demerr=demerr,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space
+        )
+    elif isinstance(obj, NetworkParameter):
+        pred_phase_demerr, pred_phase_vel = predictPhaseCore(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=obj.vel,
+            demerr=obj.demerr,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space
+        )
+    else:
+        logger.error(msg="'obj' must be instance of 'points' or 'networkParameter'!")
+        raise TypeError
+    return pred_phase_demerr, pred_phase_vel
+
+def predictPhasePiecewise(*, obj: [NetworkParameterPiecewise, PointsPiecewise], vel: np.ndarray = None, demerr: np.ndarray = None,
+                 ifg_space: bool = True, logger: Logger):
+
     if isinstance(obj, Points):
         if (vel is None) or (demerr is None):
             logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")

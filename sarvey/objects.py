@@ -45,6 +45,7 @@ from mintpy.utils import readfile
 from mintpy.utils.plot import auto_flip_direction
 
 from sarvey.ifg_network import IfgNetwork
+from sarvey.ifg_network_piecewise import IfgNetworkPiecewise
 
 
 class AmplitudeImage:
@@ -672,9 +673,7 @@ class PointsPiecewise(Points):
         logger: Logger
             Logging handler.
         """
-        self.ifg_net_obj = IfgNetwork()  # use parent class here which doesn't know and care about 'star' or 'sb'
-        self.ifg_net_pre_obj = IfgNetwork()
-        self.ifg_net_exca_obj = IfgNetwork()
+        self.ifg_net_obj = IfgNetworkPiecewise()
         self.coord_utm = None
         self.coord_lalo = None
         self.height = None
@@ -743,8 +742,6 @@ class PointsPiecewise(Points):
         """Load data which is stored in slcStack.h5, geometryRadar.h5, ifg_network.h5 and coordinates_utm.h5."""
         # 1) read IfgNetwork
         self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
-        self.ifg_net_pre_obj.open(path=join(dirname(self.file_path), "ifg_network_pre_excavation.h5"))
-        self.ifg_net_exca_obj.open(path=join(dirname(self.file_path), "ifg_network_excavation.h5"))
 
         # 2) read metadata from slcStack
         slc_stack_obj = slcStack(join(input_path, "slcStack.h5"))
@@ -942,3 +939,237 @@ class NetworkParameter(Network):
             self.demerr = f["demerr"][:]
             self.vel = f["vel"][:]
             self.gamma = f["gamma"][:]
+
+
+class NetworkPiecewise(Network):
+    def __init__(self, *, file_path: str, logger: Logger):
+        """Init.
+
+        Parameters
+        ----------
+        file_path: str
+            absolute path to working directory for creating/loading 'psNetwork.h5'
+        logger: Logger
+            Logging handler.
+        """
+        self.num_arcs = None
+        self.arcs = None
+        
+        self.phase = None
+        self.vel = None
+        self.demerr = None
+        self.gamma = None
+        self.ifg_net_obj = None
+        
+        self.phase_pre = None
+        self.vel_pre = None
+        self.demerr_pre = None
+        self.gamma_pre = None
+
+        self.phase_exca = None
+        self.vel_exca = None
+        self.demerr_exca = None
+        self.gamma_exca = None
+
+        self.file_path = file_path
+        self.slant_range = None
+        self.loc_inc = None
+        self.width = None
+        self.length = None
+        self.wavelength = None
+        self.logger = logger
+
+    def writeToFile(self):
+        """Write all existing data to psNetwork.h5 file."""
+        self.logger.info(msg="write data to {}...".format(self.file_path))
+
+        if exists(self.file_path):
+            os.remove(self.file_path)
+
+        with h5py.File(self.file_path, 'w') as f:
+            f.attrs["num_arcs"] = self.num_arcs
+            f.create_dataset('arcs', data=self.arcs)
+            f.create_dataset('phase', data=self.phase)
+            f.create_dataset('loc_inc', data=self.loc_inc)
+            f.create_dataset('slant_range', data=self.slant_range)
+            f.create_dataset('phase_pre', data=self.phase_pre)
+            f.create_dataset('phase_exca', data=self.phase_exca)
+
+    def open(self, *, input_path: str):
+        """Read stored information from existing .h5 file."""
+        with h5py.File(self.file_path, 'r') as f:
+            self.num_arcs = f.attrs["num_arcs"]
+            self.arcs = f["arcs"][:]
+            self.phase = f["phase"][:]
+            self.loc_inc = f["loc_inc"][:]
+            self.slant_range = f["slant_range"][:]
+            self.phase_pre = f["phase_pre"][:]
+            self.phase_exca = f["phase_exca"][:]
+        self.openExternalData(input_path=input_path)
+
+    def openExternalData(self, *, input_path: str):
+        """Read data from slcStack.h5 and IfgNetwork.h5 files."""
+        slc_stack_obj = slcStack(join(input_path, "slcStack.h5"))
+        slc_stack_obj.open(print_msg=False)
+        self.wavelength = np.float64(slc_stack_obj.metadata["WAVELENGTH"])
+        self.length = slc_stack_obj.length  # y-coordinate axis (azimut)
+        self.width = slc_stack_obj.width  # x-coordinate axis (range)
+
+        # 3) read IfgNetwork
+        self.ifg_net_obj = IfgNetworkPiecewise()
+        self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
+
+    def computeArcObservations(self, *, point_obj: PointsPiecewise, arcs: np.ndarray):
+        """Compute the phase observations for each arc.
+
+        Compute double difference phase observations, i.e. the phase differences for each arc in the network from the
+        phase of the two scatterers connected by the arc.
+
+        Parameters
+        ----------
+        point_obj: Points
+            object of class Points.
+        arcs: np.ndarray
+            Array with the indices of the points connected by an arc.
+        """
+        self.arcs = arcs
+        self.num_arcs = self.arcs.shape[0]
+
+        self.phase = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs))
+        self.phase_pre = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs_pre))
+        self.phase_exca = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs_exca))
+        self.loc_inc = np.zeros((self.num_arcs,))
+        self.slant_range = np.zeros((self.num_arcs,))
+        for idx, arc in enumerate(self.arcs):
+            self.phase[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], :]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], :])))
+            self.phase_pre[idx, :]= np.angle(np.exp(1j * point_obj.phase_pre[arc[0], :]) * np.conjugate(np.exp(1j * point_obj.phase_pre[arc[1], :])))
+            self.phase_exca[idx, :] = np.angle(np.exp(1j * point_obj.phase_exca[arc[0], :]) * np.conjugate(np.exp(1j * point_obj.phase_exca[arc[1], :])))
+            self.loc_inc[idx] = np.mean([point_obj.loc_inc[arc[0]], point_obj.loc_inc[arc[1]]])
+            self.slant_range[idx] = np.mean([point_obj.slant_range[arc[0]], point_obj.slant_range[arc[1]]])
+
+        self.logger.info(msg="ifg arc observations created.")
+
+    def removeArcs(self, *, mask: np.ndarray):
+        """Remove arcs from the list of arcs in the network.
+
+        Parameter
+        ---------
+        mask: np.ndarray
+            mask to select arcs to be kept, rest will be removed.
+        """
+        self.demerr = self.demerr[mask]
+        self.vel = self.vel[mask]
+        self.phase = self.phase[mask, :]
+        self.loc_inc = self.loc_inc[mask]
+        self.slant_range = self.slant_range[mask]
+        self.arcs = np.array(self.arcs)
+        self.arcs = self.arcs[mask, :]
+        self.gamma = self.gamma[mask]
+        self.num_arcs = mask[mask].shape[0]
+        # pre excavation
+        self.demerr_pre = self.demerr_pre[mask]
+        self.vel_pre = self.vel_pre[mask]
+        self.phase_pre = self.phase_pre[mask,:]
+        self.gamma_pre = self.gamma_pre[mask]
+        # during excavation
+        self.demerr_exca = self.demerr_exca[mask]
+        self.vel_exca = self.vel_exca[mask]
+        self.phase_exca = self.phase_exca[mask,:]
+        self.gamma_exca = self.gamma_exca[mask]
+
+class NetworkParameterPiecewise(NetworkPiecewise):
+    def __init__(self, *, file_path: str, logger: Logger):
+        """Init."""
+        super().__init__(file_path=file_path, logger=logger)
+        self.gamma = None
+        self.vel = None
+        self.demerr = None
+        self.phase = None
+        #pre-excavation
+        self.gamma_pre = None
+        self.vel_pre = None
+        self.demerr_pre = None
+        self.phase_pre = None
+        #excavation
+        self.gamma_pre = None
+        self.vel_pre = None
+        self.demerr_pre = None
+        self.phase_pre = None
+
+        self.slant_range = None
+        self.loc_inc = None
+        self.arcs = None
+        self.num_arcs = None
+        self.logger = logger
+
+    def prepare(self, *, net_obj: NetworkPiecewise, demerr: np.ndarray, vel: np.ndarray, gamma: np.ndarray, 
+                demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca):
+        """Prepare.
+
+        Parameter
+        -----------
+        net_obj: Network
+            object of class Network.
+        demerr: np.ndarray
+            estimated DEM error for each arc in the network.
+        vel: np.ndarray
+            estimated velocity for each arc in the network.
+        gamma: np.ndarray
+            estimated temporal coherence for each arc in the network.
+        """
+        self.num_arcs = net_obj.num_arcs
+        self.arcs = net_obj.arcs
+        self.loc_inc = net_obj.loc_inc
+        self.slant_range = net_obj.slant_range
+        self.phase = net_obj.phase
+        self.demerr = demerr
+        self.vel = vel
+        self.gamma = gamma
+        # pre excavation
+        self.phase_pre = net_obj.phase_pre
+        self.demerr_pre = demerr_pre
+        self.vel_pre = vel_pre
+        self.gamma_pre = gamma_pre
+        # during excavation
+        self.phase_exca = net_obj.phase_exca
+        self.demerr_exca = demerr_exca
+        self.vel_exca = vel_exca
+        self.gamma_exca = gamma_exca
+
+    def writeToFile(self):
+        """Write DEM error, velocity and temporal coherence to file."""
+        super().writeToFile()
+
+        with h5py.File(self.file_path, 'r+') as f:  # append existing file
+            f.create_dataset('demerr', data=self.demerr)
+            f.create_dataset('vel', data=self.vel)
+            f.create_dataset('gamma', data=self.gamma)
+            # pre
+            f.create_dataset('demerr_pre', data=self.demerr_pre)
+            f.create_dataset('vel_pre', data=self.vel_pre)
+            f.create_dataset('gamma_pre', data=self.gamma_pre)
+            # excavation
+            f.create_dataset('demerr_exca', data=self.demerr_exca)
+            f.create_dataset('vel_exca', data=self.vel_exca)
+            f.create_dataset('gamma_exca', data=self.gamma_exca)
+
+    def open(self, *, input_path: str):
+        """Read data from file."""
+        super().open(input_path=input_path)
+
+        with h5py.File(self.file_path, 'r') as f:
+            self.demerr = f["demerr"][:]
+            self.vel = f["vel"][:]
+            self.gamma = f["gamma"][:]
+            # pre excavation
+            self.demerr_pre = f["demerr_pre"][:]
+            self.vel_pre = f["vel_pre"][:]
+            self.gamma_pre = f["gamma_pre"][:]
+            # excavation
+            self.demerr_exca = f["demerr_exca"][:]
+            self.vel_exca = f["vel_exca"][:]
+            self.gamma_exca = f["gamma_exca"][:]
+
+    def redefine_gamma(self):
+        self.gamma_all = self.gamma
+        self.gamma = self.gamma_exca

@@ -43,7 +43,8 @@ from mintpy.utils import ptime
 
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
-from sarvey.objects import Network, NetworkParameter
+from sarvey.ifg_network_piecewise import IfgNetworkPiecewise
+from sarvey.objects import Network, NetworkParameter, NetworkPiecewise, NetworkParameterPiecewise
 
 
 def objFuncTemporalCoherence(x, *args):
@@ -379,6 +380,154 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength:
     logger.info(msg="Finished temporal unwrapping.")
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
     return demerr, vel, gamma
+
+
+def temporalUnwrappingTunnelling(*, ifg_net_obj: IfgNetworkPiecewise, net_obj: NetworkPiecewise, wavelength: float, velocity_bound: float, vel_excavation_bound: float,
+                       demerr_bound: float, num_samples: int, num_cores: int = 1, logger: Logger) -> \
+        tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+    msg = "#" * 10
+    msg += " TEMPORAL UNWRAPPING FOR TUNNELLING: AMBIGUITY FUNCTION "
+    msg += "#" * 10
+    logger.info(msg=msg)
+
+    start_time = time.time()
+
+    if num_cores == 1:
+        args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase, net_obj.phase_pre, net_obj.phase_exca,
+            net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, vel_excavation_bound, demerr_bound, num_samples)
+        arc_idx_range, demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca = launchAmbiguityFunctionSearchPiecewise(parameters=args)
+    else:
+        logger.info(msg="start parallel processing with {} cores.".format(num_cores))
+
+        demerr = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        vel = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        gamma = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+
+        demerr_pre = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        vel_pre = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        gamma_pre = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+
+        demerr_exca = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        vel_exca = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        gamma_exca = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+
+        num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores  # avoids having more samples
+        # then cores
+        idx = ut.splitDatasetForParallelProcessing(num_samples=net_obj.num_arcs, num_cores=num_cores)
+
+        args = [(
+            idx_range,
+            idx_range.shape[0],
+            net_obj.phase[idx_range, :],
+            net_obj.phase_pre[idx_range, :], 
+            net_obj.phase_exca[idx_range, :],
+            net_obj.slant_range[idx_range],
+            net_obj.loc_inc[idx_range],
+            ifg_net_obj,
+            wavelength,
+            velocity_bound,
+            vel_excavation_bound,
+            demerr_bound,
+            num_samples) for idx_range in idx]
+
+        with multiprocessing.Pool(processes=num_cores) as pool:
+            results = pool.map(func=launchAmbiguityFunctionSearchPiecewise, iterable=args)
+
+        # retrieve results
+        for i, demerr_i, vel_i, gamma_i, demerr_pre_i, vel_pre_i, gamma_pre_i, demerr_exca_i, vel_exca_i, gamma_exca_i in results:
+            demerr[i] = demerr_i
+            vel[i] = vel_i
+            gamma[i] = gamma_i
+            
+            demerr_pre[i] = demerr_pre_i
+            vel_pre[i] = vel_pre_i
+            gamma_pre[i] = gamma_pre_i
+            
+            demerr_exca[i] = demerr_exca_i
+            vel_exca[i] = vel_exca_i
+            gamma_exca[i] = gamma_exca_i
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.info(msg="Finished temporal unwrapping.")
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+    return demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca
+
+def launchAmbiguityFunctionSearchPiecewise(parameters: tuple):
+    """Wrap for launching ambiguity function for temporal unwrapping in parallel.
+
+    Parameters
+    ----------
+    parameters: tuple
+        Arguments for temporal unwrapping in parallel.
+
+    Returns
+    -------
+    arc_idx_range: np.ndarray
+    demerr: np.ndarray
+    vel: np.ndarray
+    gamma: np.ndarray
+    """
+    (arc_idx_range, num_arcs, phase, phase_pre, phase_exca, slant_range, loc_inc, ifg_net_obj, wavelength, velocity_bound, vel_excavation_bound, demerr_bound,
+     num_samples) = parameters
+
+    demerr = np.zeros((num_arcs, 1), dtype=np.float32)
+    vel = np.zeros((num_arcs, 1), dtype=np.float32)
+    gamma = np.zeros((num_arcs, 1), dtype=np.float32)
+
+    # pre excavation
+    demerr_pre = np.zeros((num_arcs, 1), dtype=np.float32)
+    vel_pre = np.zeros((num_arcs, 1), dtype=np.float32)
+    gamma_pre = np.zeros((num_arcs, 1), dtype=np.float32)
+    #excavation
+    demerr_exca = np.zeros((num_arcs, 1), dtype=np.float32)
+    vel_exca = np.zeros((num_arcs, 1), dtype=np.float32)
+    gamma_exca = np.zeros((num_arcs, 1), dtype=np.float32)
+
+    design_mat = np.zeros((ifg_net_obj.num_ifgs, 2), dtype=np.float32)
+    design_mat_pre = np.zeros((ifg_net_obj.num_ifgs_pre, 2), dtype=np.float32)
+    design_mat_exca = np.zeros((ifg_net_obj.num_ifgs_exca, 2), dtype=np.float32)
+
+    demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
+    vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
+    vel_excavation_range = np.linspace(-velocity_bound, 0, num_samples)
+    prog_bar = ptime.progressBar(maxValue=num_arcs)
+
+    factor = 4 * np.pi / wavelength
+    every = max(1, num_arcs // 10)
+
+    for k in range(num_arcs):
+        design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat[:, 1] = factor * ifg_net_obj.tbase_ifg
+
+        design_mat_pre[:, 0] = factor * ifg_net_obj.pbase_ifg_pre / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat_pre[:, 1] = factor * ifg_net_obj.tbase_ifg_pre
+
+        design_mat_exca[:, 0] = factor * ifg_net_obj.pbase_ifg_exca / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat_exca[:, 1] = factor * ifg_net_obj.tbase_ifg_exca
+
+        demerr[k], vel[k], gamma[k] = oneDimSearchTemporalCoherence(
+            demerr_range=demerr_range,
+            vel_range=vel_range,
+            obs_phase=phase[k, :],
+            design_mat=design_mat)
+        
+        demerr_pre[k], vel_pre[k], gamma_pre[k] = oneDimSearchTemporalCoherence(
+            demerr_range=demerr_range,
+            vel_range=vel_range,
+            obs_phase=phase_pre[k, :],
+            design_mat=design_mat_pre)
+        
+        demerr_exca[k], vel_exca[k], gamma_exca[k] = oneDimSearchTemporalCoherence(
+            demerr_range=demerr_range,
+            vel_range=vel_excavation_range,
+            obs_phase=phase_exca[k, :],
+            design_mat=design_mat_exca)
+        
+        prog_bar.update(value=k + 1, every=every,
+                        suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
+
+    return arc_idx_range, demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, demerr_exca
 
 
 def launchSpatialUnwrapping(parameters: tuple) -> tuple[np.ndarray, np.ndarray]:
