@@ -215,8 +215,8 @@ class IfgNetworkPiecewise:
                 print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
 
             # excavation
-            self.num_images_pre = f.attrs["num_images_exca"]
-            self.num_ifgs_pre = f.attrs["num_ifgs_exca"]
+            self.num_images_exca = f.attrs["num_images_exca"]
+            self.num_ifgs_exca = f.attrs["num_ifgs_exca"]
 
             self.tbase_ifg_exca = f['tbase_ifg_exca'][:]
             self.pbase_ifg_exca = f['pbase_ifg_exca'][:]
