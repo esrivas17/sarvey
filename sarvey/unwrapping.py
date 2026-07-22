@@ -527,7 +527,7 @@ def launchAmbiguityFunctionSearchPiecewise(parameters: tuple):
         prog_bar.update(value=k + 1, every=every,
                         suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
 
-    return arc_idx_range, demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, demerr_exca
+    return arc_idx_range, demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca
 
 
 def launchSpatialUnwrapping(parameters: tuple) -> tuple[np.ndarray, np.ndarray]:

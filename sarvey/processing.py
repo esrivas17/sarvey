@@ -455,7 +455,7 @@ class Processing:
 
         #### histogram ####
         # histogram
-        fig = plt.figure(figsize=(16, 7))
+        fig = plt.figure(figsize=(16, 10))
         axs = fig.subplots(3, 2)
         axs[0,0].hist(vel_pre*100, bins=10000)
         axs[0,0].set_ylabel('Absolute frequency')
