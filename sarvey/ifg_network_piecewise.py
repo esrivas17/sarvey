@@ -438,7 +438,7 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
 
             for i in range(0, ix_break):
                 for j in range(num_link):
-                    if i + j + 1 >= self.num_images:
+                    if i + j + 1 >= self.num_images_pre:
                         continue
                     self.ifg_list_pre.append((i, i + j + 1))
 
