@@ -336,12 +336,14 @@ class StarNetwork(IfgNetworkPiecewise):
         # pre and excavation configuration
 
         self.tbase_pre = tbase[:ix_break]/365.25
-        self.tbase_exca = tbase[ix_break:]/365.25
         self.pbase_pre = pbase[:ix_break]
-        self.pbase_exca = pbase[ix_break:]
         self.dates_pre = dates[:ix_break]
-        self.dates_exca = dates[ix_break:]
         self.num_images_pre = self.tbase_pre.shape[0]
+        
+
+        self.tbase_exca = tbase[ix_break:]/365.25
+        self.pbase_exca = pbase[ix_break:]
+        self.dates_exca = dates[ix_break:]
         self.num_images_exca = self.tbase_exca.shape[0]
 
         for i in range(0, ix_break):
@@ -356,10 +358,10 @@ class StarNetwork(IfgNetworkPiecewise):
 
         if ref_idx < ix_break:
             self.pbase_ifg_pre = np.delete(self.pbase_pre - self.pbase[ref_idx], ref_idx)
-            self.pbase_ifg_exca = self.pbase_exca - self.pbase[ref_idx]
             self.tbase_ifg_pre = np.delete(self.tbase_pre - self.tbase[ref_idx], ref_idx)
-            self.tbase_ifg_exca = self.tbase_exca - self.tbase[ref_idx]
             self.num_ifgs_pre = self.num_images_pre - 1
+            self.pbase_ifg_exca = self.pbase_exca - self.pbase[ref_idx]
+            self.tbase_ifg_exca = self.tbase_exca - self.tbase[ref_idx]
             self.num_ifgs_exca = self.num_images_exca
         else:
             self.pbase_ifg_pre = self.pbase_pre - self.pbase[ref_idx]

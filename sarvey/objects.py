@@ -774,6 +774,36 @@ class PointsPiecewise(Points):
         coord_utm_obj.open()
         self.coord_utm = coord_utm_obj.coord_utm[:, mask].transpose()
 
+    def removePoints(self, mask: np.ndarray = None, *, keep_id: [np.ndarray, list], input_path: str):
+        """Remove all entries from specified points.
+
+        The possible options exist for removing the points:
+        a) Keep all points which are set to True in a 'mask' with size (num_points x 1). Or
+        b) Keep all points whose ID is listed in keep_id. The rest of the points will be removed.
+
+        Parameters
+        ----------
+        mask: np.ndarray
+            mask to select points to be kept, rest will be removed (default: None).
+        keep_id: np.ndarray
+            list of point_id to keep.
+        input_path: str
+            path to input files (slcStack.h5, geometryRadar.h5).
+        """
+        if mask is None:
+            mask = np.ones((self.num_points,), dtype=np.bool_)
+            for p in self.point_id:
+                if p not in keep_id:
+                    mask[self.point_id == p] = False
+        self.point_id = self.point_id[mask]
+        self.coord_xy = self.coord_xy[mask, :]
+        self.phase = self.phase[mask, :]
+        self.num_points = mask[mask].shape[0]
+        self.phase_pre = self.phase_pre[mask,:]
+        self.phase_exca = self.phase_exca[mask,:]
+        # refresh by reopening all external data
+        self.openExternalData(input_path=input_path)
+
 class Network:
     """Spatial network of PS candidates."""
 
