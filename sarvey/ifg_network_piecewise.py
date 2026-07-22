@@ -448,12 +448,12 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
                         continue
                     self.ifg_list_exca.append((i, i + j + 1))
 
-            self.pbase_ifg_pre = np.array([self.pbase_pre[idx[1]] - self.pbase_pre[idx[0]] for idx in self.ifg_list_pre])
-            self.tbase_ifg_pre = np.array([self.tbase_pre[idx[1]] - self.tbase_pre[idx[0]] for idx in self.ifg_list_pre])
+            self.pbase_ifg_pre = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_pre])
+            self.tbase_ifg_pre = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_pre])
             self.num_ifgs_pre = self.pbase_ifg_pre.shape[0]
 
-            self.pbase_ifg_exca = np.array([self.pbase_exca[idx[1]] - self.pbase_exca[idx[0]] for idx in self.ifg_list_exca])
-            self.tbase_ifg_exca = np.array([self.tbase_exca[idx[1]] - self.tbase_exca[idx[0]] for idx in self.ifg_list_exca])
+            self.pbase_ifg_exca = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_exca])
+            self.tbase_ifg_exca = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_exca])
             self.num_ifgs_exca = self.pbase_ifg_exca.shape[0]
 
 
