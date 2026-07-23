@@ -534,8 +534,8 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
 
     else:
         a = np.zeros((num_time, 2))
-        a_pre = np.zeros((num_time, 2))
-        a_exca = np.zeros((num_time, 2))
+        a_pre = np.zeros((num_time_pre, 2))
+        a_exca = np.zeros((num_time_exca, 2))
 
     a[:, 1] = 4 * np.pi / obj.wavelength * tbase  # velocity
     a_pre[:,1] = 4 * np.pi / obj.wavelength * tbase_pre
