@@ -825,7 +825,7 @@ class Processing:
         if self.config.filtering.use_moving_points:
             # recompute the residuals, because now there are fewer points in the obj
             #phase_for_aps_filtering = ut.estimateParameters(obj=point1_obj, ifg_space=False)[-1]
-            phase_for_aps_filtering = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=False)[-1]
+            phase_for_aps_filtering = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=False)[-3]
         else:
             #phase_for_aps_filtering = point1_obj.phase
             phase_for_aps_filtering = point1_obj.phase
