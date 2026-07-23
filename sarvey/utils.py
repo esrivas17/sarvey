@@ -518,7 +518,7 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
     coherence_pre = np.zeros((num_pre,), dtype=np.float32)
     coherence_exca = np.zeros((num_exca,), dtype=np.float32)
     v_hat = np.zeros((num, num_time), dtype=np.float32)
-    v_hat_pre = np.zeros((num_pre, num_time_exca), dtype=np.float32)
+    v_hat_pre = np.zeros((num_pre, num_time_pre), dtype=np.float32)
     v_hat_exca = np.zeros((num_exca, num_time_exca), dtype=np.float32)
     
 
