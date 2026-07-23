@@ -39,7 +39,7 @@ from mintpy.utils import readfile
 from mintpy.utils.plot import auto_flip_direction
 
 from sarvey import viewer
-from sarvey.densification import densifyNetwork
+from sarvey.densification import densifyNetwork, densifyNetworkPiecewise
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 #from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
  #                               SmallBaselineNetwork, StarNetwork)
@@ -832,10 +832,8 @@ class Processing:
 
         # create output which contains only the atmospheric phase screen (no parameters)
         aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
-        aps1_obj.open(
-            other_file_path=join(self.path, "p1_ts_filt.h5"),
-            input_path=self.config.general.input_path
-        )
+        aps1_obj.open(other_file_path=join(self.path, "p1_ts_filt.h5"),
+            input_path=self.config.general.input_path)
 
         # select second-order points
         cand_mask2 = selectPixels(
@@ -1177,14 +1175,18 @@ class Processing:
         point2_obj.phase_exca = np.angle(np.exp(1j * point2_obj.phase_exca) * np.conjugate(np.exp(1j * aps2_ifg_phase_exca)))
         point1_obj.phase_exca = np.angle(np.exp(1j * point1_obj.phase_exca) * np.conjugate(np.exp(1j * aps1_ifg_phase_exca)))
 
-        demerr, vel, gamma = densifyNetwork(
+
+        demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca = densifyNetworkPiecewise(
             point1_obj=point1_obj,
             vel_p1=vel_p1,
+            vel_p1_pre=vel_pre_p1,
+            vel_p1_exca=vel_exca_p1,
             demerr_p1=demerr_p1,
             point2_obj=point2_obj,
             num_conn_p1=self.config.densification.num_connections_to_p1,
             max_dist_p1=self.config.densification.max_distance_to_p1,
             velocity_bound=self.config.densification.velocity_bound,
+            exca_velocity_bound=self.config.densification.excavation_velocity_bound,
             demerr_bound=self.config.densification.dem_error_bound,
             num_samples=self.config.densification.num_optimization_samples,
             num_cores=self.config.general.num_cores,
@@ -1207,7 +1209,8 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
-        mask_gamma = gamma >= self.config.densification.arc_unwrapping_coherence
+        # using gamma_Exca
+        mask_gamma = gamma_exca >= self.config.densification.arc_unwrapping_coherence
         self.logger.info(msg=f"Reduce the dense point set by {mask_gamma[~mask_gamma].shape[0]} points,")
         self.logger.info(msg=f"due to coherence from temporal unwrapping < "
                              f"{self.config.densification.arc_unwrapping_coherence}")
@@ -1246,15 +1249,88 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
+        #### pre excavation #####
+        fig = plt.figure(figsize=(15, 5))
+        axs = fig.subplots(1, 2)
+        axs[0].hist(-vel_pre[mask_gamma] * 100, bins=200)
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Mean velocity [cm / year]')
+
+        axs[1].hist(-demerr_pre[mask_gamma], bins=200)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('DEM error [m]')
+        fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}_pre.png".format(coh_value)),
+                    dpi=300)
+        plt.close(fig)
+
+        fig = viewer.plotScatter(value=gamma_pre[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
+                                    ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
+                                    cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_coh{}_reduced_pre.png".format(coh_value)),
+                    dpi=300)
+        plt.close(fig)
+
+        fig = viewer.plotScatter(value=-vel_pre[mask_gamma], coord=point2_obj.coord_xy,
+                                    ttl="Mean velocity in [m / year]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                    logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_estimation_velocity_p2_coh{}_pre.png".format(coh_value)), dpi=300)
+        plt.close(fig)
+
+        fig = viewer.plotScatter(value=-demerr_pre[mask_gamma], coord=point2_obj.coord_xy, ttl="DEM correction in [m]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
+                                    logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}_pre.png".format(coh_value)), dpi=300)
+        plt.close(fig)
+        
+
+        #### excavation ######
+        fig = plt.figure(figsize=(15, 5))
+        axs = fig.subplots(1, 2)
+        axs[0].hist(-vel_exca[mask_gamma] * 100, bins=200)
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Mean velocity [cm / year]')
+
+        axs[1].hist(-demerr_exca[mask_gamma], bins=200)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('DEM error [m]')
+        fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}_exca.png".format(coh_value)),
+                    dpi=300)
+        plt.close(fig)
+
+        fig = viewer.plotScatter(value=gamma_exca[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
+                                 ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
+                                 cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_coh{}_reduced_exca.png".format(coh_value)),
+                    dpi=300)
+        plt.close(fig)
+
+        fig = viewer.plotScatter(value=-vel_exca[mask_gamma], coord=point2_obj.coord_xy,
+                                 ttl="Mean velocity in [m / year]",
+                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                 logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_estimation_velocity_p2_coh{}_exca.png".format(coh_value)), dpi=300)
+        plt.close(fig)
+
+        fig = viewer.plotScatter(value=-demerr_exca[mask_gamma], coord=point2_obj.coord_xy, ttl="DEM correction in [m]",
+                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}_exca.png".format(coh_value)), dpi=300)
+        plt.close(fig)
+        #########################
+
         self.logger.info(msg="Remove phase contributions from mean velocity "
                              "and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-            obj=point2_obj,
-            vel=vel[mask_gamma],
-            demerr=demerr[mask_gamma],
-            ifg_space=True,
-            logger=self.logger
-        )
+        #pred_phase_demerr, pred_phase_vel = ut.predictPhase(
+        #    obj=point2_obj,
+        #    vel=vel[mask_gamma],
+        #    demerr=demerr[mask_gamma],
+        #    ifg_space=True,
+        #    logger=self.logger)
+
+        pred_phase_demerr, pred_phase_vel = ut.predictPhasePiecewise(obj=point2_obj, vel=vel[mask_gamma], vel_pre=vel_pre[mask_gamma], 
+                                                                     vel_exca=vel_exca[mask_gamma], demerr=demerr[mask_gamma],  
+                                                                    ifg_space=True, logger=self.logger)
         pred_phase = pred_phase_demerr + pred_phase_vel
 
         wr_phase = point2_obj.phase
@@ -1289,13 +1365,12 @@ class Processing:
             ref_idx=0,
             logger=self.logger)
 
-        point_obj = Points(file_path=join(self.path, "p2_coh{}_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_ts.h5".format(coh_value)), logger=self.logger)
         point_obj.open(
             other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
             input_path=self.config.general.input_path
         )
         point_obj.phase = phase_ts
-
         point_obj.writeToFile()
 
     def runDensificationSpace(self):

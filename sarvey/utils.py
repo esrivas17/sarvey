@@ -270,27 +270,46 @@ def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: f
         tbase = ifg_net_obj.tbase_ifg
         pbase = ifg_net_obj.pbase_ifg
 
+        tbase_pre = ifg_net_obj.tbase_ifg_pre
+        #pbase_pre = ifg_net_obj.pbase_ifg_pre
+
+        tbase_exca = ifg_net_obj.tbase_ifg_exca
+        #pbase_exca = ifg_net_obj.pbase_ifg_exca
+
+        # compute phase due to DEM error
+        pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+
+        # compute phase due to velocity
+        disp = np.empty((tbase.size, vel.size), dtype=float)
+        disp_pre = np.empty((tbase_pre.size, vel_pre.size), dtype=float)
+        disp_exca = np.empty((tbase_exca.size, vel_exca.size), dtype=float)
+
+        disp_pre = tbase_pre[:, np.newaxis]* vel_pre[np.newaxis, :]
+        disp_exca = tbase_exca[:, np.newaxis]* vel_exca[np.newaxis, :]
+
+        disp = np.concatenate((disp_pre,disp_exca), axis=1)
+        pred_phase_vel = factor * disp
+
     else:
         tbase = ifg_net_obj.tbase
         pbase = ifg_net_obj.pbase
 
+        # compute phase due to DEM error
+        pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
 
-    # compute phase due to DEM error
-    pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        # compute phase due to velocity
+        ix_break = ifg_net_obj.ix_breakpoint
+        disp = np.empty((tbase.size, vel.size), dtype=float)
+        before = tbase < tbase[ix_break]
+        after = ~before
 
-    # compute phase due to velocity
-    ix_break = ifg_net_obj.ix_breakpoint
-    disp = np.empty((tbase.size, vel.size), dtype=float)
-    before = tbase < tbase[ix_break]
-    after = ~before
+        # pre excavation
+        disp[before] = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
 
-    # pre excavation
-    disp[before] = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
-
-    # during excavation
-    disp[after] = (tbase[after][:, np.newaxis]* vel_exca[np.newaxis, :])
-    pred_phase_vel = factor * disp
-    #pred_phase_vel = factor * tbase[:, np.newaxis] * vel
+        # during excavation
+        disp[after] = (tbase[after][:, np.newaxis]* vel_exca[np.newaxis, :])
+        pred_phase_vel = factor * disp
+        #pred_phase_vel = factor * tbase[:, np.newaxis] * vel
 
     return pred_phase_demerr.T, pred_phase_vel.T
 
