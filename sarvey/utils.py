@@ -521,6 +521,7 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
     v_hat_pre = np.zeros((num_pre, num_time_pre), dtype=np.float32)
     v_hat_exca = np.zeros((num_exca, num_time_exca), dtype=np.float32)
     
+    ixbreak = obj.ifg_net_obj.ix_breakpoint
 
     ref_atmo = None
     if estimate_ref_atmo:
@@ -543,8 +544,8 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
 
     for p in range(obj.num_points):
         obv_vec = obj.phase[p, :]
-        obv_vec_pre = obj.phase_pre[p, :]
-        obv_vec_exca = obj.phase_exca[p, :]
+        obv_vec_pre = obj.phase[p, :ixbreak]
+        obv_vec_exca = obj.phase[p, ixbreak:]
         a[:, 0] = 4 * np.pi / obj.wavelength * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
         a_pre[:,0] = 4 * np.pi / obj.wavelength * pbase_pre / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
         a_exca[:,0] = 4 * np.pi / obj.wavelength * pbase_exca / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
