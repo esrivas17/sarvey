@@ -457,27 +457,27 @@ class Processing:
         # histogram
         fig = plt.figure(figsize=(16, 10))
         axs = fig.subplots(3, 2)
-        axs[0,0].hist(vel_pre*100, bins=10000)
+        axs[0,0].hist(vel_pre*100, bins=2000)
         axs[0,0].set_ylabel('Absolute frequency')
         axs[0,0].set_xlabel('Pre-Velocity [cm/yr]')
 
-        axs[0,1].hist(demerr_pre, bins=5000)
+        axs[0,1].hist(demerr_pre, bins=2000)
         axs[0,1].set_ylabel('Absolute frequency')
         axs[0,1].set_xlabel('Pre DEM error [m]')
 
-        axs[1,0].hist(vel_exca*100, bins=5000)
+        axs[1,0].hist(vel_exca*100, bins=2000)
         axs[1,0].set_ylabel('Absolute frequency')
         axs[1,0].set_xlabel('Exca-Velocity [cm/yer]')
 
-        axs[1,1].hist(demerr_exca, bins=5000)
+        axs[1,1].hist(demerr_exca, bins=2000)
         axs[1,1].set_ylabel('Absolute frequency')
         axs[1,1].set_xlabel('Exca-DEM error [m]')
         
-        axs[2,0].hist(vel*100, bins=5000)
+        axs[2,0].hist(vel*100, bins=2000)
         axs[2,0].set_ylabel('Absolute frequency')
         axs[2,0].set_xlabel('Velocity [cm/yer]')
 
-        axs[2,1].hist(demerr, bins=5000)
+        axs[2,1].hist(demerr, bins=2000)
         axs[2,1].set_ylabel('Absolute frequency')
         axs[2,1].set_xlabel('DEM error [m]')
         fig.savefig(join(self.path, "pic", "step_1_tempunwrapping_params.png"), dpi=300)

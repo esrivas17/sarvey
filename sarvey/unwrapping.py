@@ -490,7 +490,7 @@ def launchAmbiguityFunctionSearchPiecewise(parameters: tuple):
 
     demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
     vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
-    vel_excavation_range = np.linspace(-velocity_bound, 0, num_samples)
+    vel_excavation_range = np.linspace(-vel_excavation_bound, vel_excavation_bound, num_samples)
     prog_bar = ptime.progressBar(maxValue=num_arcs)
 
     factor = 4 * np.pi / wavelength
