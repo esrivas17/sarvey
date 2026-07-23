@@ -419,9 +419,9 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
                         continue
                     self.ifg_list.append((i, i + j + 1))
                     if i >= ix_break:
-                        self.ifg_list_pre((i, i + j + 1))
+                        self.ifg_list_pre.append((i, i + j + 1))
                     else:
-                        self.ifg_list_exca((i, i + j + 1))
+                        self.ifg_list_exca.append((i, i + j + 1))
 
             self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
 
