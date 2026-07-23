@@ -669,11 +669,11 @@ class Processing:
             ref_idx=0,
             logger=self.logger
         )
-        point_obj = Points(file_path=join(self.path, "p1_ts.h5"), logger=self.logger)
-        point_obj.open(
-            other_file_path=join(self.path, "p1_ifg_unw.h5"),
-            input_path=self.config.general.input_path
-        )
+
+        # TODO
+        point_obj = PointsPiecewise(file_path=join(self.path, "p1_ts.h5"), logger=self.logger)
+        point_obj.open(other_file_path=join(self.path, "p1_ifg_unw.h5"),
+            input_path=self.config.general.input_path)
         point_obj.phase = phase_ts
         point_obj.writeToFile()
 
@@ -748,11 +748,9 @@ class Processing:
         coh_value = int(self.config.filtering.coherence_p2 * 100)
 
         # create output file which contains filtered phase time series
-        point1_obj = Points(file_path=join(self.path, "p1_ts_filt.h5"), logger=self.logger)
-        point1_obj.open(
-            other_file_path=join(self.path, "p1_ts.h5"),
-            input_path=self.config.general.input_path
-        )
+        point1_obj = PointsPiecewise(file_path=join(self.path, "p1_ts_filt.h5"), logger=self.logger)
+        point1_obj.open(other_file_path=join(self.path, "p1_ts.h5"),
+            input_path=self.config.general.input_path)
         p1_mask = point1_obj.createMask()  # used later for selecting psCand2 when a spatial mask AOI is given.
 
         # select only pixels which have low phase noise and are well distributed
@@ -763,14 +761,16 @@ class Processing:
         # temporal auto-correlation
         auto_corr_img = np.zeros_like(mask, np.float64)
 
-        vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
+        #vel, demerr, _, _, _, residuals = ut.estimateParameters(obj=point1_obj, ifg_space=False)
+        vel, vel_pre, vel_exca, demerr, _, _, _, _, _, residuals, residuals_pre, residuals_exca = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=False)
+
 
         if self.config.filtering.use_moving_points:
-            auto_corr = ut.temporalAutoCorrelation(residuals=residuals, lag=1).reshape(-1)
+            auto_corr = ut.temporalAutoCorrelation(residuals=residuals_exca, lag=1).reshape(-1)
         else:
             # remove DEM error, but not velocity before estimating the temporal autocorrelation
-            pred_phase_demerr = ut.predictPhase(
-                obj=point1_obj, vel=vel, demerr=demerr, ifg_space=False, logger=self.logger)[0]
+            pred_phase_demerr, _ = ut.predictPhasePiecewise(obj=point1_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
+                        ifg_space=True, logger=self.logger)
             phase_wo_demerr = point1_obj.phase - pred_phase_demerr
             auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
 
@@ -824,9 +824,11 @@ class Processing:
 
         if self.config.filtering.use_moving_points:
             # recompute the residuals, because now there are fewer points in the obj
-            phase_for_aps_filtering = ut.estimateParameters(obj=point1_obj, ifg_space=False)[-1]
+            #phase_for_aps_filtering = ut.estimateParameters(obj=point1_obj, ifg_space=False)[-1]
+            phase_for_aps_filtering = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=False)[-1]
         else:
-            phase_for_aps_filtering = point1_obj.phase
+            #phase_for_aps_filtering = point1_obj.phase
+            phase_for_aps_filtering = point1_obj.phase_exca
 
         # create output which contains only the atmospheric phase screen (no parameters)
         aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
@@ -918,20 +920,35 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_3_mask_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
-        point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)), logger=self.logger)
         coord_xy = np.array(np.where(cand_mask2)).transpose()
         point_id2 = point_id_img[cand_mask2]
-        point2_obj.prepare(
-            point_id=point_id2,
-            coord_xy=coord_xy,
-            input_path=self.config.general.input_path
-        )
 
+        #point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)), logger=self.logger)
+        #point2_obj.prepare(point_id=point_id2, coord_xy=coord_xy, input_path=self.config.general.input_path)
+
+        #ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
+
+        #point2_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
+        #                                         num_patches=self.config.general.num_patches, cand_mask=cand_mask2,
+        #                                         point_id_img=point_id_img, logger=self.logger)
+
+        # piecewise
+        point_piecewise_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)), logger=self.logger)
+        point_piecewise_obj.prepare(point_id=point_id2, coord_xy=coord_xy, input_path=self.config.general.input_path)
         ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=self.logger)
+        ifg_stack_pre_obj =  BaseStack(file=join(self.path, "ifg_stack_pre.h5"), logger=self.logger)
+        ifg_stack_exca_obj = BaseStack(file=join(self.path, "ifg_stack_exca.h5"), logger=self.logger)
 
-        point2_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
-                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask2,
-                                                 point_id_img=point_id_img, logger=self.logger)
+        point_piecewise_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask2,
+                                                point_id_img=point_id_img, logger=self.logger)
+        point_piecewise_obj.phase_pre = ut.readPhasePatchwise(stack_obj=ifg_stack_pre_obj, dataset_name="ifgs",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask2,
+                                                point_id_img=point_id_img, logger=self.logger)
+        point_piecewise_obj.phase_exca = ut.readPhasePatchwise(stack_obj=ifg_stack_exca_obj, dataset_name="ifgs",
+                                                num_patches=self.config.general.num_patches, cand_mask=cand_mask2,
+                                                point_id_img=point_id_img, logger=self.logger)
+        #########
 
         if self.config.phase_linking.use_phase_linking_results:
             self.logger.info(msg="read phase from MiaplPy results...")
@@ -969,15 +986,18 @@ class Processing:
             mask_pl = cand_mask_pl[cand_mask2]
             point2_obj.phase[mask_pl] = pl_ifgs[mask_pl]
 
-        point2_obj.writeToFile()
-        del point2_obj, ifg_stack_obj
+        point_piecewise_obj.writeToFile()
+        del point_piecewise_obj, ifg_stack_obj, ifg_stack_pre_obj, ifg_stack_exca_obj
 
-        aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
-        aps2_obj.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )
+        #aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        #aps2_obj.open(
+        #    other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
+        #    input_path=self.config.general.input_path)
 
+        aps2_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        aps2_obj.open(other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
+                    input_path=self.config.general.input_path)
+        
         if self.config.filtering.apply_aps_filtering:
             # spatial filtering of points with linear motion only (no non-linear motion)
             if self.config.filtering.interpolation_method == "kriging":
@@ -1019,25 +1039,41 @@ class Processing:
         """RunDensificationTimeAndSpace."""
         coh_value = int(self.config.filtering.coherence_p2 * 100)
 
-        point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
-        point2_obj.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )  # wrapped phase
+        #point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
+        #point2_obj.open(other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),input_path=self.config.general.input_path)  # wrapped phase
+
+        # piecewise points
+        point2_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
+        point2_obj.open(other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),input_path=self.config.general.input_path)  # wrapped phase
 
         # estimate parameters from unwrapped phase
-        point1_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
+        #point1_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
+        #point1_obj.open(input_path=self.config.general.input_path)
+        #vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
+
+        # piecewise
+        point1_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point1_obj.open(input_path=self.config.general.input_path)
-        vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
+        vel_p1, vel_pre_p1, vel_exca_p1, demerr_p1, _ = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=True)
 
         # load wrapped phase to remove known components for unwrapping p2 points
-        point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
+        #point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
+        #point1_obj.open(input_path=self.config.general.input_path)
+
+        #aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
+        #aps1_obj.open(input_path=self.config.general.input_path)
+
+        #aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        #aps2_obj.open(input_path=self.config.general.input_path)
+
+        # piecewise objects
+        point1_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
         point1_obj.open(input_path=self.config.general.input_path)
 
-        aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
+        aps1_obj = PointsPiecewise(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
         aps1_obj.open(input_path=self.config.general.input_path)
 
-        aps2_obj = Points(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        aps2_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
         aps2_obj.open(input_path=self.config.general.input_path)
 
         if self.config.filtering.mask_p2_file is None:
@@ -1067,6 +1103,8 @@ class Processing:
                 new_point_id=aps2_obj.point_id[mask_unstable_p1_in_p2],
                 new_coord_xy=aps2_obj.coord_xy[mask_unstable_p1_in_p2, :],
                 new_phase=aps2_obj.phase[mask_unstable_p1_in_p2, :],
+                new_phase_pre=aps2_obj.phase_pre[mask_unstable_p1_in_p2, :],
+                new_phase_exca=aps2_obj.phase_exca[mask_unstable_p1_in_p2, :],
                 new_num_points=mask_unstable_p1_in_p2[mask_unstable_p1_in_p2].shape[0],
                 input_path=self.config.general.input_path
             )
@@ -1097,13 +1135,12 @@ class Processing:
                         mask[point1_obj.point_id == p] = False
 
                 vel_p1 = vel_p1[mask]
+                vel_pre_p1 = vel_pre_p1[mask]
+                vel_exca_p1 = vel_exca_p1[mask]
                 demerr_p1 = demerr_p1[mask]
 
                 # remove unstable p1 from p1
-                point1_obj.removePoints(
-                    keep_id=aps1_obj.point_id,
-                    input_path=self.config.general.input_path
-                )
+                point1_obj.removePoints(keep_id=aps1_obj.point_id,input_path=self.config.general.input_path)
 
                 # remove p2 which are coincidentally equal to p1
                 point_id_img = np.arange(0, point1_obj.length * point1_obj.width).reshape(
@@ -1119,10 +1156,26 @@ class Processing:
         a_ifg = point2_obj.ifg_net_obj.getDesignMatrix()
         aps1_ifg_phase = np.matmul(a_ifg, aps1_obj.phase.T).T
         aps2_ifg_phase = np.matmul(a_ifg, aps2_obj.phase.T).T
+        # pre
+        a_ifg_pre = point2_obj.ifg_net_obj.getDesignMatrixPre()
+        aps1_ifg_phase_pre = np.matmul(a_ifg_pre, aps1_obj.phase_pre.T).T
+        aps2_ifg_phase_pre = np.matmul(a_ifg_pre, aps2_obj.phase_pre.T).T
+        # excavation
+        a_ifg_exca = point2_obj.ifg_net_obj.getDesignMatrixExca()
+        aps1_ifg_phase_exca = np.matmul(a_ifg_exca, aps1_obj.phase_exca.T).T
+        aps2_ifg_phase_exca = np.matmul(a_ifg_exca, aps2_obj.phase_exca.T).T
 
         # correct for APS
         point2_obj.phase = np.angle(np.exp(1j * point2_obj.phase) * np.conjugate(np.exp(1j * aps2_ifg_phase)))
         point1_obj.phase = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * aps1_ifg_phase)))
+
+        # pre
+        point2_obj.phase_pre = np.angle(np.exp(1j * point2_obj.phase_pre) * np.conjugate(np.exp(1j * aps2_ifg_phase_pre)))
+        point1_obj.phase_pre = np.angle(np.exp(1j * point1_obj.phase_pre) * np.conjugate(np.exp(1j * aps1_ifg_phase_pre)))
+
+        #excavation
+        point2_obj.phase_exca = np.angle(np.exp(1j * point2_obj.phase_exca) * np.conjugate(np.exp(1j * aps2_ifg_phase_exca)))
+        point1_obj.phase_exca = np.angle(np.exp(1j * point1_obj.phase_exca) * np.conjugate(np.exp(1j * aps1_ifg_phase_exca)))
 
         demerr, vel, gamma = densifyNetwork(
             point1_obj=point1_obj,

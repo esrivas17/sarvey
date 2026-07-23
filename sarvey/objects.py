@@ -804,6 +804,25 @@ class PointsPiecewise(Points):
         # refresh by reopening all external data
         self.openExternalData(input_path=input_path)
 
+    def addPointsFromObj(self, *, new_point_id: np.ndarray, new_coord_xy: np.ndarray, new_phase: np.ndarray, new_phase_pre: np.ndarray, 
+                         new_phase_exca: np.ndarray,  new_num_points: int, input_path: str):
+        self.point_id = np.append(self.point_id, new_point_id)
+        self.coord_xy = np.append(self.coord_xy, new_coord_xy, axis=0)
+        self.phase = np.append(self.phase, new_phase, axis=0)
+        self.phase_pre = np.append(self.phase_pre, new_phase_pre, axis=0)
+        self.phase_exca = np.append(self.phase_exca, new_phase_exca, axis=0)
+        self.num_points += new_num_points
+
+        # all data must be ordered, so that all external data can be loaded correctly
+        sort_idx = np.argsort(self.point_id)
+        self.point_id = self.point_id[sort_idx]
+        self.coord_xy = self.coord_xy[sort_idx, :]
+        self.phase = self.phase[sort_idx, :]
+        self.phase_pre = self.phase_pre[sort_idx, :]
+        self.phase_exca = self.phase_exca[sort_idx, :]
+        # refresh by reopening all external data
+        self.openExternalData(input_path=input_path)
+
 class Network:
     """Spatial network of PS candidates."""
 
