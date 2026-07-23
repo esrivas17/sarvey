@@ -280,7 +280,7 @@ def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: f
 
     # compute phase due to velocity
     ix_break = ifg_net_obj.ix_breakpoint
-    disp = np.empty((tbase.size, vel_pre.size), dtype=float)
+    disp = np.empty((tbase.size, vel.size), dtype=float)
     before = tbase < tbase[ix_break]
     after = ~before
 
