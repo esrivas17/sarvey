@@ -828,7 +828,7 @@ class Processing:
             phase_for_aps_filtering = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=False)[-1]
         else:
             #phase_for_aps_filtering = point1_obj.phase
-            phase_for_aps_filtering = point1_obj.phase_exca
+            phase_for_aps_filtering = point1_obj.phase
 
         # create output which contains only the atmospheric phase screen (no parameters)
         aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
