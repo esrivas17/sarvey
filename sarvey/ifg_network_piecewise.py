@@ -426,6 +426,8 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
                         self.ifg_list_pre.append((i, i + j + 1))
 
             self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
+            self.ifg_list_exca = [(i, j) for i, j in self.ifg_list_pre if i != j]
+            self.ifg_list_pre = [(i, j) for i, j in self.ifg_list_exca if i != j]
 
             self.pbase_ifg = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list])
             self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
