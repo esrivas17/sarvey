@@ -1054,6 +1054,27 @@ class Processing:
         point1_obj.open(input_path=self.config.general.input_path)
         vel_p1, vel_pre_p1, vel_exca_p1, demerr_p1 = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=True)[:4]
 
+        # plot predicted velocity
+        fig = viewer.plotScatter(value=-vel_p1, coord=point1_obj.coord_xy,
+                                         ttl="Mean velocity in [m / year]",
+                                         bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                         logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_predicted_velocity.png"), dpi=300)
+        plt.close(fig)
+
+        fig = viewer.plotScatter(value=-vel_pre_p1, coord=point1_obj.coord_xy,
+                                                 ttl="Mean velocity in [m / year]",
+                                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                                 logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_predicted_velocity_pre.png"), dpi=300)
+        plt.close(fig)
+        fig = viewer.plotScatter(value=-vel_exca_p1, coord=point1_obj.coord_xy,
+                                                 ttl="Mean velocity in [m / year]",
+                                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                                 logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_4_predicted_velocity_exca.png"), dpi=300)
+        plt.close(fig)
+
         # load wrapped phase to remove known components for unwrapping p2 points
         #point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
         #point1_obj.open(input_path=self.config.general.input_path)
@@ -1218,15 +1239,34 @@ class Processing:
                              f"{self.config.densification.arc_unwrapping_coherence}")
         point2_obj.removePoints(mask=mask_gamma, keep_id=[], input_path=self.config.general.input_path)
 
-        fig = plt.figure(figsize=(15, 5))
-        axs = fig.subplots(1, 2)
-        axs[0].hist(-vel[mask_gamma] * 100, bins=200)
-        axs[0].set_ylabel('Absolute frequency')
-        axs[0].set_xlabel('Mean velocity [cm / year]')
+        fig = plt.figure(figsize=(15, 10))
+        axs = fig.subplots(3, 2)
+        axs[0,0].hist(-vel[mask_gamma] * 100, bins=200)
+        axs[0,0].set_ylabel('Absolute frequency')
+        axs[0,0].set_xlabel('Mean velocity [cm / year]')
 
-        axs[1].hist(-demerr[mask_gamma], bins=200)
-        axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('DEM error [m]')
+        axs[0,1].hist(-demerr[mask_gamma], bins=200)
+        axs[0,1].set_ylabel('Absolute frequency')
+        axs[0,1].set_xlabel('DEM error [m]')
+
+        # excavation
+        axs[1,0].hist(-vel_pre[mask_gamma] * 100, bins=200)
+        axs[1,0].set_ylabel('Absolute frequency')
+        axs[1,0].set_xlabel('Mean velocity [cm / year]')
+
+        axs[1,1].hist(-demerr_pre[mask_gamma], bins=200)
+        axs[1,1].set_ylabel('Absolute frequency')
+        axs[1,1].set_xlabel('DEM error [m]')
+
+         # excavation
+        axs[2,0].hist(-vel_exca[mask_gamma] * 100, bins=200)
+        axs[2,0].set_ylabel('Absolute frequency')
+        axs[2,0].set_xlabel('Mean velocity [cm / year]')
+
+        axs[2,1].hist(-demerr_exca[mask_gamma], bins=200)
+        axs[2,1].set_ylabel('Absolute frequency')
+        axs[2,1].set_xlabel('DEM error [m]')
+
         fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}.png".format(coh_value)),
                     dpi=300)
         plt.close(fig)
@@ -1252,19 +1292,6 @@ class Processing:
         plt.close(fig)
 
         #### pre excavation #####
-        fig = plt.figure(figsize=(15, 5))
-        axs = fig.subplots(1, 2)
-        axs[0].hist(-vel_pre[mask_gamma] * 100, bins=200)
-        axs[0].set_ylabel('Absolute frequency')
-        axs[0].set_xlabel('Mean velocity [cm / year]')
-
-        axs[1].hist(-demerr_pre[mask_gamma], bins=200)
-        axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('DEM error [m]')
-        fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}_pre.png".format(coh_value)),
-                    dpi=300)
-        plt.close(fig)
-
         fig = viewer.plotScatter(value=gamma_pre[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                     ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
                                     cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
@@ -1287,19 +1314,6 @@ class Processing:
         
 
         #### excavation ######
-        fig = plt.figure(figsize=(15, 5))
-        axs = fig.subplots(1, 2)
-        axs[0].hist(-vel_exca[mask_gamma] * 100, bins=200)
-        axs[0].set_ylabel('Absolute frequency')
-        axs[0].set_xlabel('Mean velocity [cm / year]')
-
-        axs[1].hist(-demerr_exca[mask_gamma], bins=200)
-        axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('DEM error [m]')
-        fig.savefig(join(self.path, "pic", "step_4_consistency_parameters_p2_coh{}_exca.png".format(coh_value)),
-                    dpi=300)
-        plt.close(fig)
-
         fig = viewer.plotScatter(value=gamma_exca[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
                                  cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
