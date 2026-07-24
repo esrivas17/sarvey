@@ -271,13 +271,15 @@ def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: f
         pbase = ifg_net_obj.pbase_ifg
 
         tbase_pre = ifg_net_obj.tbase_ifg_pre
-        #pbase_pre = ifg_net_obj.pbase_ifg_pre
+        pbase_pre = ifg_net_obj.pbase_ifg_pre
 
         tbase_exca = ifg_net_obj.tbase_ifg_exca
-        #pbase_exca = ifg_net_obj.pbase_ifg_exca
+        pbase_exca = ifg_net_obj.pbase_ifg_exca
 
         # compute phase due to DEM error
         pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        pred_phase_demerr_pre = factor * pbase_pre[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        pred_phase_demerr_exca =factor * pbase_exca[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
 
         # compute phase due to velocity
         disp = np.empty((tbase.size, vel.size), dtype=float)
@@ -288,30 +290,38 @@ def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: f
         disp_exca = tbase_exca[:, np.newaxis]* vel_exca[np.newaxis, :]
 
         disp = np.concatenate((disp_pre,disp_exca), axis=0)
+        pred_phase_vel_pre = factor * disp_pre
+        pred_phase_vel_exca = factor * disp_exca
         pred_phase_vel = factor * disp
 
     else:
         tbase = ifg_net_obj.tbase
         pbase = ifg_net_obj.pbase
+        ix_break = ifg_net_obj.ix_breakpoint
 
         # compute phase due to DEM error
         pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        pred_phase_demerr_pre = pred_phase_demerr[:ix_break]
+        pred_phase_demerr_exca = pred_phase_demerr[ix_break:]
 
         # compute phase due to velocity
-        ix_break = ifg_net_obj.ix_breakpoint
         disp = np.empty((tbase.size, vel.size), dtype=float)
         before = tbase < tbase[ix_break]
         after = ~before
 
         # pre excavation
         disp[before] = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
+        pred_phase_vel_pre = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
+        pred_phase_vel_pre = factor * pred_phase_vel_pre
 
         # during excavation
         disp[after] = (tbase[after][:, np.newaxis]* vel_exca[np.newaxis, :])
+        pred_phase_vel_exca = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
+        pred_phase_vel_exca = factor * pred_phase_vel_exca
         pred_phase_vel = factor * disp
         #pred_phase_vel = factor * tbase[:, np.newaxis] * vel
 
-    return pred_phase_demerr.T, pred_phase_vel.T
+    return pred_phase_demerr.T, pred_phase_vel.T, pred_phase_demerr_pre.T, pred_phase_vel_pre.T, pred_phase_demerr_exca.T, pred_phase_vel_exca.T
 
 
 def predictPhaseCore(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.ndarray,
@@ -570,7 +580,7 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
             obv_vec = obj.phase[p, :]
             obv_vec_pre = obj.phase[p, :ixbreak]
             obv_vec_exca = obj.phase[p, ixbreak:]
-            
+
         a[:, 0] = 4 * np.pi / obj.wavelength * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
         a_pre[:,0] = 4 * np.pi / obj.wavelength * pbase_pre / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
         a_exca[:,0] = 4 * np.pi / obj.wavelength * pbase_exca / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr

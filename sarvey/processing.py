@@ -625,7 +625,7 @@ class Processing:
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
         pred_phase_demerr, pred_phase_vel = ut.predictPhasePiecewise(obj=point_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
-            ifg_space=True, logger=self.logger)
+            ifg_space=True, logger=self.logger)[:2]
         pred_phase = pred_phase_demerr + pred_phase_vel
 
         wr_phase = point_obj.phase
@@ -769,8 +769,8 @@ class Processing:
             auto_corr = ut.temporalAutoCorrelation(residuals=residuals_exca, lag=1).reshape(-1)
         else:
             # remove DEM error, but not velocity before estimating the temporal autocorrelation
-            pred_phase_demerr, _ = ut.predictPhasePiecewise(obj=point1_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
-                        ifg_space=True, logger=self.logger)
+            pred_phase_demerr = ut.predictPhasePiecewise(obj=point1_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
+                        ifg_space=True, logger=self.logger)[0]
             phase_wo_demerr = point1_obj.phase - pred_phase_demerr
             auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
 
@@ -1330,7 +1330,7 @@ class Processing:
 
         pred_phase_demerr, pred_phase_vel = ut.predictPhasePiecewise(obj=point2_obj, vel=vel[mask_gamma], vel_pre=vel_pre[mask_gamma], 
                                                                      vel_exca=vel_exca[mask_gamma], demerr=demerr[mask_gamma],  
-                                                                    ifg_space=True, logger=self.logger)
+                                                                    ifg_space=True, logger=self.logger)[:2]
         pred_phase = pred_phase_demerr + pred_phase_vel
 
         wr_phase = point2_obj.phase

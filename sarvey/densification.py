@@ -313,9 +313,11 @@ def densifyNetworkPiecewise(*, point1_obj: PointsPiecewise, vel_p1: np.ndarray, 
     # NOTE: point1_obj is the wrapped phase from 1OP
 
     # remove parameters from wrapped phase
-    pred_phase_demerr, pred_phase_vel = ut.predictPhasePiecewise(obj=point1_obj, vel=vel_p1, vel_pre=vel_p1_pre, vel_exca=vel_p1_exca, demerr=demerr_p1,  
+    pred_phase_demerr, pred_phase_vel, pred_phase_demerr_pre, pred_phase_vel_pre, pred_phase_demerr_exca, pred_phase_vel_exca = ut.predictPhasePiecewise(obj=point1_obj, vel=vel_p1, vel_pre=vel_p1_pre, vel_exca=vel_p1_exca, demerr=demerr_p1,  
                 ifg_space=True, logger=logger)
     pred_phase = pred_phase_demerr + pred_phase_vel
+    pred_phase_pre = pred_phase_demerr_pre + pred_phase_vel_pre
+    pred_phase_exca = pred_phase_demerr_exca + pred_phase_vel_exca
 
     # Note: for small baselines it does not make a difference if re-wrapping the phase difference or not.
     # However, for long baselines (like in the star network) it does make a difference. Leijen (2014) does not re-wrap
@@ -324,8 +326,8 @@ def densifyNetworkPiecewise(*, point1_obj: PointsPiecewise, vel_p1: np.ndarray, 
     # for triangle-based temporal unwrapping.
     # demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
     demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping , this is in ifg domain
-    demod_phase1_pre = point1_obj.phase_pre - pred_phase
-    demod_phase1_exca =point1_obj.phase_exca - pred_phase
+    demod_phase1_pre = point1_obj.phase_pre - pred_phase_pre
+    demod_phase1_exca =point1_obj.phase_exca - pred_phase_exca
     # initialize output
     #init_args = (tree_p1, point2_obj, demod_phase1)
     init_args = (tree_p1, point2_obj, demod_phase1,demod_phase1_pre, demod_phase1_exca)
