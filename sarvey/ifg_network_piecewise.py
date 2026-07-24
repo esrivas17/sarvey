@@ -54,6 +54,7 @@ class IfgNetworkPiecewise:
         self.tbase_ifg = None
         self.num_ifgs = None
         self.dates = list()
+        self.ix_ifg = list()
 
         # pre-xcavation
         self.pbase_pre = None
@@ -64,6 +65,7 @@ class IfgNetworkPiecewise:
         self.num_ifgs_pre = None
         self.dates_pre = list()
         self.ifg_list_pre = list()
+        self.ix_ifg_pre = list()
         
         # excavation
         self.pbase_exca = None
@@ -74,6 +76,7 @@ class IfgNetworkPiecewise:
         self.num_ifgs_exca = None
         self.dates_exca = list()
         self.ifg_list_exca = list()
+        self.ix_ifg_exca = list()
 
         self.ix_breakpoint = None
 
@@ -325,10 +328,20 @@ class StarNetwork(IfgNetworkPiecewise):
         self.num_images = pbase.shape[0]
         self.dates = dates
 
+        ix_ifg = 0
         for i in range(self.num_images):
             if i == ref_idx:
                 continue
             self.ifg_list.append((ref_idx, i))
+            self.ix_ifg.append(ix_ifg)
+            if i >= ix_break:
+                self.ifg_list_exca.append((ref_idx, i))
+                self.ix_ifg_pre.append(ix_ifg)
+            else:
+                self.ifg_list_pre.append((ref_idx, i))
+                self.ix_ifg_exca.append(ix_ifg)
+            ix_ifg += 1
+
 
         self.pbase_ifg = np.delete(self.pbase - self.pbase[ref_idx], ref_idx)
         self.tbase_ifg = np.delete(self.tbase - self.tbase[ref_idx], ref_idx)
@@ -346,16 +359,6 @@ class StarNetwork(IfgNetworkPiecewise):
         self.pbase_exca = pbase[ix_break:]
         self.dates_exca = dates[ix_break:]
         self.num_images_exca = self.tbase_exca.shape[0]
-
-        for i in range(0, ix_break):
-                if i == ref_idx:
-                    continue
-                self.ifg_list_pre.append((ref_idx, i))
-
-        for i in range(ix_break, self.num_images):            
-            if i == ref_idx:
-                continue
-            self.ifg_list_exca.append((ref_idx, i))
 
         if ref_idx < ix_break:
             self.pbase_ifg_pre = np.delete(self.pbase_pre - self.pbase[ref_idx], ref_idx)
@@ -414,17 +417,23 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
             self.num_images = pbase.shape[0]
             self.dates = dates
 
+            ix_ifg = 0
             for i in range(self.num_images):
                 for j in range(num_link):
                     if i + j + 1 >= self.num_images:
                         continue
                     self.ifg_list.append((i, i + j + 1))
+                    self.ix_ifg.append(ix_ifg)
                     if i >= ix_break:
                         self.ifg_list_exca.append((i, i + j + 1))
+                        self.ix_ifg_exca.append(ix_ifg)
                     elif i + j + 1 > ix_break:
                         self.ifg_list_exca.append((i, i + j + 1))
+                        self.ix_ifg_exca.append(ix_ifg)
                     else:
                         self.ifg_list_pre.append((i, i + j + 1))
+                        self.ix_ifg_pre.append(ix_ifg)
+                    ix_ifg += 1
 
             self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
             self.ifg_list_pre = [(i, j) for i, j in self.ifg_list_pre if i != j]

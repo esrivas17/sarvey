@@ -574,8 +574,8 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
     for p in range(obj.num_points):
         if ifg_space:
             obv_vec = obj.phase[p, :]
-            obv_vec_pre = obj.phase_pre[p, :]
-            obv_vec_exca = obj.phase_exca[p,:]
+            obv_vec_pre = obj.phase[p, obj.ifg_net_obj.ix_ifg_pre]
+            obv_vec_exca = obj.phase[p,obj.ifg_net_obj.ix_ifg_exca]
         else:
             obv_vec = obj.phase[p, :]
             obv_vec_pre = obj.phase[p, :ixbreak]

@@ -624,9 +624,11 @@ class Processing:
         # predict piecewise phase
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhasePiecewise(obj=point_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
-            ifg_space=True, logger=self.logger)[:2]
+        pred_phase_demerr, pred_phase_vel, pred_phase_demerr_pre, pred_phase_vel_pre, pred_phase_demerr_exca, pred_phase_vel_exca = ut.predictPhasePiecewise(obj=point_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
+            ifg_space=True, logger=self.logger)
         pred_phase = pred_phase_demerr + pred_phase_vel
+        pred_phase_pre = pred_phase_demerr_pre + pred_phase_vel_pre
+        pred_phase_exca = pred_phase_demerr_exca + pred_phase_vel_exca
 
         wr_phase = point_obj.phase
         wr_res_phase = np.angle(np.exp(1j * wr_phase) * np.conjugate(np.exp(1j * pred_phase)))
