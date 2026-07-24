@@ -420,6 +420,8 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
                     self.ifg_list.append((i, i + j + 1))
                     if i >= ix_break:
                         self.ifg_list_exca.append((i, i + j + 1))
+                    elif i + j + 1 > ix_break:
+                        self.ifg_list_exca.append((i, i + j + 1))
                     else:
                         self.ifg_list_pre.append((i, i + j + 1))
 
