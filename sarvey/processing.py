@@ -1255,7 +1255,7 @@ class Processing:
         # excavation
         axs[1,0].hist(-vel_pre[mask_gamma] * 100, bins=200)
         axs[1,0].set_ylabel('Absolute frequency')
-        axs[1,0].set_xlabel('Mean velocity [cm / year]')
+        axs[1,0].set_xlabel('Mean pre-velocity [cm / year]')
 
         axs[1,1].hist(-demerr_pre[mask_gamma], bins=200)
         axs[1,1].set_ylabel('Absolute frequency')
@@ -1264,7 +1264,7 @@ class Processing:
          # excavation
         axs[2,0].hist(-vel_exca[mask_gamma] * 100, bins=200)
         axs[2,0].set_ylabel('Absolute frequency')
-        axs[2,0].set_xlabel('Mean velocity [cm / year]')
+        axs[2,0].set_xlabel('Mean Exca-Velocity [cm/yer]')
 
         axs[2,1].hist(-demerr_exca[mask_gamma], bins=200)
         axs[2,1].set_ylabel('Absolute frequency')
