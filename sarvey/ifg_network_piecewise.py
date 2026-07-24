@@ -188,6 +188,7 @@ class IfgNetworkPiecewise:
         with h5py.File(path, 'r') as f:
             self.num_images = f.attrs["num_images"]
             self.num_ifgs = f.attrs["num_ifgs"]
+            self.ix_ifg = f.attrs["ix_ifg"]    
 
             self.tbase_ifg = f['tbase_ifg'][:]
             self.pbase_ifg = f['pbase_ifg'][:]
@@ -205,6 +206,7 @@ class IfgNetworkPiecewise:
             self.num_images_pre = f.attrs["num_images_pre"]
             self.num_ifgs_pre = f.attrs["num_ifgs_pre"]
             self.ix_breakpoint = f.attrs["ix_breakpoint"]
+            self.ix_ifg_pre = f.attrs["ix_ifg_pre"]
 
             self.tbase_ifg_pre = f['tbase_ifg_pre'][:]
             self.pbase_ifg_pre = f['pbase_ifg_pre'][:]
@@ -221,6 +223,7 @@ class IfgNetworkPiecewise:
             # excavation
             self.num_images_exca = f.attrs["num_images_exca"]
             self.num_ifgs_exca = f.attrs["num_ifgs_exca"]
+            self.ix_ifg_exca = f.attrs["ix_ifg_exca"]
 
             self.tbase_ifg_exca = f['tbase_ifg_exca'][:]
             self.pbase_ifg_exca = f['pbase_ifg_exca'][:]
@@ -259,6 +262,7 @@ class IfgNetworkPiecewise:
         with h5py.File(path, 'w') as f:
             f.attrs["num_images"] = self.num_images
             f.attrs["num_ifgs"] = self.num_ifgs
+            f.attrs["ix_ifg"] = self.ix_ifg
 
             f.create_dataset('tbase_ifg', data=self.tbase_ifg)
             f.create_dataset('pbase_ifg', data=self.pbase_ifg)
@@ -271,6 +275,7 @@ class IfgNetworkPiecewise:
             f.attrs["num_images_pre"] = self.num_images_pre
             f.attrs["num_ifgs_pre"] = self.num_ifgs_pre
             f.attrs["ix_breakpoint"] = self.ix_breakpoint
+            f.attrs["ix_ifg_pre"] = self.ix_ifg_pre
 
             f.create_dataset('tbase_ifg_pre', data=self.tbase_ifg_pre)
             f.create_dataset('pbase_ifg_pre', data=self.pbase_ifg_pre)
@@ -282,6 +287,7 @@ class IfgNetworkPiecewise:
             # excavation
             f.attrs["num_images_exca"] = self.num_images_exca
             f.attrs["num_ifgs_exca"] = self.num_ifgs_exca
+            f.attrs["ix_ifg_exca"] = self.ix_ifg_exca
 
             f.create_dataset('tbase_ifg_exca', data=self.tbase_ifg_exca)
             f.create_dataset('pbase_ifg_exca', data=self.pbase_ifg_exca)
