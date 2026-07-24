@@ -588,6 +588,12 @@ class Densification(BaseModel, extra="forbid"):
         default=0.15
     )
 
+    excavation_velocity_bound: float = Field(
+            title="Bounds on mean velocity for temporal unwrapping [m/year]",
+            description="Set the bound (asymmetric) for the mean velocity estimation in temporal unwrapping.",
+            default=0.2
+        )
+
     dem_error_bound: float = Field(
         title="Bounds on DEM error for temporal unwrapping [m]",
         description="Set the bound (symmetric) for the DEM error estimation in temporal unwrapping.",
