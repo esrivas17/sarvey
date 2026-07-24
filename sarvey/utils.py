@@ -562,9 +562,15 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
     a_exca[:,1] = 4 * np.pi / obj.wavelength * tbase_exca
 
     for p in range(obj.num_points):
-        obv_vec = obj.phase[p, :]
-        obv_vec_pre = obj.phase[p, :ixbreak]
-        obv_vec_exca = obj.phase[p, ixbreak:]
+        if ifg_space:
+            obv_vec = obj.phase[p, :]
+            obv_vec_pre = obj.phase_pre[p, :]
+            obv_vec_exca = obj.phase_exca[p,:]
+        else:
+            obv_vec = obj.phase[p, :]
+            obv_vec_pre = obj.phase[p, :ixbreak]
+            obv_vec_exca = obj.phase[p, ixbreak:]
+            
         a[:, 0] = 4 * np.pi / obj.wavelength * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
         a_pre[:,0] = 4 * np.pi / obj.wavelength * pbase_pre / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
         a_exca[:,0] = 4 * np.pi / obj.wavelength * pbase_exca / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
