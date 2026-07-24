@@ -350,6 +350,7 @@ def densifyNetworkPiecewise(*, point1_obj: PointsPiecewise, vel_p1: np.ndarray, 
                 num_conn_p1,
                 max_dist_p1,
                 velocity_bound,
+                exca_velocity_bound,
                 demerr_bound,
                 num_samples
             ) for idx_range in idx]
