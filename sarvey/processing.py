@@ -1198,6 +1198,8 @@ class Processing:
             new_point_id=point1_obj.point_id,
             new_coord_xy=point1_obj.coord_xy,
             new_phase=point1_obj.phase,
+            new_phase_pre=point1_obj.phase_pre,
+            new_phase_exca=point1_obj.phase_exca,
             new_num_points=point1_obj.num_points,
             input_path=self.config.general.input_path
         )
