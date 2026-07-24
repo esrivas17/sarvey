@@ -287,7 +287,7 @@ def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: f
         disp_pre = tbase_pre[:, np.newaxis]* vel_pre[np.newaxis, :]
         disp_exca = tbase_exca[:, np.newaxis]* vel_exca[np.newaxis, :]
 
-        disp = np.concatenate((disp_pre,disp_exca), axis=1)
+        disp = np.concatenate((disp_pre,disp_exca), axis=0)
         pred_phase_vel = factor * disp
 
     else:
