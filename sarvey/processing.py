@@ -831,7 +831,7 @@ class Processing:
             phase_for_aps_filtering = point1_obj.phase
 
         # create output which contains only the atmospheric phase screen (no parameters)
-        aps1_obj = Points(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
+        aps1_obj = PointsPiecewise(file_path=join(self.path, "p1_aps.h5"), logger=self.logger)
         aps1_obj.open(other_file_path=join(self.path, "p1_ts_filt.h5"),
             input_path=self.config.general.input_path)
 
