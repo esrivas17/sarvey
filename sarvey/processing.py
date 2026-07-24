@@ -1055,6 +1055,7 @@ class Processing:
         vel_p1, vel_pre_p1, vel_exca_p1, demerr_p1 = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=True)[:4]
 
         # plot predicted velocity
+        bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         fig = viewer.plotScatter(value=-vel_p1, coord=point1_obj.coord_xy,
                                          ttl="Mean velocity in [m / year]",
                                          bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
