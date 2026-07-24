@@ -1052,7 +1052,7 @@ class Processing:
         # piecewise
         point1_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point1_obj.open(input_path=self.config.general.input_path)
-        vel_p1, vel_pre_p1, vel_exca_p1, demerr_p1, _ = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=True)
+        vel_p1, vel_pre_p1, vel_exca_p1, demerr_p1 = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=True)[:4]
 
         # load wrapped phase to remove known components for unwrapping p2 points
         #point1_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)  # wrapped phase!
