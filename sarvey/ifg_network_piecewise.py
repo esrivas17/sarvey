@@ -160,7 +160,8 @@ class IfgNetworkPiecewise:
         return a
     
     def getDesignMatrixPre(self):
-        a = np.zeros((self.num_ifgs_pre, self.num_images_pre))
+        #correct bugs here
+        a = np.zeros((self.num_ifgs_pre, self.num_images_pre+1))
         for i in range(len(self.ifg_list_pre)):
             a[i, self.ifg_list_pre[i][0]] = 1
             a[i, self.ifg_list_pre[i][1]] = -1

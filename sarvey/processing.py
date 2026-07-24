@@ -1155,25 +1155,25 @@ class Processing:
         aps1_ifg_phase = np.matmul(a_ifg, aps1_obj.phase.T).T
         aps2_ifg_phase = np.matmul(a_ifg, aps2_obj.phase.T).T
         # pre
-        a_ifg_pre = point2_obj.ifg_net_obj.getDesignMatrixPre()
-        aps1_ifg_phase_pre = np.matmul(a_ifg_pre, aps1_obj.phase_pre.T).T
-        aps2_ifg_phase_pre = np.matmul(a_ifg_pre, aps2_obj.phase_pre.T).T
+        #a_ifg_pre = point2_obj.ifg_net_obj.getDesignMatrixPre()
+        #aps1_ifg_phase_pre = np.matmul(a_ifg_pre, aps1_obj.phase_pre.T).T
+        #aps2_ifg_phase_pre = np.matmul(a_ifg_pre, aps2_obj.phase_pre.T).T
         # excavation
-        a_ifg_exca = point2_obj.ifg_net_obj.getDesignMatrixExca()
-        aps1_ifg_phase_exca = np.matmul(a_ifg_exca, aps1_obj.phase_exca.T).T
-        aps2_ifg_phase_exca = np.matmul(a_ifg_exca, aps2_obj.phase_exca.T).T
+        #a_ifg_exca = point2_obj.ifg_net_obj.getDesignMatrixExca()
+        #aps1_ifg_phase_exca = np.matmul(a_ifg_exca, aps1_obj.phase_exca.T).T
+        #aps2_ifg_phase_exca = np.matmul(a_ifg_exca, aps2_obj.phase_exca.T).T
 
         # correct for APS
         point2_obj.phase = np.angle(np.exp(1j * point2_obj.phase) * np.conjugate(np.exp(1j * aps2_ifg_phase)))
         point1_obj.phase = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * aps1_ifg_phase)))
 
         # pre
-        point2_obj.phase_pre = np.angle(np.exp(1j * point2_obj.phase_pre) * np.conjugate(np.exp(1j * aps2_ifg_phase_pre)))
-        point1_obj.phase_pre = np.angle(np.exp(1j * point1_obj.phase_pre) * np.conjugate(np.exp(1j * aps1_ifg_phase_pre)))
+        #point2_obj.phase_pre = np.angle(np.exp(1j * point2_obj.phase_pre) * np.conjugate(np.exp(1j * aps2_ifg_phase_pre)))
+        #point1_obj.phase_pre = np.angle(np.exp(1j * point1_obj.phase_pre) * np.conjugate(np.exp(1j * aps1_ifg_phase_pre)))
 
         #excavation
-        point2_obj.phase_exca = np.angle(np.exp(1j * point2_obj.phase_exca) * np.conjugate(np.exp(1j * aps2_ifg_phase_exca)))
-        point1_obj.phase_exca = np.angle(np.exp(1j * point1_obj.phase_exca) * np.conjugate(np.exp(1j * aps1_ifg_phase_exca)))
+        #point2_obj.phase_exca = np.angle(np.exp(1j * point2_obj.phase_exca) * np.conjugate(np.exp(1j * aps2_ifg_phase_exca)))
+        #point1_obj.phase_exca = np.angle(np.exp(1j * point1_obj.phase_exca) * np.conjugate(np.exp(1j * aps1_ifg_phase_exca)))
 
 
         demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca = densifyNetworkPiecewise(
