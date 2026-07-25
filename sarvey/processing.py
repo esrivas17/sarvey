@@ -399,6 +399,16 @@ class Processing:
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_0_initial.png"), dpi=300)
+            # plotting long gamma
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                  arcs=net_par_obj.arcs,
+                                                                  val=gamma,
+                                                                  ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_longgamma.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
@@ -494,6 +504,18 @@ class Processing:
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated.png"), dpi=300)
+
+            # plotting long gamma
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                    arcs=net_par_obj.arcs,
+                                                                    val=gamma,
+                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_longgamma.png"), dpi=300)
+            
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
