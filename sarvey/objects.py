@@ -1220,5 +1220,5 @@ class NetworkParameterPiecewise(NetworkPiecewise):
             self.gamma_exca = f["gamma_exca"][:]
 
     def redefine_gamma(self):
-        self.gamma_all = self.gamma
-        self.gamma = self.gamma_exca
+        self.gamma_saved = self.gamma
+        self.gamma = self.gamma_pre

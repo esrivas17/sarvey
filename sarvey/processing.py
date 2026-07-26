@@ -45,7 +45,7 @@ from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
  #                               SmallBaselineNetwork, StarNetwork)
 from sarvey.ifg_network_piecewise import StarNetwork, SmallTemporalBaselinesNetwork
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, PointsPiecewise, NetworkPiecewise, NetworkParameterPiecewise
-from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, temporalUnwrappingTunnelling ,spatialUnwrapping,
+from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, temporalUnwrappingTunnelling, temporalUnwrappingTunnellingReduced, spatialUnwrapping,
                                removeBadArcsIteratively, removeBadPointsIteratively)
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_excavation_date
 import sarvey.utils as ut
@@ -378,6 +378,16 @@ class Processing:
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
         
+        demerr_combined, vel_pre_combined, vel_exca_combined, gamma_combined = temporalUnwrappingTunnellingReduced(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
+                                                net_obj=net_piecewise_obj,
+                                                wavelength=point_piecewise_obj.wavelength,
+                                                velocity_bound=self.config.consistency_check.velocity_bound,
+                                                vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
+                                                demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                num_samples=self.config.consistency_check.num_optimization_samples,
+                                                num_cores=self.config.general.num_cores,
+                                                logger=self.logger)
+        
         net_par_obj = NetworkParameterPiecewise(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(net_obj=net_piecewise_obj, demerr=demerr, vel=vel, gamma=gamma, 
@@ -422,6 +432,17 @@ class Processing:
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_0_initial_preexcavation.png"), dpi=300)
 
+            ########### experiments ##########
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                    arcs=net_par_obj.arcs,
+                                                                    val=gamma_combined,
+                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_gammacombined.png"), dpi=300)
+
         except BaseException as e:
                     self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
@@ -460,6 +481,16 @@ class Processing:
         net_piecewise_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
         demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca = temporalUnwrappingTunnelling(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
+                                                net_obj=net_piecewise_obj,
+                                                wavelength=point_piecewise_obj.wavelength,
+                                                velocity_bound=self.config.consistency_check.velocity_bound,
+                                                vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
+                                                demerr_bound=self.config.consistency_check.dem_error_bound,
+                                                num_samples=self.config.consistency_check.num_optimization_samples,
+                                                num_cores=self.config.general.num_cores,
+                                                logger=self.logger)
+
+        demerr_combined, vel_pre_combined, vel_exca_combined, gamma_combined = temporalUnwrappingTunnellingReduced(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
                                                 net_obj=net_piecewise_obj,
                                                 wavelength=point_piecewise_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
