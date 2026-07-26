@@ -367,6 +367,15 @@ class Processing:
         net_piecewise_obj.writeToFile()
         net_piecewise_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
+        demerr_combined, vel_pre_combined, vel_exca_combined, gamma_combined = temporalUnwrappingTunnellingReduced(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
+                                        net_obj=net_piecewise_obj,
+                                        wavelength=point_piecewise_obj.wavelength,
+                                        velocity_bound=self.config.consistency_check.velocity_bound,
+                                        vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
+                                        demerr_bound=self.config.consistency_check.dem_error_bound,
+                                        num_samples=self.config.consistency_check.num_optimization_samples,
+                                        num_cores=self.config.general.num_cores,
+                                        logger=self.logger)
         
         demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca = temporalUnwrappingTunnelling(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
                                                 net_obj=net_piecewise_obj,
@@ -378,15 +387,7 @@ class Processing:
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
         
-        demerr_combined, vel_pre_combined, vel_exca_combined, gamma_combined = temporalUnwrappingTunnellingReduced(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
-                                                net_obj=net_piecewise_obj,
-                                                wavelength=point_piecewise_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
+
         
         net_par_obj = NetworkParameterPiecewise(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
