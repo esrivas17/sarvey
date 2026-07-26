@@ -1091,8 +1091,8 @@ class NetworkPiecewise(Network):
         self.slant_range = np.zeros((self.num_arcs,))
         for idx, arc in enumerate(self.arcs):
             self.phase[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], :]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], :])))
-            self.phase_pre[idx, :]= np.angle(np.exp(1j * point_obj.phase[arc[0], self.ifg_net_obj.ix_ifg_pre]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], self.ifg_net_obj.ix_ifg_pre])))
-            self.phase_exca[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], self.ifg_net_obj.ix_ifg_exca]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], self.ifg_net_obj.ix_ifg_exca])))
+            self.phase_pre[idx, :]= np.angle(np.exp(1j * point_obj.phase[arc[0], point_obj.ifg_net_obj.ix_ifg_pre]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], point_obj.ifg_net_obj.ix_ifg_pre])))
+            self.phase_exca[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], point_obj.ifg_net_obj.ix_ifg_exca]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], point_obj.ifg_net_obj.ix_ifg_exca])))
             self.loc_inc[idx] = np.mean([point_obj.loc_inc[arc[0]], point_obj.loc_inc[arc[1]]])
             self.slant_range[idx] = np.mean([point_obj.slant_range[arc[0]], point_obj.slant_range[arc[1]]])
 
