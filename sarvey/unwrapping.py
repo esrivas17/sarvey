@@ -257,8 +257,8 @@ def oneDimSearchTemporalCoherencePiecewise(*, demerr_range: np.ndarray, vel_rang
             val_range=vel_excavation_range)
     
     pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
-    pred_phase_vel_combined[ix_pre] = design_mat_pre * vel_pre
-    pred_phase_vel_combined[ix_exca] = design_mat_exca * vel_exca
+    pred_phase_vel_combined[ix_pre] = design_mat_pre[:,1] * vel_pre
+    pred_phase_vel_combined[ix_exca] = design_mat_exca[:,1] * vel_exca
     residual = obs_phase - pred_phase_vel_combined.T
     gamma_vel_combined = np.abs(np.mean(np.exp(1j*residual)))
 
@@ -295,8 +295,8 @@ def oneDimSearchTemporalCoherencePiecewise(*, demerr_range: np.ndarray, vel_rang
                     val_range=vel_excavation_range)
         
         pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
-        pred_phase_vel_combined[ix_pre] = design_mat_pre * vel_pre
-        pred_phase_vel_combined[ix_exca] = design_mat_exca * vel_exca
+        pred_phase_vel_combined[ix_pre] = design_mat_pre[:,1] * vel_pre
+        pred_phase_vel_combined[ix_exca] = design_mat_exca[:,1] * vel_exca
         
         demerr, gamma_demerr, pred_phase_demerr = findOptimum(
             obs_phase=obs_phase - pred_phase_vel_combined,
@@ -331,8 +331,8 @@ def oneDimSearchTemporalCoherencePiecewise(*, demerr_range: np.ndarray, vel_rang
         pred_phase_demerr = design_mat[:,0] * demerr_exca
 
     pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
-    pred_phase_vel_combined[ix_pre] = design_mat_pre * vel_pre
-    pred_phase_vel_combined[ix_exca] = design_mat_exca * vel_exca
+    pred_phase_vel_combined[ix_pre] = design_mat_pre[:,1] * vel_pre
+    pred_phase_vel_combined[ix_exca] = design_mat_exca[:,1] * vel_exca
     
     pred_phase = pred_phase_demerr + pred_phase_vel_combined
     res = (obs_phase - pred_phase.T).ravel()
