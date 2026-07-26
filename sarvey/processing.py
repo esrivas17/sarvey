@@ -410,9 +410,7 @@ class Processing:
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_0_initial_longgamma.png"), dpi=300)
-        except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-
+        
             # plot gamma the excavation
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
@@ -423,8 +421,9 @@ class Processing:
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_0_initial_preexcavation.png"), dpi=300)
+
         except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+                    self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
 
         _, point_id = removeBadPointsIteratively(
@@ -541,9 +540,6 @@ class Processing:
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_preexcavation.png"), dpi=300)
-        except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-            
             
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
