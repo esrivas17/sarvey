@@ -392,9 +392,10 @@ def temporalUnwrappingTunnelling(*, ifg_net_obj: IfgNetworkPiecewise, net_obj: N
     logger.info(msg=msg)
 
     start_time = time.time()
-
+    ix_pre = net_obj.ifg_net_obj.ix_ifg_pre
+    ix_exca = net_obj.ifg_net_obj.ix_ifg_exca
     if num_cores == 1:
-        args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase, net_obj.phase_pre, net_obj.phase_exca,
+        args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase, net_obj.phase[:, ix_pre], net_obj.phase[:,ix_exca],
             net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, vel_excavation_bound, demerr_bound, num_samples)
         arc_idx_range, demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca = launchAmbiguityFunctionSearchPiecewise(parameters=args)
     else:
@@ -420,8 +421,8 @@ def temporalUnwrappingTunnelling(*, ifg_net_obj: IfgNetworkPiecewise, net_obj: N
             idx_range,
             idx_range.shape[0],
             net_obj.phase[idx_range, :],
-            net_obj.phase_pre[idx_range, :], 
-            net_obj.phase_exca[idx_range, :],
+            net_obj.phase[idx_range, ix_pre], 
+            net_obj.phase[idx_range, ix_exca],
             net_obj.slant_range[idx_range],
             net_obj.loc_inc[idx_range],
             ifg_net_obj,
@@ -479,6 +480,7 @@ def launchAmbiguityFunctionSearchPiecewise(parameters: tuple):
     demerr_pre = np.zeros((num_arcs, 1), dtype=np.float32)
     vel_pre = np.zeros((num_arcs, 1), dtype=np.float32)
     gamma_pre = np.zeros((num_arcs, 1), dtype=np.float32)
+
     #excavation
     demerr_exca = np.zeros((num_arcs, 1), dtype=np.float32)
     vel_exca = np.zeros((num_arcs, 1), dtype=np.float32)
