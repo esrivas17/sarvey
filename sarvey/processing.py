@@ -1401,6 +1401,10 @@ class Processing:
         plt.close(fig)
 
         # using gamma_Exca
+        """
+        Combining gamma into one variable produces a intermediate gamma value between gamma_pre and gamma_exca, therefore I am choosing one of them
+        In this case gamma_exca
+        """
         mask_gamma = gamma_exca >= self.config.densification.arc_unwrapping_coherence
         self.logger.info(msg=f"Reduce the dense point set by {mask_gamma[~mask_gamma].shape[0]} points,")
         self.logger.info(msg=f"due to coherence from temporal unwrapping < "
