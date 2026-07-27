@@ -509,6 +509,14 @@ class Processing:
         net_par_obj.redefine_gamma()
         net_par_obj.writeToFile()
 
+        # network parameter with combined unwrapping
+        net_par_obj_comb = NetworkParameterPiecewise(file_path=join(self.path, "point_network_parameter_combined.h5"),
+                                        logger=self.logger)
+        net_par_obj_comb.prepare(net_obj=net_piecewise_obj, demerr=demerr_combined, vel=vel_pre_combined, gamma=gamma_combined, 
+                            demerr_pre=demerr_combined, vel_pre=vel_pre_combined, gamma_pre=gamma_combined, 
+                            demerr_exca=demerr_combined, vel_exca=vel_exca_combined, gamma_exca=gamma_combined)
+        net_par_obj_comb.writeToFile()
+
         #### histogram ####
         # histogram
         fig = plt.figure(figsize=(16, 10))
@@ -539,7 +547,7 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_1_tempunwrapping_params.png"), dpi=300)
         plt.close(fig)
 
-        fig1 = plt.figure(figsize=(12, 6))
+        fig1 = plt.figure(figsize=(10, 8))
         axs = fig1.subplots(3, 1)
         axs[0].hist(vel_pre_combined*100, bins=2000)
         axs[0].set_ylabel('Absolute frequency')
@@ -630,6 +638,12 @@ class Processing:
         net_par_obj = NetworkParameterPiecewise(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.open(input_path=self.config.general.input_path)
+
+        ## testing combined unwrapping ####
+        net_par_obj_combi = NetworkParameterPiecewise(file_path=join(self.path, "point_network_parameter_combined.h5"),
+                                               logger=self.logger)
+        net_par_obj_combi.open(input_path=self.config.general.input_path)
+        ##################################
 
         point_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point_obj.open(other_file_path=join(self.path, "p1_ifg_wr.h5"),
@@ -726,6 +740,52 @@ class Processing:
                                  logger=self.logger)[0]
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_exca.png"), dpi=300)
         plt.close(fig)
+
+        ################# figures combined unwrapping ################
+        #dem error
+        demerr_exca_combined = spatialParameterIntegration(val_arcs=net_par_obj_combi.demerr_exca,
+                                                arcs=net_par_obj_combi.arcs,
+                                                coord_xy=point_obj.coord_xy,
+                                                weights=net_par_obj_combi.gamma_exca,
+                                                spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+
+        fig = viewer.plotScatter(value=-demerr_exca_combined, coord=point_obj.coord_xy,
+                                    ttl="Parameter integration: DEM correction in [m]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
+                                    logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_combined.png"), dpi=300)
+        plt.close(fig)
+
+        ## vel pre
+        vel_pre_combined = spatialParameterIntegration(val_arcs=net_par_obj_combi.vel_pre,
+                                            arcs=net_par_obj_combi.arcs,
+                                            coord_xy=point_obj.coord_xy,
+                                            weights=net_par_obj_combi.gamma_pre,
+                                            spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+
+        fig = viewer.plotScatter(value=-vel_pre_combined, coord=point_obj.coord_xy,
+                                    ttl="Parameter integration: mean velocity in [m / year]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                    logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_pre_combined.png"), dpi=300)
+        plt.close(fig)
+
+        ## vel excava
+        vel_exca_combined = spatialParameterIntegration(val_arcs=net_par_obj_combi.vel_exca,
+                                                  arcs=net_par_obj_combi.arcs,
+                                                  coord_xy=point_obj.coord_xy,
+                                                  weights=net_par_obj_combi.gamma_exca,
+                                                  spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        
+        fig = viewer.plotScatter(value=-vel_exca_combined, coord=point_obj.coord_xy,
+                                    ttl="Parameter integration: mean velocity in [m / year]",
+                                    bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
+                                    logger=self.logger)[0]
+        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_exca_combined.png"), dpi=300)
+        plt.close(fig)
+        
+
+        ##############################################################
 
         # predict piecewise phase
         self.logger.info(msg="Remove phase contributions from mean velocity"
