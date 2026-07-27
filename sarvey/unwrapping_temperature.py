@@ -1291,47 +1291,50 @@ def oneDimSearchTemporalCoherence_3variables_hytest(*, demerr_range: np.ndarray,
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
 
-    pred_phase_veldemerr = np.matmul(design_mat[:,:2], np.array([demerr, vel]))
-    residuals_tcoef = pred_phase - pred_phase_veldemerr
+    pred_phase_without_tcoef = np.matmul(design_mat[:,:2], np.array([demerr, vel]))
+    residuals_without_tcoef = (obs_phase - pred_phase_without_tcoef.T).ravel()
+    gamma_without_tcoef = np.abs(np.mean(np.exp(1j * residuals_without_tcoef)))
 
+    
     """
-    T TESTING
-    Is adding the thermal term improving the model enough relative to noise?
+    F-test for nested models
+    https://www.rose-hulman.edu/class/ma/inlow/Math485/ftests.pdf
+    F-test for nested models
 
-    t = tcoef / SE(tcoef), where SE: standard error
-
-    SE(tcoef) = sqrt(sigma² * inv(Xt*X))
+    is the full model (dem err, vel and tcoef) better than reduced model (vel, dem err) ?
+    however, this seems to not be the most optimal test. This assumes residuals come from Least-squares
+    Here, we are getting residuals and estimates from coherence optimization
     """
+    SSE_full = np.sum(res**2)
+    SSE_reduced = np.sum(residuals_without_tcoef**2)
 
-    # degrees of freedom
-    n = len(residuals_tcoef)
-    p = 1
-    dof = n - p # n: observations and p: predictors
+    pr = 2 # degrees of freedom of reduced model
+    pf = 3 # degrees of freedom of full model
+    delta_p = pf - pr # we are testing 1 cofficient
+    n = len(obs_phase)
 
-    # variance
-    sigma2 = (residuals_tcoef @ residuals_tcoef) / dof
+    delta_SSE = SSE_reduced - SSE_full
 
-    # standard error
-    #T_standard = design_mat[:,-1] - design_mat[:,-1].mean()
-    XtX_inv = np.linalg.inv(design_mat.T @ design_mat)
-    std_tcoef = np.sqrt(sigma2 * XtX_inv[-1,-1])
+    MSE_SSE_full = SSE_full / n
 
-    # --- t-test --- #
+    F = delta_SSE / delta_p / MSE_SSE_full
     alpha = 0.001
-    t_val = tcoef / std_tcoef
-    t_crit = stats.t.ppf(1 - alpha/2, dof)
+    Fcrit = stats.f.ppf(1 - alpha, pf - pr, n - pf)
 
     # decision
-    if not (abs(t_val) > t_crit):
+    if F < Fcrit:
+        # Thermal term is not significant
+        res = residuals_without_tcoef
         tcoef = 0.0
-        res = (obs_phase - pred_phase_veldemerr.T).ravel()
+        res = (obs_phase - pred_phase_without_tcoef.T).ravel()
         gamma = np.abs(np.mean(np.exp(1j * res)))
+
 
     return demerr, vel, tcoef, gamma
 
 
 def temporalUnwrapping_3v_hytest(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelength: float, velocity_bound: float,
-                       demerr_bound: float, coef_bound: float, num_samples: int, num_cores: int = 1, logger: Logger) -> \
+                       demerr_bound: float, tcoef_bound: float, num_samples: int, num_cores: int = 1, logger: Logger) -> \
         tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Solve ambiguities for every arc in spatial Network object.
 
@@ -1358,7 +1361,7 @@ def temporalUnwrapping_3v_hytest(*, ifg_net_obj: IfgNetwork, net_obj: Network,  
     -------
     demerr: np.ndarray
     vel: np.ndarray
-    coef: np.arry
+    coef: np.array
     gamma: np.ndarray
     """
     msg = "#" * 10
@@ -1371,7 +1374,7 @@ def temporalUnwrapping_3v_hytest(*, ifg_net_obj: IfgNetwork, net_obj: Network,  
     if num_cores == 1:
         args = (
             np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
-            net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, coef_bound, num_samples)
+            net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, tcoef_bound, num_samples)
         arc_idx_range, demerr, vel, tcoef, gamma = launchAmbiguityFunctionSearch_hytest(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
@@ -1396,7 +1399,7 @@ def temporalUnwrapping_3v_hytest(*, ifg_net_obj: IfgNetwork, net_obj: Network,  
             wavelength,
             velocity_bound,
             demerr_bound,
-            coef_bound,
+            tcoef_bound,
             num_samples) for idx_range in idx]
 
         with multiprocessing.Pool(processes=num_cores) as pool:

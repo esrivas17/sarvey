@@ -469,8 +469,12 @@ class ConsistencyCheck(BaseModel, extra="forbid"):
     nro: int = Field(
         title="Number of redundant observations",
         description="Set Number of redundant observations in arc network",
-        default=9999
-    )
+        default=9999)
+
+    remove_p1_thermal_component: bool = Field(
+        title="Remove thermal component from p1 ts",
+        description="Boolean to remove thermal component from estimated p1",
+        default=False)
     
     
     @field_validator('coherence_p1')

@@ -547,9 +547,7 @@ class Processing:
         net_par_obj.open(input_path=self.config.general.input_path)
 
         point_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
-        point_obj.open(
-            other_file_path=join(self.path, "p1_ifg_wr.h5"),
-            input_path=self.config.general.input_path)
+        point_obj.open(other_file_path=join(self.path, "p1_ifg_wr.h5"), input_path=self.config.general.input_path)
 
         # reference point can be set arbitrarily, because outliers are removed.
         if self.config.consistency_check.reference_p1_lon:
@@ -705,6 +703,23 @@ class Processing:
         )
         point_obj.phase = phase_ts
         point_obj.writeToFile()
+
+        if self.config.consistency_check.remove_p1_thermal_component:
+            unw_phase = unw_res_phase + pred_phase_demerr + pred_phase_vel
+
+            phase_ts_no_thermal = ut.invertIfgNetwork(
+                        phase=unw_phase,
+                        num_points=point_obj.num_points,
+                        ifg_net_obj=point_obj.ifg_net_obj,
+                        num_cores=1,  # self.config.general.num_cores,
+                        ref_idx=0,
+                        logger=self.logger)
+            
+            point_obj = Points(file_path=join(self.path, "p1_ts_thermal_filtered.h5"), logger=self.logger)
+            point_obj.open(other_file_path=join(self.path, "p1_ifg_unw.h5"), input_path=self.config.general.input_path)
+            point_obj.phase = phase_ts_no_thermal
+            point_obj.writeToFile()
+
 
     def runUnwrappingSpace(self):
         """RunSpatialUnwrapping."""
