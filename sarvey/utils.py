@@ -290,8 +290,8 @@ def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: f
         pred_phase_vel_exca = tbase_exca[:, np.newaxis]* vel_exca[np.newaxis, :]
 
         #pred_phase_vel_combined = np.concatenate((pred_phase_vel_pre,pred_phase_vel_exca), axis=0)
-        pred_phase_vel_combined[:,ifg_net_obj.ix_ifg_pre] = pred_phase_vel_pre
-        pred_phase_vel_combined[:,ifg_net_obj.ix_ifg_exca] = pred_phase_vel_exca
+        pred_phase_vel_combined[ifg_net_obj.ix_ifg_pre,:] = pred_phase_vel_pre
+        pred_phase_vel_combined[ifg_net_obj.ix_ifg_exca,:] = pred_phase_vel_exca
         pred_phase_vel_pre *= factor 
         pred_phase_vel_exca *= factor
         pred_phase_vel_combined *= factor
