@@ -313,11 +313,10 @@ def densifyNetworkPiecewise(*, point1_obj: PointsPiecewise, vel_p1: np.ndarray, 
     # NOTE: point1_obj is the wrapped phase from 1OP
 
     # remove parameters from wrapped phase
-    pred_phase_demerr, pred_phase_vel, pred_phase_demerr_pre, pred_phase_vel_pre, pred_phase_demerr_exca, pred_phase_vel_exca = ut.predictPhasePiecewise(obj=point1_obj, vel=vel_p1, vel_pre=vel_p1_pre, vel_exca=vel_p1_exca, demerr=demerr_p1,  
+    pred_phase_demerr, pred_phase_vel = ut.predictPhasePiecewise(obj=point1_obj, vel=vel_p1, vel_pre=vel_p1_pre, vel_exca=vel_p1_exca, demerr=demerr_p1,  
                 ifg_space=True, logger=logger)
     pred_phase = pred_phase_demerr + pred_phase_vel
-    pred_phase_pre = pred_phase_demerr_pre + pred_phase_vel_pre
-    pred_phase_exca = pred_phase_demerr_exca + pred_phase_vel_exca
+    
 
     # Note: for small baselines it does not make a difference if re-wrapping the phase difference or not.
     # However, for long baselines (like in the star network) it does make a difference. Leijen (2014) does not re-wrap
@@ -326,20 +325,20 @@ def densifyNetworkPiecewise(*, point1_obj: PointsPiecewise, vel_p1: np.ndarray, 
     # for triangle-based temporal unwrapping.
     # demod_phase1 = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * pred_phase)))  # re-wrapping
     demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping , this is in ifg domain
-    demod_phase1_pre = point1_obj.phase_pre - pred_phase_pre
-    demod_phase1_exca =point1_obj.phase_exca - pred_phase_exca
+    #demod_phase1_pre = point1_obj.phase_pre - pred_phase_pre
+    #demod_phase1_exca =point1_obj.phase_exca - pred_phase_exca
     # initialize output
-    #init_args = (tree_p1, point2_obj, demod_phase1)
-    init_args = (tree_p1, point2_obj, demod_phase1,demod_phase1_pre, demod_phase1_exca)
+    init_args = (tree_p1, point2_obj, demod_phase1)
+    #init_args = (tree_p1, point2_obj, demod_phase1,demod_phase1_pre, demod_phase1_exca)
 
     if num_cores == 1:
-        densificationInitializerPiecewise(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1, demod_phase1_pre=demod_phase1_pre, demod_phase1_exca=demod_phase1_exca)
-        #densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
+        #densificationInitializerPiecewise(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1, demod_phase1_pre=demod_phase1_pre, demod_phase1_exca=demod_phase1_exca)
+        densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1,
                 velocity_bound, exca_velocity_bound, demerr_bound, num_samples)
         idx_range, demerr_p2, vel_p2, gamma_p2, demerr_p2_pre, vel_p2_pre, gamma_p2_pre, demerr_p2_exca, vel_p2_exca, gamma_p2_exca = launchDensifyNetworkConsistencyCheckPiecewise(args)
     else:
-        with multiprocessing.Pool(num_cores, initializer=densificationInitializerPiecewise, initargs=init_args) as pool:
+        with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))
             num_cores = point2_obj.num_points if num_cores > point2_obj.num_points else num_cores
             # avoids having less samples than cores
@@ -476,7 +475,7 @@ def launchDensifyNetworkConsistencyCheckPiecewise(args: tuple):
 
         # pre excavation design matrix
         arc_phase_p1_pre = np.angle(np.exp(1j * global_point2_obj.phase_pre[p2, :]) *
-                                        np.conjugate(np.exp(1j * global_demod_phase1_pre[nearest_p1, :])))
+                                        np.conjugate(np.exp(1j * global_demod_phase1[np.ix_(nearest_p1, global_point2_obj.ifg_net_obj.ix_ifg_pre)])))
         
         design_mat_pre[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg_pre
                                     / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
@@ -489,7 +488,7 @@ def launchDensifyNetworkConsistencyCheckPiecewise(args: tuple):
         
         # during excavation design matrix
         arc_phase_p1_exca = np.angle(np.exp(1j * global_point2_obj.phase_exca[p2, :]) *
-                                                np.conjugate(np.exp(1j * global_demod_phase1_exca[nearest_p1, :])))
+                                                np.conjugate(np.exp(1j * global_demod_phase1[np.ix_(nearest_p1, global_point2_obj.ifg_net_obj.ix_ifg_exca)])))
         design_mat_exca[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg_exca
                                     / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
         design_mat_exca[:, 1] = factor * global_point2_obj.ifg_net_obj.tbase_ifg_exca
