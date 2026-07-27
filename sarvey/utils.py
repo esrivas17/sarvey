@@ -236,7 +236,7 @@ def predictPhasePiecewise(*, obj: [NetworkParameterPiecewise, PointsPiecewise], 
         if (vel is None) or (demerr is None):
             logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
             raise ValueError
-        pred_phase_demerr, pred_phase_vel, pred_phase_demerr_pre, pred_phase_vel_pre, pred_phase_demerr_exca, pred_phase_vel_exca = predictPhaseCorePiecewise(
+        pred_phase_demerr, pred_phase_vel = predictPhaseCorePiecewise(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
             vel=vel,
@@ -247,7 +247,7 @@ def predictPhasePiecewise(*, obj: [NetworkParameterPiecewise, PointsPiecewise], 
             loc_inc=obj.loc_inc,
             ifg_space=ifg_space)
     elif isinstance(obj, NetworkParameterPiecewise):
-        pred_phase_demerr, pred_phase_vel, pred_phase_demerr_pre, pred_phase_vel_pre, pred_phase_demerr_exca, pred_phase_vel_exca = predictPhaseCorePiecewise(
+        pred_phase_demerr, pred_phase_vel = predictPhaseCorePiecewise(
             ifg_net_obj=obj.ifg_net_obj,
             wavelength=obj.wavelength,
             vel=obj.vel,
@@ -260,7 +260,7 @@ def predictPhasePiecewise(*, obj: [NetworkParameterPiecewise, PointsPiecewise], 
     else:
         logger.error(msg="'obj' must be instance of 'points' or 'networkParameter'!")
         raise TypeError
-    return pred_phase_demerr, pred_phase_vel, pred_phase_demerr_pre, pred_phase_vel_pre, pred_phase_demerr_exca, pred_phase_vel_exca
+    return pred_phase_demerr, pred_phase_vel
 
 def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: float, vel: np.ndarray, vel_pre:np.ndarray, vel_exca:np.ndarray,
                      demerr: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
