@@ -538,6 +538,22 @@ class Processing:
         axs[2,1].set_xlabel('DEM error [m]')
         fig.savefig(join(self.path, "pic", "step_1_tempunwrapping_params.png"), dpi=300)
         plt.close(fig)
+
+        fig1 = plt.figure(figsize=(12, 6))
+        axs = fig1.subplots(3, 1)
+        axs[0].hist(vel_pre_combined*100, bins=2000)
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Pre Velocity Combined [cm/yr]')
+
+        axs[1].hist(vel_exca_combined*100, bins=2000)
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('Exca Velocity Combined [cm/yr]')
+
+        axs[2].hist(demerr_pre, bins=2000)
+        axs[2].set_ylabel('Absolute frequency')
+        axs[2].set_xlabel('DEM error [m]')
+        fig1.savefig(join(self.path, "pic", "step_1_tempunwrapping_params_combined.png"), dpi=300)
+        plt.close(fig1)
         ###################
 
         try:
@@ -572,7 +588,18 @@ class Processing:
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_preexcavation.png"), dpi=300)
-            
+
+            ####
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                    arcs=net_par_obj.arcs,
+                                                                    val=gamma_combined,
+                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_gammacombined.png"), dpi=300)
+
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
