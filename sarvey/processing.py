@@ -434,7 +434,7 @@ class Processing:
                                                 wavelength=point_obj.wavelength,
                                                 velocity_bound=self.config.consistency_check.velocity_bound,
                                                 demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                coef_bound=self.config.consistency_check.tcoef_bound,
+                                                tcoef_bound=self.config.consistency_check.tcoef_bound,
                                                 num_samples=self.config.consistency_check.num_optimization_samples,
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
