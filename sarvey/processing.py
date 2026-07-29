@@ -720,6 +720,19 @@ class Processing:
             point_obj.phase = phase_ts_no_thermal
             point_obj.writeToFile()
 
+            phase_ts_thermal = ut.invertIfgNetwork(
+                                    phase=pred_phase_tcoef,
+                                    num_points=point_obj.num_points,
+                                    ifg_net_obj=point_obj.ifg_net_obj,
+                                    num_cores=1,  # self.config.general.num_cores,
+                                    ref_idx=0,
+                                    logger=self.logger)
+                        
+            point_obj = Points(file_path=join(self.path, "p1_ts_thermal.h5"), logger=self.logger)
+            point_obj.open(other_file_path=join(self.path, "p1_ifg_unw.h5"), input_path=self.config.general.input_path)
+            point_obj.phase = phase_ts_thermal
+            point_obj.writeToFile()
+
 
     def runUnwrappingSpace(self):
         """RunSpatialUnwrapping."""
