@@ -443,7 +443,7 @@ class Processing:
         # histogram
         fig = plt.figure(figsize=(16, 5))
         axs = fig.subplots(1, 3)
-        axs[0].hist(tcoef*1000, bins=10000)
+        axs[0].hist(tcoef*1000, bins=5000)
         axs[0].set_ylabel('Absolute frequency')
         axs[0].set_xlabel('Temp Coeff [mm/C]')
 
