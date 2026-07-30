@@ -126,7 +126,7 @@ def main():
 
     # Column 1: Temporal baseline
     # Row 1: Raw phase
-    axes[0, 0].plot(tb_ifg, phase, 'b-', linewidth=2)
+    axes[0, 0].scatter(tb_ifg, phase, 'b-', linewidth=2)
     axes[0, 0].set_title('Phase (Temporal)', fontsize=12)
     axes[0, 0].set_xlabel('Temporal Baseline')
     #axes[0, 0].grid(True, alpha=0.3)
@@ -135,7 +135,7 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 2: phase - pred_demerror
-    axes[1, 0].plot(tb_ifg, phase - pred_phase_demerr, 'g-', linewidth=2)
+    axes[1, 0].scatter(tb_ifg, phase - pred_phase_demerr, 'g-', linewidth=2)
     axes[1, 0].set_title('Phase - Pred_DemError (Temporal)', fontsize=12)
     axes[1, 0].set_xlabel('Temporal Baseline')
     #axes[1, 0].grid(True, alpha=0.3)
@@ -143,7 +143,7 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 3: phase - (pred_demerror + pred_tcoef)
-    axes[2, 0].plot(tb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), 'r-', linewidth=2)
+    axes[2, 0].scatter(tb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), 'r-', linewidth=2)
     axes[2, 0].set_title('Phase - (DemError + TCoef) (Temporal)', fontsize=12)
     axes[2, 0].set_xlabel('Temporal Baseline')
     #axes[2, 0].grid(True, alpha=0.3)
@@ -151,10 +151,10 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    axes[3, 0].plot(tb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), 'm-', linewidth=2)
+    axes[3, 0].scatter(tb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), 'm-', linewidth=2)
     axes[3, 0].set_title('Phase - (DemError + TCoef + Vel) (Temporal)', fontsize=12)
     axes[3, 0].set_xlabel('Temporal Baseline')
-    axes[3, 0].set_ylabel('Phase')  # Only bottom plot shows y-label
+    axes[3, 0].set_ylabel('Phase')  # Only bottom scatter shows y-label
     #axes[3, 0].grid(True, alpha=0.3)
     axes[3, 0].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 0].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -162,7 +162,7 @@ def main():
 
     # Column 2: Perpendicular baseline
     # Row 1: Raw phase
-    axes[0, 1].plot(pb_ifg, phase, 'b-', linewidth=2)
+    axes[0, 1].scatter(pb_ifg, phase, 'b-', linewidth=2)
     axes[0, 1].set_title('Phase (Perp Baseline)', fontsize=12)
     axes[0, 1].set_xlabel('Perpendicular Baseline')
     #axes[0, 1].grid(True, alpha=0.3)
@@ -170,7 +170,7 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 2: phase - pred_demerror
-    axes[1, 1].plot(pb_ifg, phase - pred_phase_demerr, 'g-', linewidth=2)
+    axes[1, 1].scatter(pb_ifg, phase - pred_phase_demerr, 'g-', linewidth=2)
     axes[1, 1].set_title('Phase - Pred_DemError (Perp Baseline)', fontsize=12)
     axes[1, 1].set_xlabel('Perpendicular Baseline')
     #axes[1, 1].grid(True, alpha=0.3)
@@ -178,7 +178,7 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 3: phase - (pred_demerror + pred_tcoef)
-    axes[2, 1].plot(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), 'r-', linewidth=2)
+    axes[2, 1].scatter(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), 'r-', linewidth=2)
     axes[2, 1].set_title('Phase - (DemError + TCoef) (Perp Baseline)', fontsize=12)
     axes[2, 1].set_xlabel('Perpendicular Baseline')
     #axes[2, 1].grid(True, alpha=0.3)
@@ -186,10 +186,10 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    axes[3, 1].plot(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), 'm-', linewidth=2)
+    axes[3, 1].scatter(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), 'm-', linewidth=2)
     axes[3, 1].set_title('Phase - (DemError + TCoef + Vel) (Perp Baseline)', fontsize=12)
     axes[3, 1].set_xlabel('Perpendicular Baseline')
-    axes[3, 1].set_ylabel('Phase')  # Only bottom plot shows y-label
+    axes[3, 1].set_ylabel('Phase')  # Only bottom scatter shows y-label
     #axes[3, 1].grid(True, alpha=0.3)
     axes[3, 1].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 1].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -197,7 +197,7 @@ def main():
 
     # Column 3: Temperature baseline
     # Row 1: Raw phase
-    axes[0, 2].plot(te_ifg, phase, 'b-', linewidth=2)
+    axes[0, 2].scatter(te_ifg, phase, 'b-', linewidth=2)
     axes[0, 2].set_title('Phase (Temperature)', fontsize=12)
     axes[0, 2].set_xlabel('Temperature Baseline')
     #axes[0, 2].grid(True, alpha=0.3)
@@ -205,7 +205,7 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 2: phase - pred_demerror
-    axes[1, 2].plot(te_ifg, phase - pred_phase_demerr, 'g-', linewidth=2)
+    axes[1, 2].scatter(te_ifg, phase - pred_phase_demerr, 'g-', linewidth=2)
     axes[1, 2].set_title('Phase - Pred_DemError (Temperature)', fontsize=12)
     axes[1, 2].set_xlabel('Temperature Baseline')
     #axes[1, 2].grid(True, alpha=0.3)
@@ -213,7 +213,7 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 3: phase - (pred_demerror + pred_tcoef)
-    axes[2, 2].plot(te_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), 'r-', linewidth=2)
+    axes[2, 2].scatter(te_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), 'r-', linewidth=2)
     axes[2, 2].set_title('Phase - (DemError + TCoef) (Temperature)', fontsize=12)
     axes[2, 2].set_xlabel('Temperature Baseline')
     #axes[2, 2].grid(True, alpha=0.3)
@@ -221,10 +221,10 @@ def main():
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    axes[3, 2].plot(te_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), 'm-', linewidth=2)
+    axes[3, 2].scatter(te_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), 'm-', linewidth=2)
     axes[3, 2].set_title('Phase - (DemError + TCoef + Vel) (Temperature)', fontsize=12)
     axes[3, 2].set_xlabel('Temperature Baseline')
-    axes[3, 2].set_ylabel('Phase')  # Only bottom plot shows y-label
+    axes[3, 2].set_ylabel('Phase')  # Only bottom scatter shows y-label
     #axes[3, 2].grid(True, alpha=0.3)
     axes[3, 2].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 2].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
