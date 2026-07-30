@@ -211,6 +211,7 @@ class IfgNetwork:
         # interferogram temperature
         if nettype in ["stb", "sb", "stb_year"]:
             self.temperatures_ifg = np.array([self.temperatures[idx[1]] - self.temperatures[idx[0]] for idx in self.ifg_list])
+            self.temperatures_ifg = np.round(self.temperatures_ifg,3)
         elif nettype == "star":
             if ref_idx is None:
                 raise Exception("Pass refix for star network")
