@@ -1318,7 +1318,7 @@ def oneDimSearchTemporalCoherence_3variables_hytest(*, demerr_range: np.ndarray,
     MSE_SSE_full = SSE_full / n
 
     F = delta_SSE / delta_p / MSE_SSE_full
-    alpha = 0.001
+    alpha = 0.05
     Fcrit = stats.f.ppf(1 - alpha, pf - pr, n - pf)
 
     # decision
