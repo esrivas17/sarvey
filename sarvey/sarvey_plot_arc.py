@@ -112,9 +112,9 @@ def main():
                 obs_phase=phase,
                 design_mat=design_mat)
 
-    pred_phase_demerr = factor * pb_ifg[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
-    pred_phase_vel = factor * tb_ifg[:, np.newaxis] * vel
-    pred_phase_tcoef = factor * te_ifg[:, np.newaxis] * tcoef
+    pred_phase_demerr = factor * pb_ifg / (slant_range * np.sin(loc_inc)) * demerr
+    pred_phase_vel = factor * tb_ifg * vel
+    pred_phase_tcoef = factor * te_ifg * tcoef
 
     ######### Create 4x3 subplot grid ###############
     fig, axes = plt.subplots(4, 3, figsize=(15, 16), sharey='col')
@@ -240,14 +240,14 @@ def main():
 def createParser():
     """plotting arc with temperature for testing"""
     EXAMPLE = """
-        sarvey_plot_arc.py p1_ts.h5 ifg_stack.h5 ifg_network.h5 -p1 84 391 -p2 48 392
+        sarvey_plot_arc.py p1_ifg_wr.h5 -p1 84 391 -p2 48 392
     """
     parser = argparse.ArgumentParser(
         description='Arc modelling\n\n',
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=EXAMPLE)
 
-    parser.add_argument('disp_file', type=str, help='displacement file in h5 format')
+    parser.add_argument('disp_file', type=str, help='displacement file to wr in h5 format')
     parser.add_argument('inputpath', type=str, help='inputpath')
     parser.add_argument('-p1', dest="xyp1", nargs=2, type=int, help="x and y coords of p1: 391 50")
     parser.add_argument('-p2', dest="xyp2", nargs=2, type=int, help="x and y coords of p2: 388 50")
