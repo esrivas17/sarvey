@@ -150,8 +150,8 @@ def main():
     # Row 2: phase - pred_demerror
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 0].scatter(tb_ifg, resphase, c='g', s=17, alpha=0.7)
-    resphase = demerr * point_obj.ifg_net_obj.tbase
-    axes[1, 0].plot(point_obj.ifg_net_obj.tbase, np.angle(resphase))
+    resphase = demerr * tb_ifg
+    axes[1, 0].plot(tb_ifg, np.angle(resphase))
     #axes[1, 0].set_title('Phase - Pred_DemError (Temporal)', fontsize=12)
     #axes[1, 0].set_xlabel('Temporal Baseline')
     axes[1, 0].grid(True, alpha=0.3)
@@ -228,8 +228,8 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 2].scatter(te_ifg, resphase, c='g', s=17, alpha=0.7)
     #resphase = np.angle(np.exp(1j * tcoef*te_ifg))
-    resphase = demerr * tb_ifg
-    axes[1, 2].plot(tb_ifg, np.angle(np.exp(1j * resphase)))
+    resphase = demerr * te_ifg
+    axes[1, 2].plot(te_ifg, np.angle(np.exp(1j * resphase)))
     #axes[1, 2].set_title('Phase - Pred_DemError (Temperature)', fontsize=12)
     #axes[1, 2].set_xlabel('Temperature Baseline')
     axes[1, 2].grid(True, alpha=0.3)
