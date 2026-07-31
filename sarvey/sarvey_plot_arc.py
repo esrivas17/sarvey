@@ -164,7 +164,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 0].scatter(tb_ifg, resphase, c='g', s=17, alpha=0.7)
     predphase = design_mat_pred[:, 1] * vel
-    axes[1, 0].plot(tb_space, np.angle(np.exp(1j *predphase)),'r', lw=0.8)
+    axes[1, 0].scatter(tb_space, np.angle(np.exp(1j *predphase)), marker='.')
     #axes[1, 0].set_title('Phase - Pred_DemError (Temporal)', fontsize=12)
     #axes[1, 0].set_xlabel('Temporal Baseline')
     axes[1, 0].grid(True, alpha=0.3)
