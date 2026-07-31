@@ -130,7 +130,7 @@ def main():
     
 
     ######### Create 4x3 subplot grid ###############
-    fig, axes = plt.subplots(4, 3, figsize=(12, 15), sharey='col')
+    fig, axes = plt.subplots(4, 3, figsize=(11, 13), sharey='col')
 
     # Set y-limits from -pi to pi for all subplots
     for ax_row in axes:
@@ -153,7 +153,7 @@ def main():
     # Row 1: Raw phase
     axes[0, 0].scatter(tb_ifg, phase, c='b', s=15, alpha=0.7)
     predphase = design_mat_pred[:, 0] * demerr
-    axes[0, 0].scatter(tb_space, np.angle(np.exp(1j * predphase)), marker='.', s=0.5)
+    axes[0, 0].scatter(tb_space, np.angle(np.exp(1j * predphase)), marker='.', s=0.5, alpha=0.7)
     #axes[0, 0].set_title('Phase (Temporal)', fontsize=12)
     #axes[0, 0].set_xlabel('Temporal Baseline')
     axes[0, 0].grid(True, alpha=0.3)
@@ -165,9 +165,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 0].scatter(tb_ifg, resphase, c='g', s=15, alpha=0.7)
     predphase = design_mat_pred[:, 1] * vel
-    axes[1, 0].scatter(tb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5)
-    #axes[1, 0].set_title('Phase - Pred_DemError (Temporal)', fontsize=12)
-    #axes[1, 0].set_xlabel('Temporal Baseline')
+    axes[1, 0].scatter(tb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
     axes[1, 0].grid(True, alpha=0.3)
     axes[1, 0].text(0.02, 0.95, r'$\phi - \phi_{DEM}$', transform=axes[1, 0].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -176,9 +174,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_vel))))
     axes[2, 0].scatter(tb_ifg, resphase, c='r', s=15, alpha=0.7)
     predphase = tcoef * design_mat_pred[:, 2]
-    axes[2, 0].scatter(tb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5)
-    #axes[2, 0].set_title('Phase - (DemError + TCoef) (Temporal)', fontsize=12)
-    #axes[2, 0].set_xlabel('Temporal Baseline')
+    axes[2, 0].scatter(tb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
     axes[2, 0].grid(True, alpha=0.3)
     axes[2, 0].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{Vel})$', transform=axes[2, 0].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -196,7 +192,7 @@ def main():
     # Row 1: Raw phase
     axes[0, 1].scatter(pb_ifg, phase, c='b', s=15, alpha=0.7)
     predphase = tcoef * design_mat_pred[:, 2]
-    axes[0, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5)
+    axes[0, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
     axes[0, 1].grid(True, alpha=0.3)
     axes[0, 1].text(0.02, 0.95, r'$\phi$', transform=axes[0, 1].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -205,7 +201,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_tcoef)))
     axes[1, 1].scatter(pb_ifg, resphase, c='g', s=15, alpha=0.7)
     predphase = demerr * design_mat_pred[:, 0]
-    axes[1, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5)
+    axes[1, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
     axes[1, 1].grid(True, alpha=0.3)
     axes[1, 1].text(0.02, 0.95, r'$\phi - \phi_{TCoef}$', transform=axes[1, 1].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -214,7 +210,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
     axes[2, 1].scatter(pb_ifg, resphase, c='r', s=15, alpha=0.7)
     predphase = vel * design_mat_pred[:, 1]
-    axes[2, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5)
+    axes[2, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
     axes[2, 1].grid(True, alpha=0.3)
     axes[2, 1].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 1].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -232,7 +228,7 @@ def main():
     # Row 1: Raw phase
     axes[0, 2].scatter(te_ifg, phase, c='b', s=15, alpha=0.7)
     predphase = demerr * design_mat_pred[:, 0]
-    axes[0, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5)
+    axes[0, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
     axes[0, 2].grid(True, alpha=0.3)
     axes[0, 2].text(0.02, 0.95, r'$\phi$', transform=axes[0, 2].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -241,7 +237,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 2].scatter(te_ifg, resphase, c='g', s=15, alpha=0.7)
     predphase = tcoef * design_mat_pred[:, 2]
-    axes[1, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5)
+    axes[1, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
     axes[1, 2].grid(True, alpha=0.3)
     axes[1, 2].text(0.02, 0.95, r'$\phi - \phi_{DEM}$', transform=axes[1, 2].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
