@@ -123,12 +123,14 @@ def main():
     for ax_row in axes:
         for ax in ax_row:
             ax.set_ylim(-np.pi, np.pi)
+            ax.set_yticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
+            ax.set_yticklabels([r"$-\pi$", r"$-\pi/2$", "0", r"$\pi/2$", r"$\pi$"])
 
     # Column 1: Temporal baseline
     # Row 1: Raw phase
     axes[0, 0].scatter(tb_ifg, phase, c='b', s=20, alpha=0.7)
     #axes[0, 0].set_title('Phase (Temporal)', fontsize=12)
-    axes[0, 0].set_xlabel('Temporal Baseline')
+    #axes[0, 0].set_xlabel('Temporal Baseline')
     axes[0, 0].grid(True, alpha=0.3)
     # Add Greek symbol text
     axes[0, 0].text(0.05, 0.95, r'$\phi$', transform=axes[0, 0].transAxes, 
@@ -136,8 +138,10 @@ def main():
 
     # Row 2: phase - pred_demerror
     axes[1, 0].scatter(tb_ifg, phase - pred_phase_demerr, c='g', s=20, alpha=0.7)
+    resphase = demerr * tb_ifg
+    axes[1, 0].plot(tb_ifg, resphase, lw=0.8)
     #axes[1, 0].set_title('Phase - Pred_DemError (Temporal)', fontsize=12)
-    axes[1, 0].set_xlabel('Temporal Baseline')
+    #axes[1, 0].set_xlabel('Temporal Baseline')
     axes[1, 0].grid(True, alpha=0.3)
     axes[1, 0].text(0.05, 0.95, r'$\phi - \phi_{DEM}$', transform=axes[1, 0].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -145,7 +149,7 @@ def main():
     # Row 3: phase - (pred_demerror + pred_tcoef)
     axes[2, 0].scatter(tb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), c='r', s=20, alpha=0.7)
     #axes[2, 0].set_title('Phase - (DemError + TCoef) (Temporal)', fontsize=12)
-    axes[2, 0].set_xlabel('Temporal Baseline')
+    #axes[2, 0].set_xlabel('Temporal Baseline')
     axes[2, 0].grid(True, alpha=0.3)
     axes[2, 0].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 0].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -164,23 +168,23 @@ def main():
     # Row 1: Raw phase
     axes[0, 1].scatter(pb_ifg, phase, c='b', s=20, alpha=0.7)
     #axes[0, 1].set_title('Phase (Perp Baseline)', fontsize=12)
-    axes[0, 1].set_xlabel('Perpendicular Baseline')
+    #axes[0, 1].set_xlabel('Perpendicular Baseline')
     axes[0, 1].grid(True, alpha=0.3)
     axes[0, 1].text(0.05, 0.95, r'$\phi$', transform=axes[0, 1].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 2: phase - pred_demerror
-    axes[1, 1].scatter(pb_ifg, phase - pred_phase_demerr, c='g', s=20, alpha=0.7)
+    axes[1, 1].scatter(pb_ifg, phase - pred_phase_tcoef, c='g', s=20, alpha=0.7)
     #axes[1, 1].set_title('Phase - Pred_DemError (Perp Baseline)', fontsize=12)
-    axes[1, 1].set_xlabel('Perpendicular Baseline')
+    #axes[1, 1].set_xlabel('Perpendicular Baseline')
     axes[1, 1].grid(True, alpha=0.3)
-    axes[1, 1].text(0.05, 0.95, r'$\phi - \phi_{DEM}$', transform=axes[1, 1].transAxes, 
+    axes[1, 1].text(0.05, 0.95, r'$\phi - \phi_{TCoef}$', transform=axes[1, 1].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 3: phase - (pred_demerror + pred_tcoef)
     axes[2, 1].scatter(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), c='r', s=20, alpha=0.7)
     #axes[2, 1].set_title('Phase - (DemError + TCoef) (Perp Baseline)', fontsize=12)
-    axes[2, 1].set_xlabel('Perpendicular Baseline')
+    #axes[2, 1].set_xlabel('Perpendicular Baseline')
     axes[2, 1].grid(True, alpha=0.3)
     axes[2, 1].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 1].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -188,8 +192,8 @@ def main():
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
     axes[3, 1].scatter(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), c='m', s=20, alpha=0.7)
     #axes[3, 1].set_title('Phase - (DemError + TCoef + Vel) (Perp Baseline)', fontsize=12)
-    axes[3, 1].set_xlabel('Perpendicular Baseline')
-    axes[3, 1].set_ylabel('Phase')  # Only bottom plot shows y-label
+    #axes[3, 1].set_xlabel('Perpendicular Baseline')
+    #axes[3, 1].set_ylabel('Phase')  # Only bottom plot shows y-label
     axes[3, 1].grid(True, alpha=0.3)
     axes[3, 1].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 1].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -224,7 +228,7 @@ def main():
     axes[3, 2].scatter(te_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), c='m', s=20, alpha=0.7)
     #axes[3, 2].set_title('Phase - (DemError + TCoef + Vel) (Temperature)', fontsize=12)
     axes[3, 2].set_xlabel('Temperature Baseline')
-    axes[3, 2].set_ylabel('Phase')  # Only bottom plot shows y-label
+    #axes[3, 2].set_ylabel('Phase')  # Only bottom plot shows y-label
     axes[3, 2].grid(True, alpha=0.3)
     axes[3, 2].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 2].transAxes, 
                     fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
