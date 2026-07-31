@@ -127,6 +127,8 @@ def main():
     print(f"Estimated parameter: DEM error {demerr}, velocity: {vel}, thermal coefficient: {tcoef}, gamma: {gamma}")
     #print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
 
+    
+
     ######### Create 4x3 subplot grid ###############
     fig, axes = plt.subplots(4, 3, figsize=(15, 16), sharey='col')
 
@@ -137,12 +139,20 @@ def main():
             ax.set_yticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
             ax.set_yticklabels([r"$-\pi$", r"$-\pi/2$", "0", r"$\pi/2$", r"$\pi$"])
 
-    # Column 1: Temporal baseline
+    #### predicted phase for plotting ####
     tb_space = np.linspace(tb_ifg.min(), tb_ifg.max(), 500)
+    pb_space = np.linspace(pb_ifg.min(), pb_ifg.max(), 500)
+    te_space = np.linspace(te_ifg.min(), te_ifg.max(), 500)
+    design_mat_pred = np.zeros((tb_space.size, 3), dtype=np.float32)
+    design_mat_pred[:, 0] = factor * pb_space / (slant_range * np.sin(loc_inc))
+    design_mat_pred[:, 1] = factor * tb_space
+    design_mat_pred[:, 2] = factor * te_space
+
+    # Column 1: Temporal baseline
     # Row 1: Raw phase
     axes[0, 0].scatter(tb_ifg, phase, c='b', s=17, alpha=0.7)
-    predphase = demerr * tb_space
-    axes[0, 0].plot(tb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
+    predphase = design_mat_pred[:, 0] * demerr
+    axes[0, 0].plot(tb_space, np.angle(np.exp(1j * predphase)), 'r', lw=0.8)
     #axes[0, 0].set_title('Phase (Temporal)', fontsize=12)
     #axes[0, 0].set_xlabel('Temporal Baseline')
     axes[0, 0].grid(True, alpha=0.3)
@@ -153,7 +163,7 @@ def main():
     # Row 2: phase - pred_demerror
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 0].scatter(tb_ifg, resphase, c='g', s=17, alpha=0.7)
-    predphase = vel * tb_space
+    predphase = design_mat_pred[:, 1] * vel
     axes[1, 0].plot(tb_space, np.angle(np.exp(1j *predphase)),'r', lw=0.8)
     #axes[1, 0].set_title('Phase - Pred_DemError (Temporal)', fontsize=12)
     #axes[1, 0].set_xlabel('Temporal Baseline')
@@ -164,7 +174,7 @@ def main():
     # Row 3: phase - (pred_demerror + pred_tcoef)
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_vel))))
     axes[2, 0].scatter(tb_ifg, resphase, c='r', s=17, alpha=0.7)
-    predphase = tcoef * tb_space
+    predphase = tcoef * design_mat_pred[:, 2]
     axes[2, 0].plot(tb_space, np.angle(np.exp(1j *predphase)),'r', lw=0.8)
     #axes[2, 0].set_title('Phase - (DemError + TCoef) (Temporal)', fontsize=12)
     #axes[2, 0].set_xlabel('Temporal Baseline')
@@ -183,7 +193,7 @@ def main():
 
 
     # Column 2: Perpendicular baseline
-    pb_space = np.linspace(pb_ifg.min(), pb_ifg.max(), 500)
+    
     # Row 1: Raw phase
     axes[0, 1].scatter(pb_ifg, phase, c='b', s=17, alpha=0.7)
     #axes[0, 1].set_title('Phase (Perp Baseline)', fontsize=12)
@@ -228,7 +238,7 @@ def main():
 
 
     # Column 3: Temperature baseline
-    te_space = np.linspace(te_ifg.min(), te_ifg.max(), 500)
+    
     # Row 1: Raw phase
     axes[0, 2].scatter(te_ifg, phase, c='b', s=17, alpha=0.7)
     predphase = demerr * te_space
