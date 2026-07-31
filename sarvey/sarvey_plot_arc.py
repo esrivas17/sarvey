@@ -112,7 +112,7 @@ def main():
                 obs_phase=phase,
                 design_mat=design_mat)
 
-    demerr2, vel2, tcoef2, gamma2 = oneDimSearchTemporalCoherence_3variables(
+    demerr, vel, tcoef, gamma = oneDimSearchTemporalCoherence_3variables(
                     demerr_range=demerr_range,
                     vel_range=vel_range,
                     tcoef_range=tcoef_range,
@@ -125,7 +125,7 @@ def main():
     pred_phase_tcoef = factor * te_ifg * tcoef
 
     print(f"Estimated parameter: DEM error {demerr}, velocity: {vel}, thermal coefficient: {tcoef}, gamma: {gamma}")
-    print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
+    #print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
 
     ######### Create 4x3 subplot grid ###############
     fig, axes = plt.subplots(4, 3, figsize=(15, 16), sharey='col')
