@@ -476,7 +476,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
         #densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
         args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1, 
                 gamma_selection_p1, demerr_bound, velocity_bound, tcoef_bound, num_samples)
-        idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkDEMConstraint(args)
+        idx_range, demerr_p2, vel_p2, tcoef_p2, gamma_p2 = launchDensifyNetworkConstraint(args)
     else:
         with multiprocessing.Pool(num_cores, initializer=globalvariables, initargs=init_args) as pool:
             logger.info(msg="start parallel processing with {} cores.".format(num_cores))
@@ -486,7 +486,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
             args = [(idx_range, idx_range.shape[0], num_conn_p1, max_dist_p1, gamma_selection_p1, 
                      demerr_bound, velocity_bound, tcoef_bound, num_samples) for idx_range in idx]
 
-            results = pool.map_async(launchDensifyNetworkDEMConstraint, args, chunksize=1)
+            results = pool.map_async(launchDensifyNetworkConstraint, args, chunksize=1)
             while True:
                 time.sleep(5)
                 if results.ready():
@@ -522,7 +522,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
     
     return demerr_p2, vel_p2, tcoef_p2, gamma_p2
 
-def launchDensifyNetworkDEMConstraint(args: tuple):
+def launchDensifyNetworkConstraint(args: tuple):
 
     (idx_range, num_points, num_conn_p1, max_dist_p1, gamma_selection_p1, demerr_bound, velocity_bound, tcoef_bound, num_samples) = args
 

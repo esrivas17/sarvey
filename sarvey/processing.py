@@ -396,8 +396,7 @@ class Processing:
         net_obj.writeToFile()
         net_obj.open(input_path=self.config.general.input_path)
 
-        """
-        demerr1, vel1, tcoef1, gamma1 = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
+        demerr, vel, tcoef, gamma = temporalUnwrapping_3v(ifg_net_obj=point_obj.ifg_net_obj,
                                                 net_obj=net_obj,
                                                 wavelength=point_obj.wavelength,
                                                velocity_bound=self.config.consistency_check.velocity_bound,
@@ -407,39 +406,8 @@ class Processing:
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
 
-        ####tes figure ###
-        # histogram
-        fig = plt.figure(figsize=(16, 5))
-        axs = fig.subplots(1, 3)
-        axs[0].hist(tcoef1*1000, bins=10000)
-        axs[0].set_ylabel('Absolute frequency')
-        axs[0].set_xlabel('Temp Coeff [mm/C]')
-
-        axs[1].hist(demerr1, bins=5000)
-        axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('DEM error [m]')
-
-        axs[2].hist(vel1*100, bins=5000)
-        axs[2].set_ylabel('Absolute frequency')
-        axs[2].set_xlabel('Velocity [cm/yer]')
 
 
-        fig.savefig(join(self.path, "pic", "step_1_tempunwrapping_params_original.png"), dpi=300)
-        plt.close(fig)
-        """
-        ###################
-
-        demerr, vel, tcoef, gamma = temporalUnwrapping_3v_hytest(ifg_net_obj=point_obj.ifg_net_obj,
-                                                net_obj=net_obj,
-                                                wavelength=point_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                tcoef_bound=self.config.consistency_check.tcoef_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
-        
-        ####tes figure ###
         # histogram
         fig = plt.figure(figsize=(16, 5))
         axs = fig.subplots(1, 3)

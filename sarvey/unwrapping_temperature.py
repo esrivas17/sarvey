@@ -763,7 +763,7 @@ def gradientSearchTemporalCoherence_t(*, scale_vel: float, scale_demerr: float, 
     return demerr, vel, tcoef, gamma
 
 
-def launchAmbiguityFunctionSearch_t(parameters: tuple):
+def launchAmbiguityFunctionSearchThermal(parameters: tuple):
     """Wrap for launching ambiguity function for temporal unwrapping in parallel.
 
     Parameters
@@ -854,7 +854,7 @@ def temporalUnwrapping_3v(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelen
         args = (
             np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase,
             net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, coef_bound, num_samples)
-        arc_idx_range, demerr, vel, tcoef, gamma = launchAmbiguityFunctionSearch_t(parameters=args)
+        arc_idx_range, demerr, vel, tcoef, gamma = launchAmbiguityFunctionSearchThermal(parameters=args)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
 
@@ -882,7 +882,7 @@ def temporalUnwrapping_3v(*, ifg_net_obj: IfgNetwork, net_obj: Network,  wavelen
             num_samples) for idx_range in idx]
 
         with multiprocessing.Pool(processes=num_cores) as pool:
-            results = pool.map(func=launchAmbiguityFunctionSearch_t, iterable=args)
+            results = pool.map(func=launchAmbiguityFunctionSearchThermal, iterable=args)
 
         # retrieve results
         for i, demerr_i, vel_i, tcoef_i, gamma_i in results:
