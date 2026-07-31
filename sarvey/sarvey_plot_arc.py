@@ -130,7 +130,7 @@ def main():
     
 
     ######### Create 4x3 subplot grid ###############
-    fig, axes = plt.subplots(4, 3, figsize=(15, 16), sharey='col')
+    fig, axes = plt.subplots(4, 3, figsize=(12, 15), sharey='col')
 
     # Set y-limits from -pi to pi for all subplots
     for ax_row in axes:
@@ -140,9 +140,10 @@ def main():
             ax.set_yticklabels([r"$-\pi$", r"$-\pi/2$", "0", r"$\pi/2$", r"$\pi$"])
 
     #### predicted phase for plotting ####
-    tb_space = np.linspace(tb_ifg.min(), tb_ifg.max(), 500)
-    pb_space = np.linspace(pb_ifg.min(), pb_ifg.max(), 500)
-    te_space = np.linspace(te_ifg.min(), te_ifg.max(), 500)
+    nsamples = 1000
+    tb_space = np.linspace(tb_ifg.min(), tb_ifg.max(), nsamples)
+    pb_space = np.linspace(pb_ifg.min(), pb_ifg.max(), nsamples)
+    te_space = np.linspace(te_ifg.min(), te_ifg.max(), nsamples)
     design_mat_pred = np.zeros((tb_space.size, 3), dtype=np.float32)
     design_mat_pred[:, 0] = factor * pb_space / (slant_range * np.sin(loc_inc))
     design_mat_pred[:, 1] = factor * tb_space
@@ -196,10 +197,8 @@ def main():
     
     # Row 1: Raw phase
     axes[0, 1].scatter(pb_ifg, phase, c='b', s=17, alpha=0.7)
-    #axes[0, 1].set_title('Phase (Perp Baseline)', fontsize=12)
-    #axes[0, 1].set_xlabel('Perpendicular Baseline')
-    predphase = tcoef * pb_space
-    axes[0, 1].plot(pb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
+    predphase = tcoef * design_mat_pred[:, 2]
+    axes[0, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=1)
     axes[0, 1].grid(True, alpha=0.3)
     axes[0, 1].text(0.05, 0.95, r'$\phi$', transform=axes[0, 1].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -207,10 +206,8 @@ def main():
     # Row 2: phase - pred_demerror
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_tcoef)))
     axes[1, 1].scatter(pb_ifg, resphase, c='g', s=17, alpha=0.7)
-    predphase = demerr * pb_space
-    axes[1, 1].plot(pb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
-    #axes[1, 1].set_title('Phase - Pred_DemError (Perp Baseline)', fontsize=12)
-    #axes[1, 1].set_xlabel('Perpendicular Baseline')
+    predphase = demerr * design_mat_pred[:, 0]
+    axes[1, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=1)
     axes[1, 1].grid(True, alpha=0.3)
     axes[1, 1].text(0.05, 0.95, r'$\phi - \phi_{TCoef}$', transform=axes[1, 1].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -218,10 +215,8 @@ def main():
     # Row 3: phase - (pred_demerror + pred_tcoef)
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
     axes[2, 1].scatter(pb_ifg, resphase, c='r', s=17, alpha=0.7)
-    predphase = vel * pb_space
-    axes[2, 1].plot(pb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
-    #axes[2, 1].set_title('Phase - (DemError + TCoef) (Perp Baseline)', fontsize=12)
-    #axes[2, 1].set_xlabel('Perpendicular Baseline')
+    predphase = vel * design_mat_pred[:, 1]
+    axes[2, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=1)
     axes[2, 1].grid(True, alpha=0.3)
     axes[2, 1].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 1].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -229,22 +224,17 @@ def main():
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel))))
     axes[3, 1].scatter(pb_ifg, resphase, c='m', s=17, alpha=0.7)
-    #axes[3, 1].set_title('Phase - (DemError + TCoef + Vel) (Perp Baseline)', fontsize=12)
     axes[3, 1].set_xlabel('Perpendicular Baseline')
-    #axes[3, 1].set_ylabel('Phase')  # Only bottom plot shows y-label
     axes[3, 1].grid(True, alpha=0.3)
     axes[3, 1].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 1].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
 
     # Column 3: Temperature baseline
-    
     # Row 1: Raw phase
     axes[0, 2].scatter(te_ifg, phase, c='b', s=17, alpha=0.7)
-    predphase = demerr * te_space
-    axes[0, 2].plot(te_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
-   # axes[0, 2].set_title('Phase (Temperature)', fontsize=12)
-    #axes[0, 2].set_xlabel('Temperature Baseline')
+    predphase = demerr * design_mat_pred[:, 0]
+    axes[0, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=1)
     axes[0, 2].grid(True, alpha=0.3)
     axes[0, 2].text(0.05, 0.95, r'$\phi$', transform=axes[0, 2].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -252,11 +242,8 @@ def main():
     # Row 2: phase - pred_demerror
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 2].scatter(te_ifg, resphase, c='g', s=17, alpha=0.7)
-    predphase = tcoef * te_space
-    axes[1, 2].plot(te_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
-    #axes[1, 2].plot(te_ifg, np.angle(np.exp(1j * resphase)))
-    #axes[1, 2].set_title('Phase - Pred_DemError (Temperature)', fontsize=12)
-    #axes[1, 2].set_xlabel('Temperature Baseline')
+    predphase = tcoef * design_mat_pred[:, 2]
+    axes[1, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=1)
     axes[1, 2].grid(True, alpha=0.3)
     axes[1, 2].text(0.05, 0.95, r'$\phi - \phi_{DEM}$', transform=axes[1, 2].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -264,10 +251,8 @@ def main():
     # Row 3: phase - (pred_demerror + pred_tcoef)
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
     axes[2, 2].scatter(te_ifg, resphase, c='r', s=17, alpha=0.7)
-    predphase = vel * te_space
-    axes[2, 2].plot(te_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
-    #axes[2, 2].set_title('Phase - (DemError + TCoef) (Temperature)', fontsize=12)
-    #axes[2, 2].set_xlabel('Temperature Baseline')
+    predphase = vel * design_mat_pred[:, 1]
+    axes[2, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=1)
     axes[2, 2].grid(True, alpha=0.3)
     axes[2, 2].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 2].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
