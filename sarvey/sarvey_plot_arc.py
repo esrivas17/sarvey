@@ -154,10 +154,7 @@ def main():
     axes[0, 0].scatter(tb_ifg, phase, c='b', s=15, alpha=0.7)
     predphase = design_mat_pred[:, 0] * demerr
     axes[0, 0].scatter(tb_space, np.angle(np.exp(1j * predphase)), marker='.', s=0.5, alpha=0.7)
-    #axes[0, 0].set_title('Phase (Temporal)', fontsize=12)
-    #axes[0, 0].set_xlabel('Temporal Baseline')
     axes[0, 0].grid(True, alpha=0.3)
-    # Add Greek symbol text
     axes[0, 0].text(0.02, 0.95, r'$\phi$', transform=axes[0, 0].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
