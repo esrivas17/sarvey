@@ -54,7 +54,7 @@ from sarvey.config import loadConfiguration
 import sarvey.utils as ut
 from sarvey.viewer import LineSelector, ImageViewer
 from sarvey.ifg_network import IfgNetwork
-from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_3variables_hytest
+from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_3variables_hytest, oneDimSearchTemporalCoherence_3variables
 
 try:
     matplotlib.use('QtAgg')
@@ -112,11 +112,20 @@ def main():
                 obs_phase=phase,
                 design_mat=design_mat)
 
+    demerr2, vel2, tcoef2, gamma2 = oneDimSearchTemporalCoherence_3variables(
+                    demerr_range=demerr_range,
+                    vel_range=vel_range,
+                    tcoef_range=tcoef_range,
+                    obs_phase=phase,
+                    design_mat=design_mat)
+
+
     pred_phase_demerr = factor * pb_ifg / (slant_range * np.sin(loc_inc)) * demerr
     pred_phase_vel = factor * tb_ifg * vel
     pred_phase_tcoef = factor * te_ifg * tcoef
 
     print(f"Estimated parameter: DEM error {demerr}, velocity: {vel}, thermal coefficient: {tcoef}, gamma: {gamma}")
+    print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
 
     ######### Create 4x3 subplot grid ###############
     fig, axes = plt.subplots(4, 3, figsize=(15, 16), sharey='col')
@@ -150,20 +159,21 @@ def main():
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 3: phase - (pred_demerror + pred_tcoef)
-    axes[2, 0].scatter(tb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), c='r', s=17, alpha=0.7)
+    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_vel))))
+    axes[2, 0].scatter(tb_ifg, resphase, c='r', s=17, alpha=0.7)
     #axes[2, 0].set_title('Phase - (DemError + TCoef) (Temporal)', fontsize=12)
     #axes[2, 0].set_xlabel('Temporal Baseline')
     axes[2, 0].grid(True, alpha=0.3)
-    axes[2, 0].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 0].transAxes, 
+    axes[2, 0].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{Vel})$', transform=axes[2, 0].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    axes[3, 0].scatter(tb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), c='m', s=17, alpha=0.7)
-    #axes[3, 0].set_title('Phase - (DemError + TCoef + Vel) (Temporal)', fontsize=12)
+    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_vel + pred_phase_tcoef))))
+    axes[3, 0].scatter(tb_ifg, resphase, c='m', s=17, alpha=0.7)
     axes[3, 0].set_xlabel('Temporal Baseline')
     #axes[3, 0].set_ylabel('Phase')  # Only bottom plot shows y-label
     axes[3, 0].grid(True, alpha=0.3)
-    axes[3, 0].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 0].transAxes, 
+    axes[3, 0].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{Vel} + \phi_{TCoef})$', transform=axes[3, 0].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
 
@@ -196,7 +206,7 @@ def main():
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
     axes[3, 1].scatter(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), c='m', s=17, alpha=0.7)
     #axes[3, 1].set_title('Phase - (DemError + TCoef + Vel) (Perp Baseline)', fontsize=12)
-    #axes[3, 1].set_xlabel('Perpendicular Baseline')
+    axes[3, 1].set_xlabel('Perpendicular Baseline')
     #axes[3, 1].set_ylabel('Phase')  # Only bottom plot shows y-label
     axes[3, 1].grid(True, alpha=0.3)
     axes[3, 1].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 1].transAxes, 
@@ -233,7 +243,7 @@ def main():
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
     axes[3, 2].scatter(te_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), c='m', s=17, alpha=0.7)
     #axes[3, 2].set_title('Phase - (DemError + TCoef + Vel) (Temperature)', fontsize=12)
-    #axes[3, 2].set_xlabel('Temperature Baseline')
+    axes[3, 2].set_xlabel('Temperature Baseline')
     #axes[3, 2].set_ylabel('Phase')  # Only bottom plot shows y-label
     axes[3, 2].grid(True, alpha=0.3)
     axes[3, 2].text(0.05, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 2].transAxes, 
