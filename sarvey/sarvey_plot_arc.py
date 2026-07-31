@@ -142,7 +142,7 @@ def main():
     # Row 1: Raw phase
     axes[0, 0].scatter(tb_ifg, phase, c='b', s=17, alpha=0.7)
     predphase = demerr * tb_space
-    axes[0, 0].plot(tb_space, np.angle(np.exp(1j *predphase)))
+    axes[0, 0].plot(tb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
     #axes[0, 0].set_title('Phase (Temporal)', fontsize=12)
     #axes[0, 0].set_xlabel('Temporal Baseline')
     axes[0, 0].grid(True, alpha=0.3)
@@ -154,7 +154,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 0].scatter(tb_ifg, resphase, c='g', s=17, alpha=0.7)
     predphase = vel * tb_space
-    axes[1, 0].plot(tb_space, np.angle(np.exp(1j *predphase)))
+    axes[1, 0].plot(tb_space, np.angle(np.exp(1j *predphase)),'r', lw=0.8)
     #axes[1, 0].set_title('Phase - Pred_DemError (Temporal)', fontsize=12)
     #axes[1, 0].set_xlabel('Temporal Baseline')
     axes[1, 0].grid(True, alpha=0.3)
@@ -165,7 +165,7 @@ def main():
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_vel))))
     axes[2, 0].scatter(tb_ifg, resphase, c='r', s=17, alpha=0.7)
     predphase = tcoef * tb_space
-    axes[2, 0].plot(tb_space, np.angle(np.exp(1j *predphase)))
+    axes[2, 0].plot(tb_space, np.angle(np.exp(1j *predphase)),'r', lw=0.8)
     #axes[2, 0].set_title('Phase - (DemError + TCoef) (Temporal)', fontsize=12)
     #axes[2, 0].set_xlabel('Temporal Baseline')
     axes[2, 0].grid(True, alpha=0.3)
@@ -188,6 +188,8 @@ def main():
     axes[0, 1].scatter(pb_ifg, phase, c='b', s=17, alpha=0.7)
     #axes[0, 1].set_title('Phase (Perp Baseline)', fontsize=12)
     #axes[0, 1].set_xlabel('Perpendicular Baseline')
+    predphase = tcoef * pb_space
+    axes[0, 1].plot(pb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
     axes[0, 1].grid(True, alpha=0.3)
     axes[0, 1].text(0.05, 0.95, r'$\phi$', transform=axes[0, 1].transAxes, 
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
@@ -195,6 +197,8 @@ def main():
     # Row 2: phase - pred_demerror
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_tcoef)))
     axes[1, 1].scatter(pb_ifg, resphase, c='g', s=17, alpha=0.7)
+    predphase = demerr * pb_space
+    axes[1, 1].plot(pb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
     #axes[1, 1].set_title('Phase - Pred_DemError (Perp Baseline)', fontsize=12)
     #axes[1, 1].set_xlabel('Perpendicular Baseline')
     axes[1, 1].grid(True, alpha=0.3)
@@ -204,6 +208,8 @@ def main():
     # Row 3: phase - (pred_demerror + pred_tcoef)
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
     axes[2, 1].scatter(pb_ifg, resphase, c='r', s=17, alpha=0.7)
+    predphase = vel * pb_space
+    axes[2, 1].plot(pb_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
     #axes[2, 1].set_title('Phase - (DemError + TCoef) (Perp Baseline)', fontsize=12)
     #axes[2, 1].set_xlabel('Perpendicular Baseline')
     axes[2, 1].grid(True, alpha=0.3)
@@ -225,6 +231,8 @@ def main():
     te_space = np.linspace(te_ifg.min(), te_ifg.max(), 500)
     # Row 1: Raw phase
     axes[0, 2].scatter(te_ifg, phase, c='b', s=17, alpha=0.7)
+    predphase = demerr * te_space
+    axes[0, 2].plot(te_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
    # axes[0, 2].set_title('Phase (Temperature)', fontsize=12)
     #axes[0, 2].set_xlabel('Temperature Baseline')
     axes[0, 2].grid(True, alpha=0.3)
@@ -234,8 +242,8 @@ def main():
     # Row 2: phase - pred_demerror
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
     axes[1, 2].scatter(te_ifg, resphase, c='g', s=17, alpha=0.7)
-    #resphase = np.angle(np.exp(1j * tcoef*te_ifg))
-    resphase = demerr * te_ifg
+    predphase = tcoef * te_space
+    axes[1, 2].plot(te_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
     #axes[1, 2].plot(te_ifg, np.angle(np.exp(1j * resphase)))
     #axes[1, 2].set_title('Phase - Pred_DemError (Temperature)', fontsize=12)
     #axes[1, 2].set_xlabel('Temperature Baseline')
@@ -246,6 +254,8 @@ def main():
     # Row 3: phase - (pred_demerror + pred_tcoef)
     resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
     axes[2, 2].scatter(te_ifg, resphase, c='r', s=17, alpha=0.7)
+    predphase = vel * te_space
+    axes[2, 2].plot(te_space, np.angle(np.exp(1j *predphase)), 'r', lw=0.8)
     #axes[2, 2].set_title('Phase - (DemError + TCoef) (Temperature)', fontsize=12)
     #axes[2, 2].set_xlabel('Temperature Baseline')
     axes[2, 2].grid(True, alpha=0.3)
