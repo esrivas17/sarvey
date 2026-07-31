@@ -196,7 +196,8 @@ def main():
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 3: phase - (pred_demerror + pred_tcoef)
-    axes[2, 1].scatter(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef), c='r', s=17, alpha=0.7)
+    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
+    axes[2, 1].scatter(pb_ifg, resphase, c='r', s=17, alpha=0.7)
     #axes[2, 1].set_title('Phase - (DemError + TCoef) (Perp Baseline)', fontsize=12)
     #axes[2, 1].set_xlabel('Perpendicular Baseline')
     axes[2, 1].grid(True, alpha=0.3)
@@ -204,7 +205,8 @@ def main():
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    axes[3, 1].scatter(pb_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), c='m', s=17, alpha=0.7)
+    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel))))
+    axes[3, 1].scatter(pb_ifg, resphase, c='m', s=17, alpha=0.7)
     #axes[3, 1].set_title('Phase - (DemError + TCoef + Vel) (Perp Baseline)', fontsize=12)
     axes[3, 1].set_xlabel('Perpendicular Baseline')
     #axes[3, 1].set_ylabel('Phase')  # Only bottom plot shows y-label
@@ -241,7 +243,8 @@ def main():
                     fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    axes[3, 2].scatter(te_ifg, phase - (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel), c='m', s=17, alpha=0.7)
+    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel))))
+    axes[3, 2].scatter(te_ifg, resphase, c='m', s=17, alpha=0.7)
     #axes[3, 2].set_title('Phase - (DemError + TCoef + Vel) (Temperature)', fontsize=12)
     axes[3, 2].set_xlabel('Temperature Baseline')
     #axes[3, 2].set_ylabel('Phase')  # Only bottom plot shows y-label
