@@ -102,13 +102,13 @@ class General(BaseModel, extra="forbid"):
     plotwidth: int = Field(
         title="Plot width",
         description="plot width",
-        default=15
+        default=8
     )
 
     plotheight: int = Field(
         title="Plot height",
         description="Plot height",
-        default=5
+        default=8
     )
 
     logging_level: str = Field(
