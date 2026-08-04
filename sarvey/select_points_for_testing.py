@@ -68,6 +68,9 @@ def main():
         gridsize = None
 
     if qselection == 'tcoh':
+        if len(tcohthresh) <= 0:
+            raise Exception("No temporal coherence thresholds values given")
+
         for tcohv in tcohthresh:
             cand_mask1 = selectPixels(path=qpath, selection_method="temp_coh", thrsh=tcohv,
                 grid_size=gridsize, bool_plot=plotflag, plotwidth=plotwidth, plotheight=plotheight, logger=logger)
@@ -79,6 +82,10 @@ def main():
             shutil.copy(adipath, join(qpath, "amplitude_dispersion.h5"))
         else:
             raise Exception(f"{adipath} is not a file")
+
+        if len(adithresh) <= 0:
+            raise Exception("No adi thresholds values given")
+        
         for adiv in adithresh:
             cand_mask1 = selectPixels(path=qpath, selection_method="adi", thrsh=adiv,
                 grid_size=gridsize, bool_plot=plotflag,plotwidth=plotwidth, plotheight=plotheight, logger=logger)
@@ -90,6 +97,11 @@ def main():
             shutil.copy(adipath, join(qpath, "amplitude_dispersion.h5"))
         else:
             raise Exception(f"{adipath} is not a file")
+
+        if len(adithresh) <= 0:
+            raise Exception("No adi thresholds values given")
+        if len(tcohthresh) <= 0:
+            raise Exception("No temporal coherence thresholds values given")
 
         for tcohv in tcohthresh:
             for adiv in adithresh:
