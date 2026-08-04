@@ -118,7 +118,7 @@ def createParser():
     parser.add_argument('-pw', dest='plotwidth', type=int, default=8, help='Plot width, default: 8')
     parser.add_argument('-ph', dest='plotheight', type=int, default=8, help='Plot height, default: 8')
     parser.add_argument('-adipath', dest="adipath", default=None, type=str, help="Pointing to a specific adi file")
-    parser.add_argument('-plot', dest='plotflag', type=bool, default=False, help='Plot flag for selection function')
+    parser.add_argument('-plot', dest='plotflag', action="store_true", default=False, help='Plot flag for selection function')
     return parser.parse_args()
 
 
