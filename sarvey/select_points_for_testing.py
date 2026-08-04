@@ -64,6 +64,8 @@ def main():
 
     logger = Logger("log")
 
+    if gridsize <= 0:
+        gridsize = None
 
     if qselection == 'tcoh':
         for tcohv in tcohthresh:
