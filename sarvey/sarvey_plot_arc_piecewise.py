@@ -215,8 +215,8 @@ def main():
         design_mat=design_mat_exca)
 
     print(f"Full period      -> DEM error: {demerr:.2f} m, velocity: {vel*1000:.2f} mm/yr, gamma: {gamma:.2f}")
-    print(f"Pre-excavation    -> DEM error: {demerr_pre:.2f} m, velocity: {vel_pre*1000:2.f} mm/yr, gamma: {gamma_pre:.2f}")
-    print(f"Excavation        -> DEM error: {demerr_exca:.2f} m, velocity: {vel_exca*1000:2.f} mm/yr, gamma: {gamma_exca:.2f}")
+    print(f"Pre-excavation    -> DEM error: {demerr_pre:.2f} m, velocity: {vel_pre*1000:.2f} mm/yr, gamma: {gamma_pre:.2f}")
+    print(f"Excavation        -> DEM error: {demerr_exca:.2f} m, velocity: {vel_exca*1000:.2f} mm/yr, gamma: {gamma_exca:.2f}")
 
     plot_arc_fit(phase, tb_ifg, pb_ifg, demerr, vel, factor, slant_range, loc_inc,
                  suptitle="Full period")
