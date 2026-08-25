@@ -37,6 +37,7 @@ from typing import Union
 import warnings
 from logging import Logger
 from scipy.spatial import Delaunay
+import pdb
 
 
 class IfgNetworkPiecewise:
@@ -342,10 +343,10 @@ class StarNetwork(IfgNetworkPiecewise):
             self.ix_ifg.append(ix_ifg)
             if i >= ix_break:
                 self.ifg_list_exca.append((ref_idx, i))
-                self.ix_ifg_pre.append(ix_ifg)
+                self.ix_ifg_exca.append(ix_ifg)
             else:
                 self.ifg_list_pre.append((ref_idx, i))
-                self.ix_ifg_exca.append(ix_ifg)
+                self.ix_ifg_pre.append(ix_ifg)
             ix_ifg += 1
 
 
