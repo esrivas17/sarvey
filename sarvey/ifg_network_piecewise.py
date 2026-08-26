@@ -444,14 +444,31 @@ class StarNetwork(IfgNetworkPiecewise):
 
         # build interferogram list: star around ref1 for group 1, star around ref2 for group 2
         self.ifg_list = []
+        self.ix_ifg = []
+        self.ifg_list_pre = []
+        self.ix_ifg_pre = []
+        self.ifg_list_exca = []
+        self.ix_ifg_exca = []
+
+        ix_ifg = 0
         for i in idx_pre:
             if i == ref1_idx:
                 continue
             self.ifg_list.append((ref1_idx, i))
+            self.ix_ifg.append(ix_ifg)
+            self.ifg_list_pre.append((ref1_idx, i))
+            self.ix_ifg_pre.append(ix_ifg)
+            ix_ifg += 1
+
         for i in idx_exca:
             if i == ref2_idx:
                 continue
             self.ifg_list.append((ref2_idx, i))
+            self.ix_ifg.append(ix_ifg)
+            self.ifg_list_exca.append((ref2_idx, i))
+            self.ix_ifg_exca.append(ix_ifg)
+            ix_ifg += 1
+
 
 class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
     """Small temporal baselines network of interferograms without restrictions on the perpendicular baselines."""
