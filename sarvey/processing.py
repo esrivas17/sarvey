@@ -93,7 +93,7 @@ class Processing:
         log.info(msg=f"Stop date: {date_list[-1]}")
         log.info(msg=f"Number of SLC: {num_slc}")
 
-        ix_date_excavation = ix_from_excavation_date(date_list=slc_stack_obj.dateList, excavation_date=self.config.preparation.excavation_date)
+        ix_date_excavation, ref1_ix, ref2_ix = ix_from_excavation_date(date_list=slc_stack_obj.dateList, excavation_date=self.config.preparation.excavation_date)
 
         time_mask_pre, num_slc_pre, date_list_pre = createTimeMaskFromDates(
             start_date=self.config.preparation.start_date,
@@ -123,13 +123,10 @@ class Processing:
         ifg_net_obj = None
         if self.config.preparation.ifg_network_type == "star":
             ifg_net_obj = StarNetwork()
-            ifg_net_obj.configure_breakpoint(pbase=slc_stack_obj.pbase[time_mask],
-                tbase=slc_stack_obj.tbase[time_mask],
-                ref_idx=int(np.floor(num_slc/2)),
-                dates=date_list,
-                ix_break=ix_date_excavation)
+            ifg_net_obj.configure_breakpoint_and_two_references(pbase=slc_stack_obj.pbase[time_mask],
+                tbase=slc_stack_obj.tbase[time_mask], ref1_idx=ref1_ix, ref2_idx=ref2_ix, dates=date_list, ix_break=ix_date_excavation)
             ifg_net_obj.ix_breakpoint = ix_date_excavation
-            log.info(msg="Star ifg network")
+            log.info(msg="Star ifg network with two references")
 
         elif self.config.preparation.ifg_network_type == "sb":
             raise NotImplementedError

@@ -128,10 +128,19 @@ def createTimeMaskFromDates(*, start_date: str, stop_date: str, date_list: list,
     return time_mask, num_slc, result_date_list
 
 def ix_from_excavation_date(*, date_list: list, excavation_date):
-    date_list = [datetime.date(year=int(d[:4]), month=int(d[4:6]), day=int(d[6:])) for d in date_list]
+    dates = [datetime.date(year=int(d[:4]), month=int(d[4:6]), day=int(d[6:])) for d in date_list]
     excavation_date = datetime.date.fromisoformat(excavation_date)
-    ix = np.argmin([np.abs(d-excavation_date) for d in date_list])
-    return ix
+
+    ix_excavation = np.argmin([np.abs(d - excavation_date) for d in dates])
+
+    mid_start_date = dates[0] + (excavation_date - dates[0]) / 2
+    mid_end_date = excavation_date + (dates[-1] - excavation_date) / 2
+
+    ix_mid_start = np.argmin([np.abs(d - mid_start_date) for d in dates])
+    ix_mid_end = np.argmin([np.abs(d - mid_end_date) for d in dates])
+
+    return ix_excavation, ix_mid_start, ix_mid_end
+
 
 def readSlcFromMiaplpy(*, path: str, box: tuple = None, logger: Logger) -> np.ndarray:
     """Read SLC data from phase-linking results of Miaplpy.

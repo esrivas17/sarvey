@@ -382,7 +382,72 @@ class StarNetwork(IfgNetworkPiecewise):
             self.num_ifgs_pre = self.num_images_pre
             self.num_ifgs_exca = self.num_images_exca - 1
 
+    def configure_breakpoint_and_two_references(self, *, pbase: np.ndarray, tbase: np.ndarray, ref1_idx: int, ref2_idx: int, dates: list, ix_break: int):
+        """Star network split at a breakpoint, with independent references before/after.
 
+        Group 1 (pre) = images [0, ix_break] (breakpoint included), anchored at ref1_idx.
+        Group 2 (exca) = images [ix_break, num_images) (breakpoint included), anchored at ref2_idx.
+
+        Parameter
+        ---------
+        pbase: np.ndarray
+            Perpendicular baselines of the SAR acquisitions.
+        tbase: np.ndarray
+            Temporal baselines of the SAR acquisitions.
+        ref1_idx: int
+            Index of the reference image for group 1 (pre-breakpoint). Must lie in [0, ix_break].
+        ref2_idx: int
+            Index of the reference image for group 2 (post-breakpoint). Must lie in [ix_break, num_images).
+        dates: list
+            Dates of the acquisitions.
+        ix_break: int
+            Index of the breakpoint image, shared by both groups.
+        """
+        self.pbase = pbase
+        self.tbase = tbase / 365.25
+        self.num_images = pbase.shape[0]
+        self.dates = dates
+
+        # groups share the breakpoint image
+        idx_pre = np.arange(0, ix_break + 1)
+        idx_exca = np.arange(ix_break, self.num_images)
+
+        if ref1_idx not in idx_pre:
+            raise ValueError(f"ref1_idx ({ref1_idx}) must be within the pre-breakpoint group [0, {ix_break}].")
+        if ref2_idx not in idx_exca:
+            raise ValueError(f"ref2_idx ({ref2_idx}) must be within the post-breakpoint group [{ix_break}, {self.num_images - 1}].")
+
+        self.tbase_pre = self.tbase[idx_pre]
+        self.tbase_exca = self.tbase[idx_exca]
+        self.pbase_pre = self.pbase[idx_pre]
+        self.pbase_exca = self.pbase[idx_exca]
+        self.num_images_pre = idx_pre.shape[0]
+        self.num_images_exca = idx_exca.shape[0]
+
+        # local position of each reference within its own group
+        ref1_local = int(np.where(idx_pre == ref1_idx)[0][0])
+        ref2_local = int(np.where(idx_exca == ref2_idx)[0][0])
+
+        self.pbase_ifg_pre = np.delete(self.pbase_pre - self.pbase[ref1_idx], ref1_local)
+        self.tbase_ifg_pre = np.delete(self.tbase_pre - self.tbase[ref1_idx], ref1_local)
+        self.num_ifgs_pre = self.num_images_pre - 1
+
+        self.pbase_ifg_exca = np.delete(self.pbase_exca - self.pbase[ref2_idx], ref2_local)
+        self.tbase_ifg_exca = np.delete(self.tbase_exca - self.tbase[ref2_idx], ref2_local)
+        self.num_ifgs_exca = self.num_images_exca - 1
+
+        self.num_ifgs = self.num_ifgs_pre + self.num_ifgs_exca
+
+        # build interferogram list: star around ref1 for group 1, star around ref2 for group 2
+        self.ifg_list = []
+        for i in idx_pre:
+            if i == ref1_idx:
+                continue
+            self.ifg_list.append((ref1_idx, i))
+        for i in idx_exca:
+            if i == ref2_idx:
+                continue
+            self.ifg_list.append((ref2_idx, i))
 
 class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
     """Small temporal baselines network of interferograms without restrictions on the perpendicular baselines."""
