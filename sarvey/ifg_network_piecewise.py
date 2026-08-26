@@ -423,6 +423,8 @@ class StarNetwork(IfgNetworkPiecewise):
         self.pbase_exca = self.pbase[idx_exca]
         self.num_images_pre = idx_pre.shape[0]
         self.num_images_exca = idx_exca.shape[0]
+        self.dates_pre = dates[:ix_break+1]
+        self.dates_exca = dates[ix_break:]
 
         # local position of each reference within its own group
         ref1_local = int(np.where(idx_pre == ref1_idx)[0][0])
@@ -439,7 +441,7 @@ class StarNetwork(IfgNetworkPiecewise):
         self.num_ifgs = self.num_ifgs_pre + self.num_ifgs_exca
         self.pbase_ifg = np.concatenate([self.pbase_ifg_pre, self.pbase_ifg_exca])
         self.tbase_ifg = np.concatenate([self.tbase_ifg_pre, self.tbase_ifg_exca])
-        
+
         # build interferogram list: star around ref1 for group 1, star around ref2 for group 2
         self.ifg_list = []
         for i in idx_pre:
