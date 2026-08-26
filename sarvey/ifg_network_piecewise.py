@@ -437,7 +437,9 @@ class StarNetwork(IfgNetworkPiecewise):
         self.num_ifgs_exca = self.num_images_exca - 1
 
         self.num_ifgs = self.num_ifgs_pre + self.num_ifgs_exca
-
+        self.pbase_ifg = np.concatenate([self.pbase_ifg_pre, self.pbase_ifg_exca])
+        self.tbase_ifg = np.concatenate([self.tbase_ifg_pre, self.tbase_ifg_exca])
+        
         # build interferogram list: star around ref1 for group 1, star around ref2 for group 2
         self.ifg_list = []
         for i in idx_pre:
