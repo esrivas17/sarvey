@@ -1546,7 +1546,7 @@ class NetworkParameterPiecewise(NetworkPiecewise):
         self.gamma = self.gamma_pre
 
 
-class NetworkParameter3Piecewise(NetworkPiecewise):
+class NetworkParameter3Piecewise(Network3Piecewise):
     def __init__(self, *, file_path: str, logger: Logger):
         """Init."""
         super().__init__(file_path=file_path, logger=logger)
