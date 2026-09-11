@@ -602,6 +602,8 @@ class SmallTemporalBaselinesNetwork(IfgNetwork3Piecewise):
         self.tbase = tbase / 365.25
         self.num_images = pbase.shape[0]
         self.dates = dates
+        self.ix_breakpoint1 = ix_break1
+        self.ix_breakpoint2 = ix_break2
 
         # period ranges (inclusive), overlapping exactly at the shared breakpoint
         periods = [
@@ -677,4 +679,3 @@ class SmallTemporalBaselinesNetwork(IfgNetwork3Piecewise):
         self.pbase_ifg_conso = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_conso])
         self.tbase_ifg_conso = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_conso])
         self.num_ifgs_conso = self.pbase_ifg_conso.shape[0]
-        
