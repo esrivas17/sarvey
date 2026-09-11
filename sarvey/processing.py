@@ -787,7 +787,7 @@ class Processing:
                                     ttl="Parameter integration: mean velocity in [m / year]",
                                     bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
                                     logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_3exca.png"), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_3conso.png"), dpi=300)
         plt.close(fig)
         ################################################
 
