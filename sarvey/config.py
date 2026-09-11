@@ -239,7 +239,13 @@ class Preparation(BaseModel, extra="forbid"):
     )
 
     excavation_date: str = Field(
-        title="End date",
+        title="Excavation date",
+        description="Format: YYYY-MM-DD.",
+        default=None
+    )
+
+    consolidation_date: str = Field(
+        title="Consolidation date",
         description="Format: YYYY-MM-DD.",
         default=None
     )

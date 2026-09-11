@@ -47,7 +47,7 @@ from sarvey.ifg_network_piecewise import StarNetwork, SmallTemporalBaselinesNetw
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, PointsPiecewise, NetworkPiecewise, NetworkParameterPiecewise
 from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, temporalUnwrappingTunnelling, temporalUnwrappingTunnellingReduced, spatialUnwrapping,
                                removeBadArcsIteratively, removeBadPointsIteratively)
-from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_excavation_date
+from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_date
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsStack
 from sarvey.triangulation import PointNetworkTriangulation
@@ -93,7 +93,8 @@ class Processing:
         log.info(msg=f"Stop date: {date_list[-1]}")
         log.info(msg=f"Number of SLC: {num_slc}")
 
-        ix_date_excavation = ix_from_excavation_date(date_list=slc_stack_obj.dateList, excavation_date=self.config.preparation.excavation_date)
+        ix_date_excavation = ix_from_date(date_list=slc_stack_obj.dateList, query_date=self.config.preparation.excavation_date)
+        ix_date_consolidation = ix_from_date(date_list=slc_stack_obj.dateList, query_date=self.config.preparation.consolidation_date)
 
         time_mask_pre, num_slc_pre, date_list_pre = createTimeMaskFromDates(
             start_date=self.config.preparation.start_date,
@@ -107,14 +108,26 @@ class Processing:
 
         time_mask_exca, num_slc_exca, date_list_exca = createTimeMaskFromDates(
             start_date=self.config.preparation.excavation_date,
+            stop_date=self.config.preparation.consolidation_date,
+            date_list=slc_stack_obj.dateList,
+            logger=log
+        )
+
+        log.info(msg=f"Excavation date: {date_list_exca[0]}")
+        log.info(msg=f"Consolidation date: {date_list_exca[-1]}")
+        log.info(msg=f"Number of SLC: {num_slc_exca}")
+
+        time_mask_exca, num_slc_exca, date_list_exca = createTimeMaskFromDates(
+            start_date=self.config.preparation.consolidation_date,
             stop_date=self.config.preparation.end_date,
             date_list=slc_stack_obj.dateList,
             logger=log
         )
-        log.info(msg=f"Excavation date: {date_list_exca[0]}")
-        log.info(msg=f"Stop date: {date_list_exca[-1]}")
-        log.info(msg=f"Number of SLC: {num_slc_exca}")
 
+        log.info(msg=f"Consolidation date: {date_list_exca[0]}")
+        log.info(msg=f"End date: {date_list_exca[-1]}")
+        log.info(msg=f"Number of SLC: {num_slc_exca}")
+        
         msg = "#" * 10
         msg += " DESIGN IFG NETWORKS: PRE-EXCAVATION AND EXCAVATION PERIOD "
         msg += "#" * 10
