@@ -449,16 +449,38 @@ class Processing:
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_0_initial_longgamma.png"), dpi=300)
         
-            # plot gamma the excavation
+            # plot gamma pre excavation
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
                                                                   arcs=net_par_obj.arcs,
                                                                   val=gamma_pre,
                                                                   ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+            ax.set_title("Coherence from unwrapping - pre excavation\nInitial network")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_preexcavation.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_1preexcavation.png"), dpi=300)
+
+            # during excavation
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                    arcs=net_par_obj.arcs,
+                                                                    val=gamma_exca,
+                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from unwrapping  - excavation\nInitial network")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_2excavation.png"), dpi=300)
+
+            # during consolidation
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                    arcs=net_par_obj.arcs,
+                                                                    val=gamma_conso,
+                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from  unwrapping - consolidation\nInitial network")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_3consolidation.png"), dpi=300)
 
         except BaseException as e:
                     self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
@@ -563,7 +585,7 @@ class Processing:
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nAfter re-triangulation")
+            ax.set_title("Coherence from unwrapping\nAfter re-triangulation")
             fig = ax.get_figure()
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated.png"), dpi=300)
@@ -574,21 +596,43 @@ class Processing:
                                                                     arcs=net_par_obj.arcs,
                                                                     val=gamma,
                                                                     ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+            ax.set_title("Coherence from unwrapping - gamma")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_longgamma.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_1fullgamma.png"), dpi=300)
 
-            # plot gamma the excavation
+            # plot gamma pre excavation
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
                                                                     arcs=net_par_obj.arcs,
                                                                     val=gamma_pre,
                                                                     ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+            ax.set_title("Coherence from unwrapping - gamma pre excavation")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_preexcavation.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_2preexcavation.png"), dpi=300)
+
+            # plot gamma during excavation
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                    arcs=net_par_obj.arcs,
+                                                                    val=gamma_exca,
+                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from unwrapping - gamma during excavation")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_3excavation.png"), dpi=300)
+
+            #plot gamma consolidation
+            ax = bmap_obj.plot(logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
+                                                                    arcs=net_par_obj.arcs,
+                                                                    val=gamma_conso,
+                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping - gamma consolidation")
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_4consolidation.png"), dpi=300)
 
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
