@@ -39,9 +39,10 @@ from logging import Logger
 
 from mintpy.utils import ptime
 
-from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage, PointsPiecewise, NetworkPiecewise, NetworkParameterPiecewise
+from sarvey.objects import Points, NetworkParameter, Network, BaseStack, AmplitudeImage, PointsPiecewise, NetworkPiecewise, NetworkParameterPiecewise, Points3Piecewise, NetworkParameter3Piecewise, Network3Piecewise
 from sarvey.ifg_network import IfgNetwork
 from sarvey.ifg_network_piecewise import IfgNetworkPiecewise
+from sarvey.ifg_network_piecewise_three import IfgNetwork3Piecewise
 
 
 def convertBboxToBlock(*, bbox: tuple):
@@ -323,6 +324,124 @@ def predictPhaseCorePiecewise(*, ifg_net_obj: IfgNetworkPiecewise, wavelength: f
         #pred_phase_vel = factor * tbase[:, np.newaxis] * vel
 
     # returning only the combined predicted velocity and the pred phase from demerr    
+
+    return pred_phase_demerr.T, pred_phase_vel_combined.T
+
+
+def predictPhasePiece3wise(*, obj: [NetworkParameter3Piecewise, Points3Piecewise], vel: np.ndarray = None, demerr: np.ndarray = None, 
+                           vel_pre: np.ndarray = None, vel_exca: np.ndarray = None, vel_conso: np.ndarray = None,
+                           ifg_space: bool = True, logger: Logger):
+
+    if isinstance(obj, Points3Piecewise):
+        if (vel is None) or (demerr is None):
+            logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
+            raise ValueError
+        pred_phase_demerr, pred_phase_vel = predictPhaseCorePiece3wise(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=vel,
+            vel_pre=vel_pre,
+            vel_exca=vel_exca,
+            vel_conso=vel_conso,
+            demerr=demerr,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space)
+    elif isinstance(obj, NetworkParameter3Piecewise):
+        pred_phase_demerr, pred_phase_vel = predictPhaseCorePiece3wise(
+            ifg_net_obj=obj.ifg_net_obj,
+            wavelength=obj.wavelength,
+            vel=obj.vel,
+            vel_pre=vel_pre,
+            vel_exca=vel_exca,
+            vel_conso=vel_conso,
+            demerr=obj.demerr,
+            slant_range=obj.slant_range,
+            loc_inc=obj.loc_inc,
+            ifg_space=ifg_space)
+    else:
+        logger.error(msg="'obj' must be instance of 'points' or 'networkParameter'!")
+        raise TypeError
+    return pred_phase_demerr, pred_phase_vel
+
+
+def predictPhaseCorePiece3wise(*, ifg_net_obj: IfgNetwork3Piecewise, wavelength: float, vel: np.ndarray,
+                               vel_pre: np.ndarray, vel_exca: np.ndarray, vel_conso: np.ndarray,
+                               demerr: np.ndarray, slant_range: np.ndarray, loc_inc: np.ndarray, ifg_space: bool = True):
+    factor = 4 * np.pi / wavelength
+
+    if ifg_space:
+        tbase = ifg_net_obj.tbase_ifg
+        pbase = ifg_net_obj.pbase_ifg
+
+        tbase_pre = ifg_net_obj.tbase_ifg_pre
+        pbase_pre = ifg_net_obj.pbase_ifg_pre
+
+        tbase_exca = ifg_net_obj.tbase_ifg_exca
+        pbase_exca = ifg_net_obj.pbase_ifg_exca
+
+        tbase_conso = ifg_net_obj.tbase_ifg_conso
+        pbase_conso = ifg_net_obj.pbase_ifg_conso
+
+        # compute phase due to DEM error
+        pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        #pred_phase_demerr_pre = factor * pbase_pre[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        #pred_phase_demerr_exca = factor * pbase_exca[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        #pred_phase_demerr_conso = factor * pbase_conso[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+
+        # compute phase due to velocity
+        pred_phase_vel_combined = np.empty((tbase.size, vel.size), dtype=float)
+        pred_phase_vel_pre = np.empty((tbase_pre.size, vel_pre.size), dtype=float)
+        pred_phase_vel_exca = np.empty((tbase_exca.size, vel_exca.size), dtype=float)
+        pred_phase_vel_conso = np.empty((tbase_conso.size, vel_conso.size), dtype=float)
+
+        pred_phase_vel_pre = tbase_pre[:, np.newaxis] * vel_pre[np.newaxis, :]
+        pred_phase_vel_exca = tbase_exca[:, np.newaxis] * vel_exca[np.newaxis, :]
+        pred_phase_vel_conso = tbase_conso[:, np.newaxis] * vel_conso[np.newaxis, :]
+
+        pred_phase_vel_combined[ifg_net_obj.ix_ifg_pre, :] = pred_phase_vel_pre
+        pred_phase_vel_combined[ifg_net_obj.ix_ifg_exca, :] = pred_phase_vel_exca
+        pred_phase_vel_combined[ifg_net_obj.ix_ifg_conso, :] = pred_phase_vel_conso
+
+        pred_phase_vel_pre *= factor
+        pred_phase_vel_exca *= factor
+        pred_phase_vel_conso *= factor
+        pred_phase_vel_combined *= factor
+
+    else:
+        tbase = ifg_net_obj.tbase
+        pbase = ifg_net_obj.pbase
+        ix_break1 = ifg_net_obj.ix_breakpoint1
+        ix_break2 = ifg_net_obj.ix_breakpoint2
+
+        # compute phase due to DEM error
+        pred_phase_demerr = factor * pbase[:, np.newaxis] / (slant_range * np.sin(loc_inc))[np.newaxis, :] * demerr
+        pred_phase_demerr_pre = pred_phase_demerr[:ix_break1]
+        pred_phase_demerr_exca = pred_phase_demerr[ix_break1:ix_break2]
+        pred_phase_demerr_conso = pred_phase_demerr[ix_break2:]
+
+        # compute phase due to velocity
+        pred_phase_vel_combined = np.empty((tbase.size, vel.size), dtype=float)
+        before = tbase < tbase[ix_break1]
+        during = (tbase >= tbase[ix_break1]) & (tbase < tbase[ix_break2])
+        after = tbase >= tbase[ix_break2]
+
+        # pre excavation
+        pred_phase_vel_combined[before] = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
+        pred_phase_vel_pre = (tbase[before][:, np.newaxis] * vel_pre[np.newaxis, :])
+        pred_phase_vel_pre *= factor
+
+        # during excavation
+        pred_phase_vel_combined[during] = (tbase[during][:, np.newaxis] * vel_exca[np.newaxis, :])
+        pred_phase_vel_exca = (tbase[during][:, np.newaxis] * vel_exca[np.newaxis, :])
+        pred_phase_vel_exca *= factor
+
+        # consolidation
+        pred_phase_vel_combined[after] = (tbase[after][:, np.newaxis] * vel_conso[np.newaxis, :])
+        pred_phase_vel_conso = (tbase[after][:, np.newaxis] * vel_conso[np.newaxis, :])
+        pred_phase_vel_conso *= factor
+
+    # returning only the combined predicted velocity and the pred phase from demerr
 
     return pred_phase_demerr.T, pred_phase_vel_combined.T
 

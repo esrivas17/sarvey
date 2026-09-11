@@ -46,6 +46,7 @@ from mintpy.utils.plot import auto_flip_direction
 
 from sarvey.ifg_network import IfgNetwork
 from sarvey.ifg_network_piecewise import IfgNetworkPiecewise
+from sarvey.ifg_network_piecewise_three import IfgNetwork3Piecewise
 
 
 class AmplitudeImage:
@@ -823,6 +824,176 @@ class PointsPiecewise(Points):
         # refresh by reopening all external data
         self.openExternalData(input_path=input_path)
 
+
+class Points3Piecewise(Points):
+    def __init__(self, *, file_path: str, logger: Logger):
+        """Init.
+
+        Parameters
+        ----------
+        file_path: str
+             ath to filename
+        logger: Logger
+            Logging handler.
+        """
+        self.ifg_net_obj = IfgNetwork3Piecewise()
+        self.coord_utm = None
+        self.coord_lalo = None
+        self.height = None
+        self.slant_range = None
+        self.loc_inc = None
+        self.file_path = file_path
+        self.logger = logger
+
+    def prepare(self, *, point_id: np.ndarray, coord_xy: np.ndarray, input_path: str):
+        """Assign point_id and radar coordinates to the object.
+
+        Store the point_id and radar coordinates of the scatterers in the object (not file) and read further
+        attributes from external files (ifg_network.h5, slcStack.h5, geometryRadar.h5, coordinates_utm.h5).
+
+        Parameters
+        ----------
+        point_id: np.ndarray
+            point_id of the scatterers.
+        coord_xy: np.ndarray
+            radar coordinates of the scatterers.
+        input_path: str
+            path to input files (slcStack.h5, geometryRadar.h5).
+        """
+        self.point_id = point_id
+        self.coord_xy = coord_xy
+        self.num_points = self.coord_xy.shape[0]
+        self.phase = None
+        self.phase_pre = None
+        self.phase_exca = None
+        self.phase_conso = None
+        self.openExternalData(input_path=input_path)
+
+    def writeToFile(self):
+        """Write data to .h5 file (num_points, coord_xy, point_id, phase)."""
+        self.logger.info(msg="write data to {}...".format(self.file_path))
+
+        if exists(self.file_path):
+            os.remove(self.file_path)
+
+        with h5py.File(self.file_path, 'w') as f:
+            f.attrs["num_points"] = self.num_points
+            f.create_dataset('coord_xy', data=self.coord_xy)
+            f.create_dataset('point_id', data=self.point_id)
+            f.create_dataset('phase', data=self.phase)
+            f.create_dataset('phase_pre', data=self.phase_pre)
+            f.create_dataset('phase_exca', data=self.phase_exca)
+            f.create_dataset('phase_conso', data=self.phase_conso)
+
+    def open(self, input_path: str, other_file_path: str = None):
+        # 1) read own data: coord_xy, phase, point_id, num_points, reference_point_idx
+        if other_file_path is not None:
+            path = other_file_path
+        else:
+            path = self.file_path
+        self.logger.info(msg="read from {}".format(path))
+
+        with h5py.File(path, 'r') as f:
+            self.num_points = f.attrs["num_points"]
+            self.coord_xy = f["coord_xy"][:]
+            self.point_id = f["point_id"][:]
+            self.phase = f["phase"][:]
+            self.phase_pre = f["phase_pre"][:]
+            self.phase_exca = f["phase_exca"][:]
+            self.phase_conso = f["phase_conso"][:]
+
+        self.openExternalData(input_path=input_path)
+
+    def openExternalData(self, *, input_path: str):
+        """Load data which is stored in slcStack.h5, geometryRadar.h5, ifg_network.h5 and coordinates_utm.h5."""
+        # 1) read IfgNetwork
+        self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
+
+        # 2) read metadata from slcStack
+        slc_stack_obj = slcStack(join(input_path, "slcStack.h5"))
+        slc_stack_obj.open(print_msg=False)
+        self.wavelength = np.float64(slc_stack_obj.metadata["WAVELENGTH"])
+        self.length = slc_stack_obj.length  # y-coordinate axis (azimut)
+        self.width = slc_stack_obj.width  # x-coordinate axis (range)
+
+        # 3) read from geometry file
+        mask = self.createMask()
+
+        geom_path = join(input_path, "geometryRadar.h5")
+
+        # load geometry data
+        loc_inc, meta = readfile.read(geom_path, datasetName='incidenceAngle')
+        loc_inc *= np.pi / 180  # in [rad]
+        slant_range = readfile.read(geom_path, datasetName='slantRangeDistance')[0]
+        height = readfile.read(geom_path, datasetName='height')[0]
+        lat = readfile.read(geom_path, datasetName='latitude')[0]
+        lon = readfile.read(geom_path, datasetName='longitude')[0]
+
+        self.loc_inc = loc_inc[mask].ravel()
+        self.slant_range = slant_range[mask].ravel()
+        self.height = height[mask].ravel()
+        self.coord_lalo = np.array([lat[mask].ravel(), lon[mask].ravel()]).transpose()
+
+        # 4) read UTM coordinates
+        coord_utm_obj = CoordinatesUTM(file_path=join(dirname(self.file_path), "coordinates_utm.h5"),
+                                       logger=self.logger)
+        coord_utm_obj.open()
+        self.coord_utm = coord_utm_obj.coord_utm[:, mask].transpose()
+
+    def removePoints(self, mask: np.ndarray = None, *, keep_id: [np.ndarray, list], input_path: str):
+        """Remove all entries from specified points.
+
+        The possible options exist for removing the points:
+        a) Keep all points which are set to True in a 'mask' with size (num_points x 1). Or
+        b) Keep all points whose ID is listed in keep_id. The rest of the points will be removed.
+
+        Parameters
+        ----------
+        mask: np.ndarray
+            mask to select points to be kept, rest will be removed (default: None).
+        keep_id: np.ndarray
+            list of point_id to keep.
+        input_path: str
+            path to input files (slcStack.h5, geometryRadar.h5).
+        """
+        if mask is None:
+            mask = np.ones((self.num_points,), dtype=np.bool_)
+            for p in self.point_id:
+                if p not in keep_id:
+                    mask[self.point_id == p] = False
+        self.point_id = self.point_id[mask]
+        self.coord_xy = self.coord_xy[mask, :]
+        self.phase = self.phase[mask, :]
+        self.num_points = mask[mask].shape[0]
+        self.phase_pre = self.phase_pre[mask, :]
+        self.phase_exca = self.phase_exca[mask, :]
+        self.phase_conso = self.phase_conso[mask, :]
+        # refresh by reopening all external data
+        self.openExternalData(input_path=input_path)
+
+    def addPointsFromObj(self, *, new_point_id: np.ndarray, new_coord_xy: np.ndarray, new_phase: np.ndarray,
+                         new_phase_pre: np.ndarray, new_phase_exca: np.ndarray, new_phase_conso: np.ndarray,
+                         new_num_points: int, input_path: str):
+        self.point_id = np.append(self.point_id, new_point_id)
+        self.coord_xy = np.append(self.coord_xy, new_coord_xy, axis=0)
+        self.phase = np.append(self.phase, new_phase, axis=0)
+        self.phase_pre = np.append(self.phase_pre, new_phase_pre, axis=0)
+        self.phase_exca = np.append(self.phase_exca, new_phase_exca, axis=0)
+        self.phase_conso = np.append(self.phase_conso, new_phase_conso, axis=0)
+        self.num_points += new_num_points
+
+        # all data must be ordered, so that all external data can be loaded correctly
+        sort_idx = np.argsort(self.point_id)
+        self.point_id = self.point_id[sort_idx]
+        self.coord_xy = self.coord_xy[sort_idx, :]
+        self.phase = self.phase[sort_idx, :]
+        self.phase_pre = self.phase_pre[sort_idx, :]
+        self.phase_exca = self.phase_exca[sort_idx, :]
+        self.phase_conso = self.phase_conso[sort_idx, :]
+        # refresh by reopening all external data
+        self.openExternalData(input_path=input_path)
+
+
 class Network:
     """Spatial network of PS candidates."""
 
@@ -1126,6 +1297,157 @@ class NetworkPiecewise(Network):
         self.phase_exca = self.phase_exca[mask,:]
         self.gamma_exca = self.gamma_exca[mask]
 
+class Network3Piecewise(Network):
+    def __init__(self, *, file_path: str, logger: Logger):
+        """Init.
+
+        Parameters
+        ----------
+        file_path: str
+            absolute path to working directory for creating/loading 'psNetwork.h5'
+        logger: Logger
+            Logging handler.
+        """
+        self.num_arcs = None
+        self.arcs = None
+
+        self.phase = None
+        self.vel = None
+        self.demerr = None
+        self.gamma = None
+        self.ifg_net_obj = None
+
+        self.phase_pre = None
+        self.vel_pre = None
+        self.demerr_pre = None
+        self.gamma_pre = None
+
+        self.phase_exca = None
+        self.vel_exca = None
+        self.demerr_exca = None
+        self.gamma_exca = None
+
+        self.phase_conso = None
+        self.vel_conso = None
+        self.demerr_conso = None
+        self.gamma_conso = None
+
+        self.file_path = file_path
+        self.slant_range = None
+        self.loc_inc = None
+        self.width = None
+        self.length = None
+        self.wavelength = None
+        self.logger = logger
+
+    def writeToFile(self):
+        """Write all existing data to psNetwork.h5 file."""
+        self.logger.info(msg="write data to {}...".format(self.file_path))
+
+        if exists(self.file_path):
+            os.remove(self.file_path)
+
+        with h5py.File(self.file_path, 'w') as f:
+            f.attrs["num_arcs"] = self.num_arcs
+            f.create_dataset('arcs', data=self.arcs)
+            f.create_dataset('phase', data=self.phase)
+            f.create_dataset('loc_inc', data=self.loc_inc)
+            f.create_dataset('slant_range', data=self.slant_range)
+            f.create_dataset('phase_pre', data=self.phase_pre)
+            f.create_dataset('phase_exca', data=self.phase_exca)
+            f.create_dataset('phase_conso', data=self.phase_conso)
+
+    def open(self, *, input_path: str):
+        """Read stored information from existing .h5 file."""
+        with h5py.File(self.file_path, 'r') as f:
+            self.num_arcs = f.attrs["num_arcs"]
+            self.arcs = f["arcs"][:]
+            self.phase = f["phase"][:]
+            self.loc_inc = f["loc_inc"][:]
+            self.slant_range = f["slant_range"][:]
+            self.phase_pre = f["phase_pre"][:]
+            self.phase_exca = f["phase_exca"][:]
+            self.phase_conso = f["phase_conso"][:]
+        self.openExternalData(input_path=input_path)
+
+    def openExternalData(self, *, input_path: str):
+        """Read data from slcStack.h5 and IfgNetwork.h5 files."""
+        slc_stack_obj = slcStack(join(input_path, "slcStack.h5"))
+        slc_stack_obj.open(print_msg=False)
+        self.wavelength = np.float64(slc_stack_obj.metadata["WAVELENGTH"])
+        self.length = slc_stack_obj.length  # y-coordinate axis (azimut)
+        self.width = slc_stack_obj.width  # x-coordinate axis (range)
+
+        # 3) read IfgNetwork
+        self.ifg_net_obj = IfgNetwork3Piecewise()
+        self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
+
+    def computeArcObservations(self, *, point_obj: PointsPiecewise, arcs: np.ndarray):
+        """Compute the phase observations for each arc.
+
+        Compute double difference phase observations, i.e. the phase differences for each arc in the network from the
+        phase of the two scatterers connected by the arc.
+
+        Parameters
+        ----------
+        point_obj: Points
+            object of class Points.
+        arcs: np.ndarray
+            Array with the indices of the points connected by an arc.
+        """
+        self.arcs = arcs
+        self.num_arcs = self.arcs.shape[0]
+
+        self.phase = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs))
+        self.phase_pre = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs_pre))
+        self.phase_exca = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs_exca))
+        self.phase_conso = np.zeros((self.num_arcs, point_obj.ifg_net_obj.num_ifgs_conso))
+        self.loc_inc = np.zeros((self.num_arcs,))
+        self.slant_range = np.zeros((self.num_arcs,))
+        for idx, arc in enumerate(self.arcs):
+            self.phase[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], :]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], :])))
+            self.phase_pre[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], point_obj.ifg_net_obj.ix_ifg_pre]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], point_obj.ifg_net_obj.ix_ifg_pre])))
+            self.phase_exca[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], point_obj.ifg_net_obj.ix_ifg_exca]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], point_obj.ifg_net_obj.ix_ifg_exca])))
+            self.phase_conso[idx, :] = np.angle(np.exp(1j * point_obj.phase[arc[0], point_obj.ifg_net_obj.ix_ifg_conso]) * np.conjugate(np.exp(1j * point_obj.phase[arc[1], point_obj.ifg_net_obj.ix_ifg_conso])))
+            self.loc_inc[idx] = np.mean([point_obj.loc_inc[arc[0]], point_obj.loc_inc[arc[1]]])
+            self.slant_range[idx] = np.mean([point_obj.slant_range[arc[0]], point_obj.slant_range[arc[1]]])
+
+        self.logger.info(msg="ifg arc observations created.")
+
+    def removeArcs(self, *, mask: np.ndarray):
+        """Remove arcs from the list of arcs in the network.
+
+        Parameter
+        ---------
+        mask: np.ndarray
+            mask to select arcs to be kept, rest will be removed.
+        """
+        self.demerr = self.demerr[mask]
+        self.vel = self.vel[mask]
+        self.phase = self.phase[mask, :]
+        self.loc_inc = self.loc_inc[mask]
+        self.slant_range = self.slant_range[mask]
+        self.arcs = np.array(self.arcs)
+        self.arcs = self.arcs[mask, :]
+        self.gamma = self.gamma[mask]
+        self.num_arcs = mask[mask].shape[0]
+        # pre excavation
+        self.demerr_pre = self.demerr_pre[mask]
+        self.vel_pre = self.vel_pre[mask]
+        self.phase_pre = self.phase_pre[mask, :]
+        self.gamma_pre = self.gamma_pre[mask]
+        # during excavation
+        self.demerr_exca = self.demerr_exca[mask]
+        self.vel_exca = self.vel_exca[mask]
+        self.phase_exca = self.phase_exca[mask, :]
+        self.gamma_exca = self.gamma_exca[mask]
+        # consolidation
+        self.demerr_conso = self.demerr_conso[mask]
+        self.vel_conso = self.vel_conso[mask]
+        self.phase_conso = self.phase_conso[mask, :]
+        self.gamma_conso = self.gamma_conso[mask]
+
+
 class NetworkParameterPiecewise(NetworkPiecewise):
     def __init__(self, *, file_path: str, logger: Logger):
         """Init."""
@@ -1140,10 +1462,10 @@ class NetworkParameterPiecewise(NetworkPiecewise):
         self.demerr_pre = None
         self.phase_pre = None
         #excavation
-        self.gamma_pre = None
-        self.vel_pre = None
-        self.demerr_pre = None
-        self.phase_pre = None
+        self.gamma_exca = None
+        self.vel_exca = None
+        self.demerr_exca = None
+        self.phase_exca = None
 
         self.slant_range = None
         self.loc_inc = None
@@ -1218,6 +1540,123 @@ class NetworkParameterPiecewise(NetworkPiecewise):
             self.demerr_exca = f["demerr_exca"][:]
             self.vel_exca = f["vel_exca"][:]
             self.gamma_exca = f["gamma_exca"][:]
+
+    def redefine_gamma(self):
+        self.gamma_saved = self.gamma
+        self.gamma = self.gamma_pre
+        
+
+class NetworkParameter3Piecewise(NetworkPiecewise):
+    def __init__(self, *, file_path: str, logger: Logger):
+        """Init."""
+        super().__init__(file_path=file_path, logger=logger)
+        self.gamma = None
+        self.vel = None
+        self.demerr = None
+        self.phase = None
+        # pre-excavation
+        self.gamma_pre = None
+        self.vel_pre = None
+        self.demerr_pre = None
+        self.phase_pre = None
+        # excavation
+        self.gamma_exca = None
+        self.vel_exca = None
+        self.demerr_exca = None
+        self.phase_exca = None
+        # consolidation
+        self.gamma_conso = None
+        self.vel_conso = None
+        self.demerr_conso = None
+        self.phase_conso = None
+
+        self.slant_range = None
+        self.loc_inc = None
+        self.arcs = None
+        self.num_arcs = None
+        self.logger = logger
+
+    def prepare(self, *, net_obj: NetworkPiecewise, demerr: np.ndarray, vel: np.ndarray, gamma: np.ndarray,
+                demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca,
+                demerr_conso, vel_conso, gamma_conso):
+        """Prepare.
+
+        Parameter
+        -----------
+        net_obj: Network
+            object of class Network.
+        demerr: np.ndarray
+            estimated DEM error for each arc in the network.
+        vel: np.ndarray
+            estimated velocity for each arc in the network.
+        gamma: np.ndarray
+            estimated temporal coherence for each arc in the network.
+        """
+        self.num_arcs = net_obj.num_arcs
+        self.arcs = net_obj.arcs
+        self.loc_inc = net_obj.loc_inc
+        self.slant_range = net_obj.slant_range
+        self.phase = net_obj.phase
+        self.demerr = demerr
+        self.vel = vel
+        self.gamma = gamma
+        # pre excavation
+        self.phase_pre = net_obj.phase_pre
+        self.demerr_pre = demerr_pre
+        self.vel_pre = vel_pre
+        self.gamma_pre = gamma_pre
+        # during excavation
+        self.phase_exca = net_obj.phase_exca
+        self.demerr_exca = demerr_exca
+        self.vel_exca = vel_exca
+        self.gamma_exca = gamma_exca
+        # consolidation
+        self.phase_conso = net_obj.phase_conso
+        self.demerr_conso = demerr_conso
+        self.vel_conso = vel_conso
+        self.gamma_conso = gamma_conso
+
+    def writeToFile(self):
+        """Write DEM error, velocity and temporal coherence to file."""
+        super().writeToFile()
+
+        with h5py.File(self.file_path, 'r+') as f:  # append existing file
+            f.create_dataset('demerr', data=self.demerr)
+            f.create_dataset('vel', data=self.vel)
+            f.create_dataset('gamma', data=self.gamma)
+            # pre
+            f.create_dataset('demerr_pre', data=self.demerr_pre)
+            f.create_dataset('vel_pre', data=self.vel_pre)
+            f.create_dataset('gamma_pre', data=self.gamma_pre)
+            # excavation
+            f.create_dataset('demerr_exca', data=self.demerr_exca)
+            f.create_dataset('vel_exca', data=self.vel_exca)
+            f.create_dataset('gamma_exca', data=self.gamma_exca)
+            # consolidation
+            f.create_dataset('demerr_conso', data=self.demerr_conso)
+            f.create_dataset('vel_conso', data=self.vel_conso)
+            f.create_dataset('gamma_conso', data=self.gamma_conso)
+
+    def open(self, *, input_path: str):
+        """Read data from file."""
+        super().open(input_path=input_path)
+
+        with h5py.File(self.file_path, 'r') as f:
+            self.demerr = f["demerr"][:]
+            self.vel = f["vel"][:]
+            self.gamma = f["gamma"][:]
+            # pre excavation
+            self.demerr_pre = f["demerr_pre"][:]
+            self.vel_pre = f["vel_pre"][:]
+            self.gamma_pre = f["gamma_pre"][:]
+            # excavation
+            self.demerr_exca = f["demerr_exca"][:]
+            self.vel_exca = f["vel_exca"][:]
+            self.gamma_exca = f["gamma_exca"][:]
+            # consolidation
+            self.demerr_conso = f["demerr_conso"][:]
+            self.vel_conso = f["vel_conso"][:]
+            self.gamma_conso = f["gamma_conso"][:]
 
     def redefine_gamma(self):
         self.gamma_saved = self.gamma
