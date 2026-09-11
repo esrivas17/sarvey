@@ -1544,7 +1544,7 @@ class NetworkParameterPiecewise(NetworkPiecewise):
     def redefine_gamma(self):
         self.gamma_saved = self.gamma
         self.gamma = self.gamma_pre
-        
+
 
 class NetworkParameter3Piecewise(NetworkPiecewise):
     def __init__(self, *, file_path: str, logger: Logger):
@@ -1657,6 +1657,18 @@ class NetworkParameter3Piecewise(NetworkPiecewise):
             self.demerr_conso = f["demerr_conso"][:]
             self.vel_conso = f["vel_conso"][:]
             self.gamma_conso = f["gamma_conso"][:]
+
+    def openExternalData(self, *, input_path: str):
+        """Read data from slcStack.h5 and IfgNetwork.h5 files."""
+        slc_stack_obj = slcStack(join(input_path, "slcStack.h5"))
+        slc_stack_obj.open(print_msg=False)
+        self.wavelength = np.float64(slc_stack_obj.metadata["WAVELENGTH"])
+        self.length = slc_stack_obj.length  # y-coordinate axis (azimut)
+        self.width = slc_stack_obj.width  # x-coordinate axis (range)
+
+        # 3) read IfgNetwork
+        self.ifg_net_obj = IfgNetwork3Piecewise()
+        self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
 
     def redefine_gamma(self):
         self.gamma_saved = self.gamma
