@@ -418,7 +418,7 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
         self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
         self.num_ifgs = self.pbase_ifg.shape[0]
 
-    def configure_breakpoint(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list, ix_break: int):
+    def configure_breakpoint_old(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list, ix_break: int):
             self.pbase = pbase
             self.tbase = tbase / 365.25
             self.num_images = pbase.shape[0]
@@ -470,4 +470,89 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
             self.num_ifgs_exca = self.pbase_ifg_exca.shape[0]
 
 
+    def configure_breakpoint(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list, ix_break: int):
+        """Create list of interferograms split into two periods: pre and exca (excavation).
 
+        Interferograms are only formed within a single period. The breakpoint index (ix_break) is
+        shared between the two periods, acting as a bridge node so the overall network stays connected.
+        Any candidate connection that spans from one period's interior into the other's is dropped.
+
+        Parameter
+        -----------
+        pbase: np.ndarray
+            Perpendicular baselines of the SAR acquisitions.
+        tbase: np.ndarray
+            Temporal baselines of the SAR acquisitions.
+        num_link: int
+            Number of consecutive links in time connecting acquisitions.
+        dates: list
+            Dates of the acquisitions.
+        ix_break: int
+            Index shared between the "pre" and "exca" periods.
+        """
+        self.pbase = pbase
+        self.tbase = tbase / 365.25
+        self.num_images = pbase.shape[0]
+        self.dates = dates
+
+        # period ranges (inclusive), overlapping exactly at the shared breakpoint
+        periods = [
+            (0, ix_break, 'pre'),
+            (ix_break, self.num_images - 1, 'exca'),
+        ]
+
+        def period_of_pair(i, j):
+            """Return the period name if both i and j lie within the same period range, else None."""
+            for lo, hi, name in periods:
+                if lo <= i <= hi and lo <= j <= hi:
+                    return name
+            return None
+
+        ix_ifg = 0
+        for i in range(self.num_images):
+            for j in range(num_link):
+                end = i + j + 1
+                if end >= self.num_images:
+                    continue
+
+                period = period_of_pair(i, end)
+                if period is None:
+                    continue  # cross-period connection: drop entirely
+
+                self.ifg_list.append((i, end))
+                self.ix_ifg.append(ix_ifg)
+
+                if period == 'pre':
+                    self.ifg_list_pre.append((i, end))
+                    self.ix_ifg_pre.append(ix_ifg)
+                else:  # exca
+                    self.ifg_list_exca.append((i, end))
+                    self.ix_ifg_exca.append(ix_ifg)
+
+                ix_ifg += 1
+
+        self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
+        self.ifg_list_pre = [(i, j) for i, j in self.ifg_list_pre if i != j]
+        self.ifg_list_exca = [(i, j) for i, j in self.ifg_list_exca if i != j]
+
+        self.pbase_ifg = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list])
+        self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
+        self.num_ifgs = self.pbase_ifg.shape[0]
+
+        # pre and excavation configuration
+        self.tbase_pre = tbase[:ix_break + 1] / 365.25
+        self.tbase_exca = tbase[ix_break:] / 365.25
+        self.pbase_pre = pbase[:ix_break + 1]
+        self.pbase_exca = pbase[ix_break:]
+        self.dates_pre = dates[:ix_break + 1]
+        self.dates_exca = dates[ix_break:]
+        self.num_images_pre = self.tbase_pre.shape[0]
+        self.num_images_exca = self.tbase_exca.shape[0]
+
+        self.pbase_ifg_pre = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_pre])
+        self.tbase_ifg_pre = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_pre])
+        self.num_ifgs_pre = self.pbase_ifg_pre.shape[0]
+
+        self.pbase_ifg_exca = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_exca])
+        self.tbase_ifg_exca = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_exca])
+        self.num_ifgs_exca = self.pbase_ifg_exca.shape[0]
