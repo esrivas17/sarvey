@@ -43,7 +43,8 @@ from sarvey.densification import densifyNetwork, densifyNetworkPiecewise
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 #from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
  #                               SmallBaselineNetwork, StarNetwork)
-from sarvey.ifg_network_piecewise import StarNetwork, SmallTemporalBaselinesNetwork
+#from sarvey.ifg_network_piecewise import StarNetwork, SmallTemporalBaselinesNetwork
+from sarvey.ifg_network_piecewise_three import SmallTemporalBaselinesNetwork
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, PointsPiecewise, NetworkPiecewise, NetworkParameterPiecewise
 from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, temporalUnwrappingTunnelling, temporalUnwrappingTunnellingReduced, spatialUnwrapping,
                                removeBadArcsIteratively, removeBadPointsIteratively)
@@ -135,6 +136,7 @@ class Processing:
 
         ifg_net_obj = None
         if self.config.preparation.ifg_network_type == "star":
+            raise NotImplementedError
             ifg_net_obj = StarNetwork()
             ifg_net_obj.configure_breakpoint(pbase=slc_stack_obj.pbase[time_mask],
                 tbase=slc_stack_obj.tbase[time_mask],
@@ -164,13 +166,10 @@ class Processing:
 
         elif self.config.preparation.ifg_network_type == "stb":
             ifg_net_obj = SmallTemporalBaselinesNetwork()
-            ifg_net_obj.configure_breakpoint(
-                pbase=slc_stack_obj.pbase[time_mask],
-                tbase=slc_stack_obj.tbase[time_mask],
-                num_link=self.config.preparation.num_ifgs,
-                dates=date_list,
-                ix_break=ix_date_excavation)
-            ifg_net_obj.ix_breakpoint = ix_date_excavation
+            ifg_net_obj.configure_three_periods(pbase=slc_stack_obj.pbase[time_mask],
+                            tbase=slc_stack_obj.tbase[time_mask],
+                            num_link=self.config.preparation.num_ifgs,
+                            dates=date_list, ix_break1=ix_date_excavation, ix_break2=ix_date_consolidation)
             log.info(msg="Small temporal baseline network")
         elif self.config.preparation.ifg_network_type == "stb_year":
             raise NotImplementedError
@@ -199,13 +198,16 @@ class Processing:
         plt.close(fig)
 
         fig = ifg_net_obj.plot_pre()
-        fig.savefig(join(self.path, "pic", "step_0_interferogram_network_pre.png"), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_0_interferogram_network_1pre.png"), dpi=300)
         plt.close(fig)
 
         fig = ifg_net_obj.plot_exca()
-        fig.savefig(join(self.path, "pic", "step_0_interferogram_network_exca.png"), dpi=300)
+        fig.savefig(join(self.path, "pic", "step_0_interferogram_network_2exca.png"), dpi=300)
         plt.close(fig)
 
+        fig = ifg_net_obj.plot_consolidation()
+        fig.savefig(join(self.path, "pic", "step_0_interferogram_network_3conso.png"), dpi=300)
+        plt.close(fig)
         
         # at this point just created folder pic and ifg_network.h5
         msg = "#" * 10
@@ -233,6 +235,11 @@ class Processing:
         ifg_stack_exca_obj = BaseStack(file=join(self.path, "ifg_stack_exca.h5"), logger=log)
         ifg_stack_exca_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
                                      metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs_exca))
+
+        dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_obj.num_ifgs_conso)
+        ifg_stack_conso_obj = BaseStack(file=join(self.path, "ifg_stack_conso.h5"), logger=log)
+        ifg_stack_conso_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
+                                        metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs_conso))
 
 
         # create placeholder in result file for datasets which are stored patch-wise
@@ -270,6 +277,15 @@ class Processing:
                 box_list=box_list,
                 num_cores=self.config.general.num_cores,
                 logger=log)
+
+        _ = computeIfgsStack(path_ifgs=join(self.path, "ifg_stack_conso.h5"),
+            path_slc=join(self.config.general.input_path, "slcStack.h5"),
+            ifg_array=np.array(ifg_net_obj.ifg_list_conso),
+            time_mask=time_mask,
+            num_boxes=num_patches,
+            box_list=box_list,
+            num_cores=self.config.general.num_cores,
+            logger=log)
 
 
         # store auxilliary datasets for faster access during processing

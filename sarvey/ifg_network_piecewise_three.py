@@ -40,7 +40,7 @@ from scipy.spatial import Delaunay
 import pdb
 
 
-class IfgNetworkPiecewise:
+class IfgNetwork3Piecewise:
     """Abstract class/interface for different types of interferogram networks."""
 
     ifg_list: Union[list, np.ndarray] = None
@@ -57,7 +57,7 @@ class IfgNetworkPiecewise:
         self.dates = list()
         self.ix_ifg = list()
 
-        # pre-xcavation
+        # pre-excavation
         self.pbase_pre = None
         self.tbase_pre = None
         self.num_images_pre = None
@@ -67,7 +67,7 @@ class IfgNetworkPiecewise:
         self.dates_pre = list()
         self.ifg_list_pre = list()
         self.ix_ifg_pre = list()
-        
+
         # excavation
         self.pbase_exca = None
         self.tbase_exca = None
@@ -79,10 +79,22 @@ class IfgNetworkPiecewise:
         self.ifg_list_exca = list()
         self.ix_ifg_exca = list()
 
-        self.ix_breakpoint = None
+        # consolidation
+        self.pbase_conso = None
+        self.tbase_conso = None
+        self.num_images_conso = None
+        self.pbase_ifg_conso = None
+        self.tbase_ifg_conso = None
+        self.num_ifgs_conso = None
+        self.dates_conso = list()
+        self.ifg_list_conso = list()
+        self.ix_ifg_conso = list()
+
+        self.ix_breakpoint1 = None  # shared node between pre and exca
+        self.ix_breakpoint2 = None  # shared node between exca and conso
 
     def plot(self):
-        """Plot the network of interferograms."""
+        """Plot the full network of interferograms."""
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 3)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
@@ -104,107 +116,112 @@ class IfgNetworkPiecewise:
         axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('perpendicular baseline [m]')
         return fig
-    
-    def plot_pre(self):
-        """Plot the network of interferograms."""
+
+    def _plot_period(self, *, dates_period, pbase_period, ifg_list_period, tbase_ifg_period, pbase_ifg_period, title):
+        """Shared plotting logic for a single period (pre / exca / conso)."""
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 3)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
-        dt_pre = [datetime.date.fromisoformat(d) for d in self.dates_pre]
-        axs[0].plot(dt_pre, self.pbase_pre, 'ko')
-        for idx in self.ifg_list_pre:
+        dt_period = [datetime.date.fromisoformat(d) for d in dates_period]
+        axs[0].plot(dt_period, pbase_period, 'ko')
+        for idx in ifg_list_period:
             xx = np.array([dt[idx[0]], dt[idx[1]]])
             yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
             axs[0].plot(xx, yy, 'k-')
         axs[0].set_ylabel('perpendicular baseline [m]')
         axs[0].set_xlabel('temporal baseline [years]')
-        axs[0].set_title('Network of interferograms')
+        axs[0].set_title(title)
         fig.autofmt_xdate()
 
-        axs[1].hist(self.tbase_ifg_pre * 365.25, bins=100)
+        axs[1].hist(tbase_ifg_period * 365.25, bins=100)
         axs[1].set_ylabel('Absolute frequency')
         axs[1].set_xlabel('temporal baseline [days]')
 
-        axs[2].hist(self.pbase_ifg_pre, bins=100)
+        axs[2].hist(pbase_ifg_period, bins=100)
         axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('perpendicular baseline [m]')
         return fig
+
+    def plot_pre(self):
+        """Plot the network of interferograms for the pre-excavation period."""
+        return self._plot_period(
+            dates_period=self.dates_pre,
+            pbase_period=self.pbase_pre,
+            ifg_list_period=self.ifg_list_pre,
+            tbase_ifg_period=self.tbase_ifg_pre,
+            pbase_ifg_period=self.pbase_ifg_pre,
+            title='Network of interferograms (pre-excavation)',
+        )
 
     def plot_exca(self):
-        """Plot the network of interferograms."""
-        fig = plt.figure(figsize=(15, 5))
-        axs = fig.subplots(1, 3)
-        dt = [datetime.date.fromisoformat(d) for d in self.dates]
-        dt_exca = [datetime.date.fromisoformat(d) for d in self.dates_exca]
-        axs[0].plot(dt_exca, self.pbase_exca, 'ko')
-        for idx in self.ifg_list_exca:
-            xx = np.array([dt[idx[0]], dt[idx[1]]])
-            yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
-            axs[0].plot(xx, yy, 'k-')
-        axs[0].set_ylabel('perpendicular baseline [m]')
-        axs[0].set_xlabel('temporal baseline [years]')
-        axs[0].set_title('Network of interferograms')
-        fig.autofmt_xdate()
-
-        axs[1].hist(self.tbase_ifg_exca * 365.25, bins=100)
-        axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('temporal baseline [days]')
-
-        axs[2].hist(self.pbase_ifg_exca, bins=100)
-        axs[2].set_ylabel('Absolute frequency')
-        axs[2].set_xlabel('perpendicular baseline [m]')
-        return fig
+        """Plot the network of interferograms for the excavation period."""
+        return self._plot_period(
+            dates_period=self.dates_exca,
+            pbase_period=self.pbase_exca,
+            ifg_list_period=self.ifg_list_exca,
+            tbase_ifg_period=self.tbase_ifg_exca,
+            pbase_ifg_period=self.pbase_ifg_exca,
+            title='Network of interferograms (excavation)',
+        )
 
     def plot_consolidation(self):
-        """Plot the network of interferograms."""
-        fig = plt.figure(figsize=(15, 5))
-        axs = fig.subplots(1, 3)
-        dt = [datetime.date.fromisoformat(d) for d in self.dates]
-        dt_exca = [datetime.date.fromisoformat(d) for d in self.dates_exca]
-        axs[0].plot(dt_exca, self.pbase_exca, 'ko')
-        for idx in self.ifg_list_exca:
-            xx = np.array([dt[idx[0]], dt[idx[1]]])
-            yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
-            axs[0].plot(xx, yy, 'k-')
-        axs[0].set_ylabel('perpendicular baseline [m]')
-        axs[0].set_xlabel('temporal baseline [years]')
-        axs[0].set_title('Network of interferograms')
-        fig.autofmt_xdate()
-
-        axs[1].hist(self.tbase_ifg_exca * 365.25, bins=100)
-        axs[1].set_ylabel('Absolute frequency')
-        axs[1].set_xlabel('temporal baseline [days]')
-
-        axs[2].hist(self.pbase_ifg_exca, bins=100)
-        axs[2].set_ylabel('Absolute frequency')
-        axs[2].set_xlabel('perpendicular baseline [m]')
-        return fig
+        """Plot the network of interferograms for the consolidation period."""
+        return self._plot_period(
+            dates_period=self.dates_conso,
+            pbase_period=self.pbase_conso,
+            ifg_list_period=self.ifg_list_conso,
+            tbase_ifg_period=self.tbase_ifg_conso,
+            pbase_ifg_period=self.pbase_ifg_conso,
+            title='Network of interferograms (consolidation)',
+        )
 
     def getDesignMatrix(self):
-        """Compute the design matrix for the smallbaseline network."""
+        """Compute the design matrix for the full network."""
         a = np.zeros((self.num_ifgs, self.num_images))
         for i in range(len(self.ifg_list)):
             a[i, self.ifg_list[i][0]] = 1
             a[i, self.ifg_list[i][1]] = -1
         return a
-    
-    def getDesignMatrixPre(self):
-        #correct bugs here
-        a = np.zeros((self.num_ifgs_pre, self.num_images_pre+1))
-        for i in range(len(self.ifg_list_pre)):
-            a[i, self.ifg_list_pre[i][0]] = 1
-            a[i, self.ifg_list_pre[i][1]] = -1
-        return a
-    
-    def getDesignMatrixExca(self):
-        a = np.zeros((self.num_ifgs_exca, self.num_images_exca))
-        for i in range(len(self.ifg_list_exca)):
-            a[i, self.ifg_list_exca[i][0]] = 1
-            a[i, self.ifg_list_exca[i][1]] = -1
+
+    def _getDesignMatrixPeriod(self, *, ifg_list_period, num_ifgs_period, num_images_period, offset):
+        """Shared design-matrix logic for a single period. `offset` converts absolute image
+        indices (as stored in ifg_list_period) into indices relative to that period's own
+        image array, since e.g. exca/conso image indices don't start at 0 in the full series."""
+        a = np.zeros((num_ifgs_period, num_images_period))
+        for i, (start, end) in enumerate(ifg_list_period):
+            a[i, start - offset] = 1
+            a[i, end - offset] = -1
         return a
 
+    def getDesignMatrixPre(self):
+        """Compute the design matrix for the pre-excavation period."""
+        return self._getDesignMatrixPeriod(
+            ifg_list_period=self.ifg_list_pre,
+            num_ifgs_period=self.num_ifgs_pre,
+            num_images_period=self.num_images_pre,
+            offset=0,  # pre always starts at index 0
+        )
+
+    def getDesignMatrixExca(self):
+        """Compute the design matrix for the excavation period."""
+        return self._getDesignMatrixPeriod(
+            ifg_list_period=self.ifg_list_exca,
+            num_ifgs_period=self.num_ifgs_exca,
+            num_images_period=self.num_images_exca,
+            offset=self.ix_breakpoint1,
+        )
+
+    def getDesignMatrixConso(self):
+        """Compute the design matrix for the consolidation period."""
+        return self._getDesignMatrixPeriod(
+            ifg_list_period=self.ifg_list_conso,
+            num_ifgs_period=self.num_ifgs_conso,
+            num_images_period=self.num_images_conso,
+            offset=self.ix_breakpoint2,
+        )
+
     def open(self, *, path: str):
-        """Read stored information from already existing.h5 file.
+        """Read stored information from an already existing .h5 file.
 
         Parameter
         -----------
@@ -214,7 +231,7 @@ class IfgNetworkPiecewise:
         with h5py.File(path, 'r') as f:
             self.num_images = f.attrs["num_images"]
             self.num_ifgs = f.attrs["num_ifgs"]
-            self.ix_ifg = f.attrs["ix_ifg"]    
+            self.ix_ifg = f.attrs["ix_ifg"]
 
             self.tbase_ifg = f['tbase_ifg'][:]
             self.pbase_ifg = f['pbase_ifg'][:]
@@ -231,7 +248,7 @@ class IfgNetworkPiecewise:
             # pre
             self.num_images_pre = f.attrs["num_images_pre"]
             self.num_ifgs_pre = f.attrs["num_ifgs_pre"]
-            self.ix_breakpoint = f.attrs["ix_breakpoint"]
+            self.ix_breakpoint1 = f.attrs["ix_breakpoint1"]
             self.ix_ifg_pre = f.attrs["ix_ifg_pre"]
 
             self.tbase_ifg_pre = f['tbase_ifg_pre'][:]
@@ -244,7 +261,7 @@ class IfgNetworkPiecewise:
                 self.dates_pre = [date.decode("utf-8") for date in self.dates_pre]
             except KeyError as ke:
                 self.dates_pre = None
-                print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
+                print(f"IfgNetwork is in old dataformat. Cannot read 'dates_pre'! {ke}")
 
             # excavation
             self.num_images_exca = f.attrs["num_images_exca"]
@@ -261,10 +278,24 @@ class IfgNetworkPiecewise:
                 self.dates_exca = [date.decode("utf-8") for date in self.dates_exca]
             except KeyError as ke:
                 self.dates_exca = None
-                print(f"IfgNetwork is in old dataformat. Cannot read 'dates'! {ke}")
+                print(f"IfgNetwork is in old dataformat. Cannot read 'dates_exca'! {ke}")
 
+            # consolidation
+            try:
+                self.num_images_conso = f.attrs["num_images_conso"]
+                self.num_ifgs_conso = f.attrs["num_ifgs_conso"]
+                self.ix_breakpoint2 = f.attrs["ix_breakpoint2"]
+                self.ix_ifg_conso = f.attrs["ix_ifg_conso"]
 
-            f.close()
+                self.tbase_ifg_conso = f['tbase_ifg_conso'][:]
+                self.pbase_ifg_conso = f['pbase_ifg_conso'][:]
+                self.tbase_conso = f['tbase_conso'][:]
+                self.pbase_conso = f['pbase_conso'][:]
+                self.ifg_list_conso = f['ifg_list_conso'][:]
+                self.dates_conso = f['dates_conso'][:]
+                self.dates_conso = [date.decode("utf-8") for date in self.dates_conso]
+            except KeyError as ke:
+                print(f"IfgNetwork is in old dataformat (two periods only). Cannot read consolidation data! {ke}")
 
     def writeToFile(self, *, path: str, logger: Logger):
         """Write all existing data to .h5 file.
@@ -284,6 +315,7 @@ class IfgNetworkPiecewise:
         dates = np.array(self.dates, dtype=np.bytes_)
         dates_pre = np.array(self.dates_pre, dtype=np.bytes_)
         dates_exca = np.array(self.dates_exca, dtype=np.bytes_)
+        dates_conso = np.array(self.dates_conso, dtype=np.bytes_)
 
         with h5py.File(path, 'w') as f:
             f.attrs["num_images"] = self.num_images
@@ -297,10 +329,10 @@ class IfgNetworkPiecewise:
             f.create_dataset('ifg_list', data=self.ifg_list)
             f.create_dataset('dates', data=dates)
 
-            # pre excavation
+            # pre
             f.attrs["num_images_pre"] = self.num_images_pre
             f.attrs["num_ifgs_pre"] = self.num_ifgs_pre
-            f.attrs["ix_breakpoint"] = self.ix_breakpoint
+            f.attrs["ix_breakpoint1"] = self.ix_breakpoint1
             f.attrs["ix_ifg_pre"] = self.ix_ifg_pre
 
             f.create_dataset('tbase_ifg_pre', data=self.tbase_ifg_pre)
@@ -322,8 +354,21 @@ class IfgNetworkPiecewise:
             f.create_dataset('ifg_list_exca', data=self.ifg_list_exca)
             f.create_dataset('dates_exca', data=dates_exca)
 
+            # consolidation
+            f.attrs["num_images_conso"] = self.num_images_conso
+            f.attrs["num_ifgs_conso"] = self.num_ifgs_conso
+            f.attrs["ix_breakpoint2"] = self.ix_breakpoint2
+            f.attrs["ix_ifg_conso"] = self.ix_ifg_conso
 
-class StarNetwork(IfgNetworkPiecewise):
+            f.create_dataset('tbase_ifg_conso', data=self.tbase_ifg_conso)
+            f.create_dataset('pbase_ifg_conso', data=self.pbase_ifg_conso)
+            f.create_dataset('tbase_conso', data=self.tbase_conso)
+            f.create_dataset('pbase_conso', data=self.pbase_conso)
+            f.create_dataset('ifg_list_conso', data=self.ifg_list_conso)
+            f.create_dataset('dates_conso', data=dates_conso)
+
+
+class StarNetwork(IfgNetwork3Piecewise):
     """Star network of interferograms (single-reference)."""
 
     def configure(self, *, pbase: np.ndarray, tbase: np.ndarray, ref_idx: int, dates: list):
@@ -409,7 +454,7 @@ class StarNetwork(IfgNetworkPiecewise):
 
 
 
-class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
+class SmallTemporalBaselinesNetwork(IfgNetwork3Piecewise):
     """Small temporal baselines network of interferograms without restrictions on the perpendicular baselines."""
 
     def configure(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list):
@@ -444,57 +489,6 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
         self.num_ifgs = self.pbase_ifg.shape[0]
 
     def configure_breakpoint(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list, ix_break: int):
-        self.pbase = pbase
-        self.tbase = tbase / 365.25
-        self.num_images = pbase.shape[0]
-        self.dates = dates
-
-        ix_ifg = 0
-        for i in range(self.num_images):
-            for j in range(num_link):
-                if i + j + 1 >= self.num_images:
-                    continue
-                self.ifg_list.append((i, i + j + 1))
-                self.ix_ifg.append(ix_ifg)
-                if i >= ix_break:
-                    self.ifg_list_exca.append((i, i + j + 1))
-                    self.ix_ifg_exca.append(ix_ifg)
-                elif i + j + 1 > ix_break:
-                    self.ifg_list_exca.append((i, i + j + 1))
-                    self.ix_ifg_exca.append(ix_ifg)
-                else:
-                    self.ifg_list_pre.append((i, i + j + 1))
-                    self.ix_ifg_pre.append(ix_ifg)
-                ix_ifg += 1
-
-        self.ifg_list = [(i, j) for i, j in self.ifg_list if i != j]  # remove connections to itself, e.g. (0, 0)
-        self.ifg_list_pre = [(i, j) for i, j in self.ifg_list_pre if i != j]
-        self.ifg_list_exca = [(i, j) for i, j in self.ifg_list_exca if i != j]
-
-        self.pbase_ifg = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list])
-        self.tbase_ifg = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list])
-        self.num_ifgs = self.pbase_ifg.shape[0]
-
-
-        # pre and excavation configuration
-        self.tbase_pre = tbase[:ix_break]/365.25
-        self.tbase_exca = tbase[ix_break:]/365.25
-        self.pbase_pre = pbase[:ix_break]
-        self.pbase_exca = pbase[ix_break:]
-        self.dates_pre = dates[:ix_break]
-        self.dates_exca = dates[ix_break:]
-        self.num_images_pre = self.tbase_pre.shape[0]
-        self.num_images_exca = self.tbase_exca.shape[0]
-
-        self.pbase_ifg_pre = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_pre])
-        self.tbase_ifg_pre = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_pre])
-        self.num_ifgs_pre = self.pbase_ifg_pre.shape[0]
-
-        self.pbase_ifg_exca = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_exca])
-        self.tbase_ifg_exca = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_exca])
-        self.num_ifgs_exca = self.pbase_ifg_exca.shape[0]
-
-    def configure_breakpoint2(self, *, pbase: np.ndarray, tbase: np.ndarray, num_link: int = None, dates: list, ix_break: int):
         """Create list of interferograms split into two periods: pre and exca (excavation).
 
         Interferograms are only formed within a single period. The breakpoint index (ix_break) is
@@ -683,3 +677,4 @@ class SmallTemporalBaselinesNetwork(IfgNetworkPiecewise):
         self.pbase_ifg_conso = np.array([self.pbase[idx[1]] - self.pbase[idx[0]] for idx in self.ifg_list_conso])
         self.tbase_ifg_conso = np.array([self.tbase[idx[1]] - self.tbase[idx[0]] for idx in self.ifg_list_conso])
         self.num_ifgs_conso = self.pbase_ifg_conso.shape[0]
+        
