@@ -734,6 +734,143 @@ def estimateParametersPiecewise(*, obj: Union[PointsPiecewise, NetworkPiecewise]
 
     return vel, vel_pre, vel_exca, demerr, ref_atmo, coherence, coherence_pre, coherence_exca, omega, v_hat, v_hat_pre, v_hat_exca
 
+def estimateParameters3Piecewise(*, obj: Union[Points3Piecewise, Network3Piecewise], estimate_ref_atmo: bool = True, ifg_space: bool = True):
+
+    num = obj.phase.shape[0]  # either number of points or number of arcs
+    num_pre = obj.phase_pre.shape[0]
+    num_exca = obj.phase_exca.shape[0]
+    num_conso = obj.phase_conso.shape[0]
+
+    if ifg_space:
+        tbase = obj.ifg_net_obj.tbase_ifg
+        pbase = obj.ifg_net_obj.pbase_ifg
+        num_time = obj.ifg_net_obj.num_ifgs
+        # pre excavation
+        tbase_pre = obj.ifg_net_obj.tbase_ifg_pre
+        pbase_pre = obj.ifg_net_obj.pbase_ifg_pre
+        num_time_pre = obj.ifg_net_obj.num_ifgs_pre
+        # excavation
+        tbase_exca = obj.ifg_net_obj.tbase_ifg_exca
+        pbase_exca = obj.ifg_net_obj.pbase_ifg_exca
+        num_time_exca = obj.ifg_net_obj.num_ifgs_exca
+        # consolidation
+        tbase_conso = obj.ifg_net_obj.tbase_ifg_conso
+        pbase_conso = obj.ifg_net_obj.pbase_ifg_conso
+        num_time_conso = obj.ifg_net_obj.num_ifgs_conso
+    else:
+        tbase = obj.ifg_net_obj.tbase
+        pbase = obj.ifg_net_obj.pbase
+        num_time = obj.ifg_net_obj.num_images
+        # pre excavtion
+        tbase_pre = obj.ifg_net_obj.tbase_pre
+        pbase_pre = obj.ifg_net_obj.pbase_pre
+        num_time_pre = obj.ifg_net_obj.num_images_pre
+        # excavation
+        tbase_exca = obj.ifg_net_obj.tbase_exca
+        pbase_exca = obj.ifg_net_obj.pbase_exca
+        num_time_exca = obj.ifg_net_obj.num_images_exca
+        # consolidation
+        tbase_conso = obj.ifg_net_obj.tbase_conso
+        pbase_conso = obj.ifg_net_obj.pbase_conso
+        num_time_conso = obj.ifg_net_obj.num_images_conso
+
+    vel = np.zeros((num,), dtype=np.float32)
+    vel_pre = np.zeros((num_pre,), dtype=np.float32)
+    vel_exca = np.zeros((num_exca,), dtype=np.float32)
+    vel_conso = np.zeros((num_conso,), dtype=np.float32)
+
+    demerr = np.zeros((num,), dtype=np.float32)
+    omega = np.zeros((num,), dtype=np.float32)
+    omega_pre = np.zeros((num_pre,), dtype=np.float32)
+    omega_exca = np.zeros((num_exca,), dtype=np.float32)
+    omega_conso = np.zeros((num_conso,), dtype=np.float32)
+
+    coherence = np.zeros((num,), dtype=np.float32)
+    coherence_pre = np.zeros((num_pre,), dtype=np.float32)
+    coherence_exca = np.zeros((num_exca,), dtype=np.float32)
+    coherence_conso = np.zeros((num_conso,), dtype=np.float32)
+    v_hat = np.zeros((num, num_time), dtype=np.float32)
+    v_hat_pre = np.zeros((num_pre, num_time_pre), dtype=np.float32)
+    v_hat_exca = np.zeros((num_exca, num_time_exca), dtype=np.float32)
+    v_hat_conso = np.zeros((num_conso, num_time_conso), dtype=np.float32)
+
+    ixbreak1 = obj.ifg_net_obj.ix_breakpoint1
+    ixbreak2 = obj.ifg_net_obj.ix_breakpoint2
+
+    ref_atmo = None
+    if estimate_ref_atmo:
+        ref_atmo = np.zeros((num,), dtype=np.float32)
+        a = np.zeros((num_time, 3), dtype=np.float32)
+        a_pre = np.zeros((num_time_pre, 3), dtype=np.float32)
+        a_exca = np.zeros((num_time_exca, 3), dtype=np.float32)
+        a_conso = np.zeros((num_time_conso, 3), dtype=np.float32)
+        a[:, 2] = 4 * np.pi / obj.wavelength  # atmospheric delay at reference acquisition
+        a_pre[:, 2] = 4 * np.pi / obj.wavelength
+        a_exca[:, 2] = 4 * np.pi / obj.wavelength
+        a_conso[:, 2] = 4 * np.pi / obj.wavelength
+
+    else:
+        a = np.zeros((num_time, 2))
+        a_pre = np.zeros((num_time_pre, 2))
+        a_exca = np.zeros((num_time_exca, 2))
+        a_conso = np.zeros((num_time_conso, 2))
+
+    a[:, 1] = 4 * np.pi / obj.wavelength * tbase  # velocity
+    a_pre[:, 1] = 4 * np.pi / obj.wavelength * tbase_pre
+    a_exca[:, 1] = 4 * np.pi / obj.wavelength * tbase_exca
+    a_conso[:, 1] = 4 * np.pi / obj.wavelength * tbase_conso
+
+    for p in range(obj.num_points):
+        if ifg_space:
+            obv_vec = obj.phase[p, :]
+            obv_vec_pre = obj.phase[p, obj.ifg_net_obj.ix_ifg_pre]
+            obv_vec_exca = obj.phase[p, obj.ifg_net_obj.ix_ifg_exca]
+            obv_vec_conso = obj.phase[p, obj.ifg_net_obj.ix_ifg_conso]
+        else:
+            obv_vec = obj.phase[p, :]
+            obv_vec_pre = obj.phase[p, :ixbreak1]
+            obv_vec_exca = obj.phase[p, ixbreak1:ixbreak2]
+            obv_vec_conso = obj.phase[p, ixbreak2:]
+
+        a[:, 0] = 4 * np.pi / obj.wavelength * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
+        a_pre[:, 0] = 4 * np.pi / obj.wavelength * pbase_pre / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
+        a_exca[:, 0] = 4 * np.pi / obj.wavelength * pbase_exca / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
+        a_conso[:, 0] = 4 * np.pi / obj.wavelength * pbase_conso / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
+
+        x_hat, omega[p] = np.linalg.lstsq(a, obv_vec, rcond=None)[0:2]
+        x_hat_pre, omega_pre[p] = np.linalg.lstsq(a_pre, obv_vec_pre, rcond=None)[0:2]
+        x_hat_exca, omega_exca[p] = np.linalg.lstsq(a_exca, obv_vec_exca, rcond=None)[0:2]
+        x_hat_conso, omega_conso[p] = np.linalg.lstsq(a_conso, obv_vec_conso, rcond=None)[0:2]
+
+        demerr[p] = x_hat[0]
+        vel[p] = x_hat[1]
+        vel_pre[p] = x_hat_pre[1]
+        vel_exca[p] = x_hat_exca[1]
+        vel_conso[p] = x_hat_conso[1]
+        if estimate_ref_atmo:
+            ref_atmo[p] = x_hat[2]
+
+        v_hat[p, :] = obv_vec - np.matmul(a, x_hat)
+        coherence[p] = np.abs(np.mean(np.exp(1j * v_hat[p, :])))
+
+        # pre
+        v_hat_pre[p, :] = obv_vec_pre - np.matmul(a_pre, x_hat_pre)
+        coherence_pre[p] = np.abs(np.mean(np.exp(1j * v_hat_pre[p, :])))
+
+        # excavation
+        v_hat_exca[p, :] = obv_vec_exca - np.matmul(a_exca, x_hat_exca)
+        coherence_exca[p] = np.abs(np.mean(np.exp(1j * v_hat_exca[p, :])))
+
+        # consolidation
+        v_hat_conso[p, :] = obv_vec_conso - np.matmul(a_conso, x_hat_conso)
+        coherence_conso[p] = np.abs(np.mean(np.exp(1j * v_hat_conso[p, :])))
+
+    if not estimate_ref_atmo:
+        ref_atmo = None
+
+    results = vel, vel_pre, vel_exca, vel_conso, demerr, ref_atmo, coherence, coherence_pre, coherence_exca, coherence_conso, omega, v_hat, v_hat_pre, v_hat_exca, v_hat_conso
+    return results
+
 
 def splitImageIntoBoxesRngAz(*, length: int, width: int, num_box_az: int, num_box_rng: int):
     """Split the image into several boxes.
