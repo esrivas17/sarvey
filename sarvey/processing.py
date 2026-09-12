@@ -1164,7 +1164,7 @@ class Processing:
         #    other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
         #    input_path=self.config.general.input_path)
 
-        aps2_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
+        aps2_obj = Points3Piecewise(file_path=join(self.path, "p2_coh{}_aps.h5".format(coh_value)), logger=self.logger)
         aps2_obj.open(other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),
                     input_path=self.config.general.input_path)
         
@@ -1588,7 +1588,7 @@ class Processing:
             ref_idx=0,
             logger=self.logger)
 
-        point_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_ts.h5".format(coh_value)), logger=self.logger)
+        point_obj = Points3Piecewise(file_path=join(self.path, "p2_coh{}_ts.h5".format(coh_value)), logger=self.logger)
         point_obj.open(
             other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
             input_path=self.config.general.input_path
