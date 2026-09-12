@@ -1302,6 +1302,7 @@ class Processing:
                 new_phase=aps2_obj.phase[mask_unstable_p1_in_p2, :],
                 new_phase_pre=aps2_obj.phase_pre[mask_unstable_p1_in_p2, :],
                 new_phase_exca=aps2_obj.phase_exca[mask_unstable_p1_in_p2, :],
+                new_phase_conso=aps2_obj.phase_conso[mask_unstable_p1_in_p2, :],
                 new_num_points=mask_unstable_p1_in_p2[mask_unstable_p1_in_p2].shape[0],
                 input_path=self.config.general.input_path
             )
@@ -1391,6 +1392,7 @@ class Processing:
             new_phase=point1_obj.phase,
             new_phase_pre=point1_obj.phase_pre,
             new_phase_exca=point1_obj.phase_exca,
+            new_phase_conso=point1_obj.phase_conso,
             new_num_points=point1_obj.num_points,
             input_path=self.config.general.input_path
         )
@@ -1575,7 +1577,8 @@ class Processing:
         unw_phase = unw_res_phase + pred_phase
 
         point2_obj.phase = unw_phase
-        vel = ut.estimateParameters(obj=point2_obj, ifg_space=True)[0]
+        results = ut.estimateParameters3Piecewise(obj=point2_obj, ifg_space=True)
+        vel = results[0]
         point2_obj.phase = ut.setReferenceToPeakOfHistogram(phase=unw_phase, vel=vel, num_bins=300)
 
         point2_obj.writeToFile()
