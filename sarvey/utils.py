@@ -828,8 +828,8 @@ def estimateParameters3Piecewise(*, obj: Union[Points3Piecewise, Network3Piecewi
             obv_vec_conso = obj.phase[p, obj.ifg_net_obj.ix_ifg_conso]
         else:
             obv_vec = obj.phase[p, :]
-            obv_vec_pre = obj.phase[p, :ixbreak1]
-            obv_vec_exca = obj.phase[p, ixbreak1:ixbreak2]
+            obv_vec_pre = obj.phase[p, :ixbreak1+1]
+            obv_vec_exca = obj.phase[p, ixbreak1:ixbreak2+1]
             obv_vec_conso = obj.phase[p, ixbreak2:]
 
         a[:, 0] = 4 * np.pi / obj.wavelength * pbase / (obj.slant_range[p] * np.sin(obj.loc_inc[p]))  # demerr
