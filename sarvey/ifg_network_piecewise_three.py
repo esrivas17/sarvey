@@ -142,7 +142,7 @@ class IfgNetwork3Piecewise:
         axs[2].set_xlabel('perpendicular baseline [m]')
         return fig
 
-    def plot_ifg_network(self):
+    def plot_ifg_network_old(self):
         fig = plt.figure(figsize=(8, 6))
         ax = fig.subplots(1, 1)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
@@ -157,9 +157,90 @@ class IfgNetwork3Piecewise:
 
         bpoints_pbase = [dt[self.ix_breakpoint1], dt[self.ix_breakpoint2]]
         bpoints_tbase = [self.pbase[self.ix_breakpoint2], self.pbase[self.ix_breakpoint2]]
-        ax.scatter(bpoints_pbase, bpoints_tbase, s=30, c="orange", label="breakpoints", zorder=5)
+        ax.scatter(bpoints_pbase, bpoints_tbase, s=9, c="orange", label="breakpoints", zorder=5)
         ax.legend()
         fig.autofmt_xdate()
+        return fig
+
+    def plot_ifg_network(self):
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.subplots(1, 1)
+
+        # Acquisition dates
+        dt = [datetime.date.fromisoformat(d) for d in self.dates]
+
+        # Plot all acquisition points
+        ax.plot(dt, self.pbase, 'ko', markersize=3)
+
+        # Plot interferograms according to their temporal period
+        for idx in self.ifg_list:
+            i, j = idx
+
+            xx = np.array([dt[i], dt[j]])
+            yy = np.array([self.pbase[i], self.pbase[j]])
+
+            if i < self.ix_breakpoint1:
+                linestyle = '-'
+            elif i < self.ix_breakpoint2:
+                linestyle = '--'
+            else:
+                linestyle = ':'
+
+            ax.plot(xx,yy,color='k',lw=0.6,linestyle=linestyle)
+
+        # Breakpoint locations
+        bpoints_x = [dt[self.ix_breakpoint1],dt[self.ix_breakpoint2]]
+
+        bpoints_y = [self.pbase[self.ix_breakpoint1],self.pbase[self.ix_breakpoint2]]
+
+        ax.scatter(bpoints_x,bpoints_y,s=25,color='orange',edgecolor='k',linewidth=0.5,zorder=5,label='Breakpoints')
+
+        # Labels
+        ax.set_ylabel('Perpendicular baseline [m]')
+        ax.set_xlabel('Acquisition date')
+        ax.set_title('Network of interferograms')
+
+        # Legend for temporal periods
+        from matplotlib.lines import Line2D
+
+        legend_lines = [
+            Line2D(
+                [0], [0],
+                color='k',
+                lw=0.8,
+                linestyle='-',
+                label='Pre-excavation'
+            ),
+            Line2D(
+                [0], [0],
+                color='k',
+                lw=0.8,
+                linestyle='--',
+                label='Excavation'
+            ),
+            Line2D(
+                [0], [0],
+                color='k',
+                lw=0.8,
+                linestyle=':',
+                label='Consolidation'
+            ),
+            Line2D(
+                [0], [0],
+                marker='o',
+                color='orange',
+                markeredgecolor='k',
+                markeredgewidth=0.5,
+                linestyle='None',
+                markersize=5,
+                label='Breakpoints'
+            )
+        ]
+
+        ax.legend(handles=legend_lines)
+
+        fig.autofmt_xdate()
+
         return fig
 
 
