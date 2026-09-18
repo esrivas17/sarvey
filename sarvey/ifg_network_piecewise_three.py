@@ -147,6 +147,7 @@ class IfgNetwork3Piecewise:
         ax = fig.subplots(1, 1)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
         ax.plot(dt, self.pbase, 'ko', markersize=3)
+
         for idx in self.ifg_list:
             xx = np.array([dt[idx[0]], dt[idx[1]]])
             yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
@@ -171,6 +172,12 @@ class IfgNetwork3Piecewise:
 
         # Plot all acquisition points
         ax.plot(dt, self.pbase, 'ko', markersize=3)
+        # Colors for the three temporal periods
+        period_colors = {
+            1: 'tab:blue',
+            2: 'tab:orange',
+            3: 'tab:green',
+        }
 
         # Plot interferograms according to their temporal period
         for idx in self.ifg_list:
@@ -180,20 +187,20 @@ class IfgNetwork3Piecewise:
             yy = np.array([self.pbase[i], self.pbase[j]])
 
             if i < self.ix_breakpoint1:
-                linestyle = '-'
+                color = period_colors[1]
             elif i < self.ix_breakpoint2:
-                linestyle = '--'
+                color = period_colors[2]
             else:
-                linestyle = ':'
+                color = period_colors[3]
 
-            ax.plot(xx,yy,color='k',lw=0.6,linestyle=linestyle)
+            ax.plot(xx,yy,color=color,lw=0.6)
 
         # Breakpoint locations
         bpoints_x = [dt[self.ix_breakpoint1],dt[self.ix_breakpoint2]]
 
         bpoints_y = [self.pbase[self.ix_breakpoint1],self.pbase[self.ix_breakpoint2]]
 
-        ax.scatter(bpoints_x,bpoints_y,s=25,color='orange',edgecolor='k',linewidth=0.5,zorder=5,label='Breakpoints')
+        ax.scatter(bpoints_x,bpoints_y,s=16,color='orange',edgecolor='k',linewidth=0.5,zorder=5,label='Breakpoints')
 
         # Labels
         ax.set_ylabel('Perpendicular baseline [m]')
@@ -206,23 +213,20 @@ class IfgNetwork3Piecewise:
         legend_lines = [
             Line2D(
                 [0], [0],
-                color='k',
+                color=period_colors[1],
                 lw=0.8,
-                linestyle='-',
                 label='Pre-excavation'
             ),
             Line2D(
                 [0], [0],
-                color='k',
+                color=period_colors[2],
                 lw=0.8,
-                linestyle='--',
                 label='Excavation'
             ),
             Line2D(
                 [0], [0],
-                color='k',
+                color=period_colors[3],
                 lw=0.8,
-                linestyle=':',
                 label='Consolidation'
             ),
             Line2D(
