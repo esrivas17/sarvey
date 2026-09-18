@@ -146,18 +146,18 @@ class IfgNetwork3Piecewise:
         fig = plt.figure(figsize=(8, 6))
         ax = fig.subplots(1, 1)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
-        ax.plot(dt, self.pbase, 'ko')
+        ax.plot(dt, self.pbase, 'ko', markersize=3)
         for idx in self.ifg_list:
             xx = np.array([dt[idx[0]], dt[idx[1]]])
             yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
-            ax.plot(xx, yy, 'k-', lw=0.5, marker='o', markersize=3)
+            ax.plot(xx, yy, 'k-', lw=0.5)
         ax.set_ylabel('perpendicular baseline [m]')
         ax.set_xlabel('temporal baseline [years]')
         ax.set_title('Network of interferograms')
 
         bpoints_pbase = [dt[self.ix_breakpoint1], dt[self.ix_breakpoint2]]
         bpoints_tbase = [self.pbase[self.ix_breakpoint2], self.pbase[self.ix_breakpoint2]]
-        ax.scatter(bpoints_pbase, bpoints_tbase, s=5, c="orange", label="breakpoints")
+        ax.scatter(bpoints_pbase, bpoints_tbase, s=30, c="orange", label="breakpoints", zorder=5)
         ax.legend()
         fig.autofmt_xdate()
         return fig
