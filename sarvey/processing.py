@@ -194,6 +194,12 @@ class Processing:
 
         ifg_net_obj.writeToFile(path=join(self.path, "ifg_network.h5"), logger=log)
         log.debug(msg=f"temporal baselines: {np.unique(np.round(np.abs(ifg_net_obj.tbase_ifg) * 365.25).astype(int))}")
+
+        #### ifg network plot ###
+        fig = ifg_net_obj.plot_ifg_network()
+        fig.savefig(join(self.path, "pic", "step_0_ifg_network_with_breakpoints.png"), dpi=300)
+        plt.close(fig)
+
         fig = ifg_net_obj.plot()
         fig.savefig(join(self.path, "pic", "step_0_interferogram_network.png"), dpi=300)
         plt.close(fig)

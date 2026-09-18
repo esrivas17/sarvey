@@ -142,6 +142,26 @@ class IfgNetwork3Piecewise:
         axs[2].set_xlabel('perpendicular baseline [m]')
         return fig
 
+    def plot_ifg_network(self):
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.subplots(1, 1)
+        dt = [datetime.date.fromisoformat(d) for d in self.dates]
+        ax.plot(dt, self.pbase, 'ko')
+        for idx in self.ifg_list:
+            xx = np.array([dt[idx[0]], dt[idx[1]]])
+            yy = np.array([self.pbase[idx[0]], self.pbase[idx[1]]])
+            ax.plot(xx, yy, 'k-', lw=0.5)
+        ax.set_ylabel('perpendicular baseline [m]')
+        ax.set_xlabel('temporal baseline [years]')
+        ax.set_title('Network of interferograms')
+
+        bpoints_pbase = [dt[self.ix_breakpoint1], dt[self.ix_breakpoint2]]
+        bpoints_tbase = [self.pbase[self.ix_breakpoint2], self.pbase[self.ix_breakpoint2]]
+        ax.scatter(bpoints_pbase, bpoints_tbase, s=2, c="orange", label="breakpoints")
+        ax.legend()
+        fig.autofmt_xdate()
+
+
     def plot_pre(self):
         """Plot the network of interferograms for the pre-excavation period."""
         return self._plot_period(
