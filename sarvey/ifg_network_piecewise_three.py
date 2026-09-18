@@ -176,7 +176,7 @@ class IfgNetwork3Piecewise:
         period_colors = {
             1: 'tab:blue',
             2: 'tab:orange',
-            3: 'tab:green',
+            3: 'tab:brown',
         }
 
         # Plot interferograms according to their temporal period
