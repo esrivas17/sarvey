@@ -160,6 +160,7 @@ class IfgNetwork3Piecewise:
         ax.scatter(bpoints_pbase, bpoints_tbase, s=2, c="orange", label="breakpoints")
         ax.legend()
         fig.autofmt_xdate()
+        return fig
 
 
     def plot_pre(self):
