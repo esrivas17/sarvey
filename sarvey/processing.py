@@ -199,7 +199,7 @@ class Processing:
         fig = ifg_net_obj.plot_ifg_network()
         fig.savefig(join(self.path, "pic", "step_0_ifg_network_with_breakpoints.png"), dpi=300)
         plt.close(fig)
-
+        
         fig = ifg_net_obj.plot()
         fig.savefig(join(self.path, "pic", "step_0_interferogram_network.png"), dpi=300)
         plt.close(fig)

@@ -158,7 +158,7 @@ class IfgNetwork3Piecewise:
 
         bpoints_pbase = [dt[self.ix_breakpoint1], dt[self.ix_breakpoint2]]
         bpoints_tbase = [self.pbase[self.ix_breakpoint2], self.pbase[self.ix_breakpoint2]]
-        ax.scatter(bpoints_pbase, bpoints_tbase, s=9, c="orange", label="breakpoints", zorder=5)
+        ax.scatter(bpoints_pbase, bpoints_tbase, s=9, c="orange", label="breakpoints", zorder=1)
         ax.legend()
         fig.autofmt_xdate()
         return fig
@@ -171,12 +171,12 @@ class IfgNetwork3Piecewise:
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
 
         # Plot all acquisition points
-        ax.plot(dt, self.pbase, 'ko', markersize=3)
+        ax.plot(dt, self.pbase, 'ko', markersize=2.5)
         # Colors for the three temporal periods
         period_colors = {
             1: 'tab:blue',
-            2: 'tab:orange',
-            3: 'tab:brown',
+            2: 'tomato',
+            3: 'tab:orange',
         }
 
         # Plot interferograms according to their temporal period
@@ -199,8 +199,8 @@ class IfgNetwork3Piecewise:
         bpoints_x = [dt[self.ix_breakpoint1],dt[self.ix_breakpoint2]]
 
         bpoints_y = [self.pbase[self.ix_breakpoint1],self.pbase[self.ix_breakpoint2]]
-
-        ax.scatter(bpoints_x,bpoints_y,s=16,color='orange',edgecolor='k',linewidth=0.5,zorder=5,label='Breakpoints')
+        colorbkpoints = 'red'
+        ax.scatter(bpoints_x,bpoints_y,s=12,color=colorbkpoints,edgecolor='k',linewidth=1.0,zorder=2,alpha=0.7,label='Breakpoints')
 
         # Labels
         ax.set_ylabel('Perpendicular baseline [m]')
@@ -232,9 +232,9 @@ class IfgNetwork3Piecewise:
             Line2D(
                 [0], [0],
                 marker='o',
-                color='orange',
+                color=colorbkpoints,
                 markeredgecolor='k',
-                markeredgewidth=0.5,
+                markeredgewidth=1,
                 linestyle='None',
                 markersize=5,
                 label='Breakpoints'
@@ -244,6 +244,7 @@ class IfgNetwork3Piecewise:
         ax.legend(handles=legend_lines)
 
         fig.autofmt_xdate()
+        fig.tight_layout()
 
         return fig
 
