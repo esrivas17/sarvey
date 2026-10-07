@@ -351,6 +351,7 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
         args=(design_mat, obs_phase, scale_vel, scale_demerr, ix_pre, ix_exca, ix_conso),
         bounds=((-1, 1), (-1, 1), (-1, 1), (-1, 1)),
         method="L-BFGS-B",
+        jac=gradObjFuncTemporalCoherence_Combined,
         options={
         "maxiter": 100,
         "maxfun": 200,
@@ -366,6 +367,76 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
     vel_conso = opt_res.x[3] * scale_vel
 
     return demerr, vel_pre, vel_exca, vel_conso, gamma
+
+def gradObjFuncTemporalCoherence_Combined(x, *args):
+
+    design_mat, obs_phase, scale_vel, scale_demerr, \
+        ix_pre, ix_exca, ix_conso = args
+
+    # ---------------------------------------------------------
+    # Predicted phase
+    # ---------------------------------------------------------
+
+    demerr = x[0] * scale_demerr
+    vel_pre = x[1] * scale_vel
+    vel_exca = x[2] * scale_vel
+    vel_conso = x[3] * scale_vel
+
+    pred_phase_vel_combined = np.zeros(design_mat.shape[0])
+    pred_phase_vel_combined[ix_pre] = ( design_mat[ix_pre, 1] * vel_pre )
+    pred_phase_vel_combined[ix_exca] = ( design_mat[ix_exca, 1] * vel_exca )
+    pred_phase_vel_combined[ix_conso] = ( design_mat[ix_conso, 1] * vel_conso )
+    pred_phase = ( design_mat[:, 0] * demerr + pred_phase_vel_combined )
+
+    # ---------------------------------------------------------
+    # Residual and coherence
+    # ---------------------------------------------------------
+
+    res = obs_phase - pred_phase[:, None]
+    z = np.exp(1j * res)
+    m = np.mean(z)
+    gamma = np.abs(m)
+
+    if gamma < 1e-15:
+        return np.zeros(4)
+
+    # ---------------------------------------------------------
+    # Derivative of predicted phase
+    # ---------------------------------------------------------
+
+    dphi_ddemerr = ( design_mat[:, 0] * scale_demerr )
+
+    dphi_dvel_pre = np.zeros(design_mat.shape[0]) 
+    dphi_dvel_pre[ix_pre] = ( design_mat[ix_pre, 1] * scale_vel )
+
+    dphi_dvel_exca = np.zeros(design_mat.shape[0])
+    dphi_dvel_exca[ix_exca] = ( design_mat[ix_exca, 1] * scale_vel )
+
+    dphi_dvel_conso = np.zeros(design_mat.shape[0])
+    dphi_dvel_conso[ix_conso] = ( design_mat[ix_conso, 1] * scale_vel )
+
+    # ---------------------------------------------------------
+    # Derivative of m
+    # ---------------------------------------------------------
+
+    dm_ddemerr = np.mean( -1j * z * dphi_ddemerr[:, None] )
+    dm_dvel_pre = np.mean( -1j * z * dphi_dvel_pre[:, None] )
+    dm_dvel_exca = np.mean( -1j * z * dphi_dvel_exca[:, None] )
+    dm_dvel_conso = np.mean( -1j * z * dphi_dvel_conso[:, None] )
+
+    dm = np.array([ dm_ddemerr, dm_dvel_pre, dm_dvel_exca, dm_dvel_conso, ])
+
+    # ---------------------------------------------------------
+    # Gradient of gamma
+    # ---------------------------------------------------------
+    dgamma = np.real( np.conj(m) * dm ) / gamma
+
+    # ---------------------------------------------------------
+    # Gradient of objective = 1 - gamma
+    # ---------------------------------------------------------
+    gradient = -dgamma
+
+    return gradient
 
 def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
 
