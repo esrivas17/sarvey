@@ -608,7 +608,7 @@ class Processing:
         vel_pre = spatialParameterIntegration(val_arcs=net_par_obj.vel_pre,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
-                                          weights=net_par_obj.gamma_pre,
+                                          weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
         fig = viewer.plotScatter(value=-vel_pre, coord=point_obj.coord_xy,
@@ -623,7 +623,7 @@ class Processing:
         vel_exca = spatialParameterIntegration(val_arcs=net_par_obj.vel_exca,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
-                                          weights=net_par_obj.gamma_pre,
+                                          weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
         fig = viewer.plotScatter(value=-vel_exca, coord=point_obj.coord_xy,
@@ -638,7 +638,7 @@ class Processing:
         vel_conso = spatialParameterIntegration(val_arcs=net_par_obj.vel_conso,
                                             arcs=net_par_obj.arcs,
                                             coord_xy=point_obj.coord_xy,
-                                            weights=net_par_obj.gamma_conso,
+                                            weights=net_par_obj.gamma,
                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
         fig = viewer.plotScatter(value=-vel_conso, coord=point_obj.coord_xy,
