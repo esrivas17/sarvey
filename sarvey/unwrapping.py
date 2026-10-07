@@ -1119,7 +1119,7 @@ def removeBadPointsIteratively_piecewise(*, net_obj: NetworkParameter3Piecewise,
     logger.debug("[Min, Max] temporal coherence of points after bad point removal: [%.3f, %.3f]",
                  np.min(net_obj.gamma), np.max(net_obj.gamma))
     logger.debug("[Min, Max] velocity of points after bad point removal: [%.3f, %.3f]",
-                 np.min(net_obj.vel), np.max(net_obj.vel))
+                 np.min(net_obj.vel_exca), np.max(net_obj.vel_exca))
     logger.debug("[Min, Max] DEM residual of points after bad point removal: [%.3f, %.3f]",
                  np.min(net_obj.demerr), np.max(net_obj.demerr))
     logger.debug("[Min, Max] incidence angle of points after bad point removal: [%.3f, %.3f]",
