@@ -220,125 +220,80 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.nda
     return demerr, vel, gamma
 
 
-def oneDimSearchTemporalCoherencePiecewise(*, demerr_range: np.ndarray, vel_range: np.ndarray, vel_excavation_range, obs_phase: np.ndarray, 
-                                           design_mat: np.ndarray, design_mat_pre: np.ndarray, design_mat_exca: np.ndarray, ix_pre: list, ix_exca: list):
-    """One dimensional search for maximum temporal coherence that fits the observed arc phase.
+def oneDimSearchTemporalCoherencePiecewise_CombinedGamma(*, demerr_range: np.ndarray, vel_range: np.ndarray, vel_excavation_range, obs_phase: np.ndarray, 
+                                           design_mat: np.ndarray, design_mat_pre: np.ndarray, design_mat_exca: np.ndarray, design_mat_conso: np.ndarray,
+                                           ix_pre: list, ix_exca: list, ix_conso: list):
 
-    Parameters
-    ----------
-    demerr_range: np.ndarray
-        Search space for the DEM error in a 1D grid.
-    vel_range: np.ndarray
-        Search space for the velocity in a 1D grid.
-    design_mat: np.ndarray
-        Design matrix for estimating parameters from arc phase.
-    obs_phase: np.ndarray
-        Observed phase of the arc.
-
-    Returns
-    -------
-    demerr: float
-    vel: float
-    gamma: float
-    """
     demerr, gamma_demerr, pred_phase_demerr = findOptimum(
         obs_phase=obs_phase,
         design_mat=design_mat[:, 0],
         val_range=demerr_range
     )
 
-    vel_pre, gamma_vel_pre, pred_phase_vel_pre = findOptimum(
-            obs_phase=obs_phase[ix_pre],
-            design_mat=design_mat_pre[:, 1],
-            val_range=vel_range)
-
-    vel_exca, gamma_vel_exca, pred_phase_vel_exca = findOptimum(
-            obs_phase=obs_phase[ix_exca],
-            design_mat=design_mat_exca[:, 1],
-            val_range=vel_excavation_range)
+    vel_pre, _, _ = findOptimum( obs_phase=obs_phase[ix_pre], design_mat=design_mat_pre[:, 1], val_range=vel_range)
+    vel_exca, _, _ = findOptimum( obs_phase=obs_phase[ix_exca], design_mat=design_mat_exca[:, 1], val_range=vel_excavation_range)
+    vel_conso, _, _ = findOptimum( obs_phase=obs_phase[ix_conso], design_mat=design_mat_conso[:, 1], val_range=vel_excavation_range)
     
     pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
     pred_phase_vel_combined[ix_pre] = design_mat_pre[:,1] * vel_pre
     pred_phase_vel_combined[ix_exca] = design_mat_exca[:,1] * vel_exca
+    pred_phase_vel_combined[ix_conso] = design_mat_conso[:,1] * vel_conso
     residual = obs_phase - pred_phase_vel_combined.T
     gamma_vel_combined = np.abs(np.mean(np.exp(1j*residual)))
 
 
     if gamma_vel_combined > gamma_demerr:
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel_combined,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum( obs_phase=obs_phase - pred_phase_vel_combined, design_mat=design_mat[:, 0], val_range=demerr_range)
 
         obs_phase_reduced = obs_phase - pred_phase_demerr
-        vel_pre, gamma_vel_pre, pred_phase_vel_pre = findOptimum(
-            obs_phase=obs_phase_reduced[ix_pre],
-            design_mat=design_mat_pre[:, 1],
-            val_range=vel_range)
-
-        vel_exca, gamma_vel_exca, pred_phase_vel_exca = findOptimum(
-            obs_phase=obs_phase_reduced[ix_exca],
-            design_mat=design_mat_exca[:, 1],
-            val_range=vel_excavation_range)
+        vel_pre, _, _ = findOptimum( obs_phase=obs_phase_reduced[ix_pre], design_mat=design_mat_pre[:, 1], val_range=vel_range)
+        vel_exca, _, _ = findOptimum( obs_phase=obs_phase_reduced[ix_exca], design_mat=design_mat_exca[:, 1], val_range=vel_excavation_range)
+        vel_conso, _, _ = findOptimum( obs_phase=obs_phase_reduced[ix_conso], design_mat=design_mat_conso[:, 1], val_range=vel_excavation_range)
 
     else:
         obs_phase_reduced = obs_phase - pred_phase_demerr
-
-        vel_pre, gamma_vel_pre, pred_phase_vel_pre = findOptimum(
-                    obs_phase=obs_phase_reduced[ix_pre],
-                    design_mat=design_mat_pre[:, 1],
-                    val_range=vel_range)
-        
-        vel_exca, gamma_vel_exca, pred_phase_vel_exca = findOptimum(
-                    obs_phase=obs_phase_reduced[ix_exca],
-                    design_mat=design_mat_exca[:, 1],
-                    val_range=vel_excavation_range)
+        vel_pre, _, _ = findOptimum( obs_phase=obs_phase_reduced[ix_pre], design_mat=design_mat_pre[:, 1], val_range=vel_range)
+        vel_exca, _, _ = findOptimum( obs_phase=obs_phase_reduced[ix_exca], design_mat=design_mat_exca[:, 1], val_range=vel_excavation_range)
+        vel_conso, _, _ = findOptimum( obs_phase=obs_phase_reduced[ix_conso], design_mat=design_mat_conso[:, 1], val_range=vel_excavation_range)
         
         pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
         pred_phase_vel_combined[ix_pre] = design_mat_pre[:,1] * vel_pre
         pred_phase_vel_combined[ix_exca] = design_mat_exca[:,1] * vel_exca
-        
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel_combined,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
+        pred_phase_vel_combined[ix_conso] = design_mat_conso[:,1] * vel_conso
+
+        demerr, _, _ = findOptimum( obs_phase=obs_phase - pred_phase_vel_combined, design_mat=design_mat[:, 0], val_range=demerr_range)
 
     # improve initial estimate with gradient descent approach
-    scale_demerr = demerr_range.max()
-    scale_vel = np.max(np.abs(vel_range))
-    scale_vel_exca = np.max(np.abs(vel_excavation_range))
+    scale_demerr = np.max(np.abs(demerr_range))
+    scale_vel = np.max(np.abs(vel_excavation_range))
+    x0 = np.array([ demerr / scale_demerr, vel_pre / scale_vel, vel_exca / scale_vel, vel_conso / scale_vel])
 
-    demerr_pre, vel_pre, gamma_pre = gradientSearchTemporalCoherence(
-        scale_vel=scale_vel,
-        scale_demerr=scale_demerr,
-        obs_phase=obs_phase[ix_pre],
-        design_mat=design_mat_pre,
-        x0=np.array([demerr / scale_demerr,
-                     vel_pre / scale_vel]).T)
+    demerr, vel_pre, vel_exca, vel_conso, gamma = (
+        gradientSearchTemporalCoherence_Combined(
+            scale_vel=scale_vel,
+            scale_demerr=scale_demerr,
+            obs_phase=obs_phase,
+            design_mat=design_mat,
+            ix_pre=np.asarray(ix_pre),
+            ix_exca=np.asarray(ix_exca),
+            ix_conso=np.asarray(ix_conso),
+            x0=x0,
+        )
+    )
 
-    demerr_exca, vel_exca, gamma_exca = gradientSearchTemporalCoherence(
-    scale_vel=scale_vel_exca,
-    scale_demerr=scale_demerr,
-    obs_phase=obs_phase[ix_exca],
-    design_mat=design_mat_exca,
-    x0=np.array([demerr / scale_demerr,
-                    vel_pre / scale_vel]).T)
-
-    if gamma_pre > gamma_exca:
-        pred_phase_demerr = design_mat[:,0] * demerr_pre
-    else:
-        pred_phase_demerr = design_mat[:,0] * demerr_exca
-
+    pred_phase_demerr = design_mat[:, 0] * demerr
     pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
     pred_phase_vel_combined[ix_pre] = design_mat_pre[:,1] * vel_pre
     pred_phase_vel_combined[ix_exca] = design_mat_exca[:,1] * vel_exca
+    pred_phase_vel_combined[ix_conso] = design_mat_conso[:,1] * vel_conso
     
     pred_phase = pred_phase_demerr + pred_phase_vel_combined
     res = (obs_phase - pred_phase.T).ravel()
     gamma = np.abs(np.mean(np.exp(1j * res)))
-    return demerr, vel_pre, vel_exca, gamma
+
+    return demerr, vel_pre, vel_exca, vel_conso, gamma
+
+
 
 
 def gradientSearchTemporalCoherence(*, scale_vel: float, scale_demerr: float, obs_phase: np.ndarray,
@@ -375,6 +330,161 @@ def gradientSearchTemporalCoherence(*, scale_vel: float, scale_demerr: float, ob
     demerr = opt_res.x[0] * scale_demerr
     vel = opt_res.x[1] * scale_vel
     return demerr, vel, gamma
+
+def objFuncTemporalCoherence_Combined(x, *args):
+
+    design_mat, obs_phase, scale_vel, scale_demerr, ix_pre, ix_exca, ix_conso = args
+
+    demerr = x[0] * scale_demerr
+    vel_pre = x[1] * scale_vel
+    vel_exca = x[2] * scale_vel
+    vel_conso = x[3] * scale_vel
+
+    pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
+    pred_phase_vel_combined[ix_pre] = (design_mat[ix_pre, 1] * vel_pre)
+    pred_phase_vel_combined[ix_exca] = ( design_mat[ix_exca, 1] * vel_exca )
+    pred_phase_vel_combined[ix_conso] = ( design_mat[ix_conso, 1] * vel_conso )
+    pred_phase = (design_mat[:, 0] * demerr + pred_phase_vel_combined)
+    res = (obs_phase - pred_phase[:, None]).ravel()
+
+    gamma = np.abs(np.mean(np.exp(1j * res)))
+
+    return 1 - gamma
+
+def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr: float, obs_phase: np.ndarray, design_mat: np.ndarray, ix_pre: np.ndarray, 
+                                             ix_exca: np.ndarray, ix_conso: np.ndarray, x0: np.ndarray):
+    opt_res = minimize(
+        objFuncTemporalCoherence_Combined,
+        x0,
+        args=(design_mat, obs_phase, scale_vel, scale_demerr, ix_pre, ix_exca, ix_conso),
+        bounds=((-1, 1), (-1, 1), (-1, 1), (-1, 1)),
+        method="L-BFGS-B",
+    )
+
+    gamma = 1 - opt_res.fun
+
+    demerr = opt_res.x[0] * scale_demerr
+    vel_pre = opt_res.x[1] * scale_vel
+    vel_exca = opt_res.x[2] * scale_vel
+    vel_conso = opt_res.x[3] * scale_vel
+
+    return demerr, vel_pre, vel_exca, vel_conso, gamma
+
+def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
+
+    ( arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, num_samples ) = parameters
+
+    num_ifgs = ifg_net_obj.num_ifgs
+    num_ifgs_pre = ifg_net_obj.num_ifgs_pre
+    num_ifgs_exca = ifg_net_obj.num_ifgs_exca
+    num_ifgs_conso = ifg_net_obj.num_ifgs_conso
+
+    # Global IFG indices for the three periods
+    ix_pre = ifg_net_obj.ix_ifg_pre
+    ix_exca = ifg_net_obj.ix_ifg_exca
+    ix_conso = ifg_net_obj.ix_ifg_conso
+
+    demerr = np.zeros((num_arcs, 1), dtype=np.float32)
+    vel_pre = np.zeros((num_arcs, 1), dtype=np.float32)
+    vel_exca = np.zeros((num_arcs, 1), dtype=np.float32)
+    vel_conso = np.zeros((num_arcs, 1), dtype=np.float32)
+    gamma = np.zeros((num_arcs, 1), dtype=np.float32)
+
+    design_mat = np.zeros((num_ifgs, 2), dtype=np.float32)
+
+    design_mat_pre = np.zeros((num_ifgs_pre, 2), dtype=np.float32)
+    design_mat_exca = np.zeros((num_ifgs_exca, 2), dtype=np.float32)
+    design_mat_conso = np.zeros((num_ifgs_conso, 2), dtype=np.float32)
+
+    factor = -4.0 * np.pi / wavelength
+
+    demerr_range = np.linspace( -demerr_bound, demerr_bound, num_samples )
+    vel_range = np.linspace( -velocity_bound, velocity_bound, num_samples )
+    vel_excavation_range = np.linspace( -velocity_bound, velocity_bound, num_samples )
+
+    for k in range(num_arcs):
+        design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat[:, 1] = factor * ifg_net_obj.tbase_ifg
+
+        # Pre-excavation design matrix
+        design_mat_pre[:, 0] = factor * ifg_net_obj.pbase_ifg_pre / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat_pre[:, 1] = factor * ifg_net_obj.tbase_ifg_pre
+
+        # Excavation design matrix
+        design_mat_exca[:, 0] = factor * ifg_net_obj.pbase_ifg_exca / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat_exca[:, 1] = factor * ifg_net_obj.tbase_ifg_exca
+
+        # Consolidation design matrix
+        design_mat_conso[:, 0] = factor * ifg_net_obj.pbase_ifg_conso / (slant_range[k] * np.sin(loc_inc[k]))
+        design_mat_conso[:, 1] = factor * ifg_net_obj.tbase_ifg_conso
+
+        # Piecewise temporal coherence search        
+        demerr[k], vel_pre[k], vel_exca[k], vel_conso[k], gamma[k] = oneDimSearchTemporalCoherencePiecewise_CombinedGamma(
+            demerr_range=demerr_range,
+            vel_range=vel_range,
+            vel_excavation_range=vel_excavation_range,
+            obs_phase=phase[k, :],
+            design_mat=design_mat,
+            design_mat_pre=design_mat_pre,
+            design_mat_exca=design_mat_exca,
+            design_mat_conso=design_mat_conso,
+            ix_pre=ix_pre,
+            ix_exca=ix_exca,
+            ix_conso=ix_conso)
+
+    return arc_idx_range, demerr, vel_pre, vel_exca, vel_conso, gamma
+
+def temporalUnwrapping_combinedgamma( *, ifg_net_obj: IfgNetwork3Piecewise, net_obj: Network3Piecewise, wavelength: float, 
+                                     velocity_bound: float, demerr_bound: float, num_samples: int, num_cores: int = 1, logger: Logger):
+    msg = "#" * 10
+    msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION  - COMBINED GAMMA"
+    msg += "#" * 10
+    logger.info(msg=msg)
+
+    if num_cores == 1:
+        args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase, net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, 
+                velocity_bound, demerr_bound, num_samples )
+
+        arc_idx_range, demerr, vel_pre, vel_exca, vel_conso, gamma = launchAmbiguityFunctionSearch_combinedgamma(parameters=args)
+
+    else:
+
+        demerr = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        vel_pre = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        vel_exca = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        vel_conso = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+        gamma = np.zeros((net_obj.num_arcs, 1), dtype=np.float32)
+
+        #idx = np.array_split(np.arange(net_obj.num_arcs), num_cores)
+        num_cores = net_obj.num_arcs if num_cores > net_obj.num_arcs else num_cores  # avoids having more samples
+                # then cores
+        idx = ut.splitDatasetForParallelProcessing(num_samples=net_obj.num_arcs, num_cores=num_cores)
+
+        args = [(
+                idx_range,
+                idx_range.shape[0],
+                net_obj.phase[idx_range, :],
+                net_obj.slant_range[idx_range],
+                net_obj.loc_inc[idx_range],
+                ifg_net_obj,
+                wavelength,
+                velocity_bound,
+                demerr_bound,
+                num_samples) for idx_range in idx]
+
+        with multiprocessing.Pool(processes=num_cores) as pool:
+            results = pool.map( func=launchAmbiguityFunctionSearch_combinedgamma, iterable=args )
+
+        for i, demerr_i, vel_pre_i, vel_exca_i, vel_conso_i, gamma_i in results:
+            demerr[i] = demerr_i
+            vel_pre[i] = vel_pre_i
+            vel_exca[i] = vel_exca_i
+            vel_conso[i] = vel_conso_i
+            gamma[i] = gamma_i
+
+    logger.info( "Temporal unwrapping completed using combined-gamma " "piecewise velocity model." )
+
+    return demerr, vel_pre, vel_exca, vel_conso, gamma
 
 
 def launchAmbiguityFunctionSearch(parameters: tuple):
