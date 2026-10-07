@@ -48,7 +48,7 @@ from shapely.errors import ShapelyDeprecationWarning
 from sarvey import version
 from sarvey.config import loadConfiguration
 from sarvey.console import showLogoSARvey
-from sarvey.objects import Points
+from sarvey.objects import Points, Points3Piecewise
 import sarvey.utils as ut
 from sarvey.geolocation import calculateGeolocationCorrection
 
@@ -75,14 +75,14 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     logger: Logger
         Logger handle.
     """
-    point_obj = Points(file_path=file_path, logger=logger)
+    point_obj = Points3Piecewise(file_path=file_path, logger=logger)
 
     point_obj.open(input_path=input_path)
 
     # todo: add corrected height to output
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
 
-    vel, demerr, _, coherence, omega, _ = ut.estimateParameters(obj=point_obj, ifg_space=False)
+    #vel, demerr, _, coherence, omega, _ = ut.estimateParameters(obj=point_obj, ifg_space=False)
     results = ut.estimateParameters3Piecewise(obj=point_obj, ifg_space=False)
     vel, vel_pre, vel_exca, vel_conso, demerr, _, coherence, coherence_pre, coherence_exca, coherence_conso, omega, residuals, residuals_pre, residuals_exca, residuals_conso = results
 
