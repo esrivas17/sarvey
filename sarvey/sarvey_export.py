@@ -148,12 +148,12 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     df_points.insert(4, 'st_consistency', stc * 1000)  # in [mm]
     df_points.insert(5, 'dem_error', demerr)  # in [m]
     df_points.insert(6, 'dem', point_obj.height)  # in [m]
-    df_points.insert(7, 'velocity_pre', vel_pre * 1000)  # in [mm]
-    df_points.insert(8, 'velocity_exca', vel_exca * 1000)  # in [mm]
-    df_points.insert(9, 'velocity_conso', vel_conso * 1000)  # in [mm]
-    df_points.insert(10, 'coherence_pre', coherence_pre)
-    df_points.insert(11, 'coherence_exca', coherence_exca)
-    df_points.insert(12, 'coherence_conso', coherence_conso)
+    df_points.insert(7, 'vel_pre', vel_pre * 1000)  # in [mm]
+    df_points.insert(8, 'vel_exca', vel_exca * 1000)  # in [mm]
+    df_points.insert(9, 'vel_conso', vel_conso * 1000)  # in [mm]
+    df_points.insert(10, 'coh_pre', coherence_pre)
+    df_points.insert(11, 'coh_exca', coherence_exca)
+    df_points.insert(12, 'coh_conso', coherence_conso)
 
     df_points.columns = [col[:10] for col in df_points.columns]
 
