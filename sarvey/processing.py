@@ -47,7 +47,7 @@ from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network_piecewise_three import SmallTemporalBaselinesNetwork
 from sarvey.objects import Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, NetworkPiecewise, Points3Piecewise, Network3Piecewise, NetworkParameter3Piecewise 
 from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrappingTunnelling, temporalUnwrappingTunnellingReduced, spatialUnwrapping,
-                               removeBadArcsIteratively, removeBadPointsIteratively, removeBadPointsIteratively_piecewise)
+                               removeBadArcsIteratively, removeBadPointsIteratively, removeBadPointsIteratively_piecewise, removeBadArcsIteratively_Piecewise)
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_date
 from sarvey.unwrapping_piece3wise import temporalUnwrapping3Piecewise, temporalUnwrapping_combinedgamma
 import sarvey.utils as ut
@@ -554,7 +554,7 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj = removeBadArcsIteratively( net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        net_par_obj = removeBadArcsIteratively_Piecewise( net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
 
         try:
             ax = bmap_obj.plot(logger=self.logger)

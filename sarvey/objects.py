@@ -1640,3 +1640,29 @@ class NetworkParameter3Piecewise(Network3Piecewise):
         # 3) read IfgNetwork
         self.ifg_net_obj = IfgNetwork3Piecewise()
         self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
+
+        def removeArcs(self, *, mask: np.ndarray):
+        """Remove arcs from the list of arcs in the network.
+
+        Parameter
+        ---------
+        mask: np.ndarray
+            mask to select arcs to be kept, rest will be removed.
+        """
+        self.demerr = self.demerr[mask]
+        self.phase = self.phase[mask, :]
+        self.loc_inc = self.loc_inc[mask]
+        self.slant_range = self.slant_range[mask]
+        self.arcs = np.array(self.arcs)
+        self.arcs = self.arcs[mask, :]
+        self.gamma = self.gamma[mask]
+        self.num_arcs = mask[mask].shape[0]
+        # pre excavation
+        self.vel_pre = self.vel_pre[mask]
+        self.phase_pre = self.phase_pre[mask, :]
+        # during excavation
+        self.vel_exca = self.vel_exca[mask]
+        self.phase_exca = self.phase_exca[mask, :]
+        # consolidation
+        self.vel_conso = self.vel_conso[mask]
+        self.phase_conso = self.phase_conso[mask, :]
