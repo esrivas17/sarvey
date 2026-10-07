@@ -83,6 +83,8 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     # todo: add option to mask the output to e.g. linear infrastructures or other AOI
 
     vel, demerr, _, coherence, omega, _ = ut.estimateParameters(obj=point_obj, ifg_space=False)
+    results = ut.estimateParameters3Piecewise(obj=point_obj, ifg_space=False)
+    vel, vel_pre, vel_exca, vel_conso, demerr, _, coherence, coherence_pre, coherence_exca, coherence_conso, omega, residuals, residuals_pre, residuals_exca, residuals_conso = results
 
     stc = ut.spatiotemporalConsistency(coord_utm=point_obj.coord_utm, phase=point_obj.phase,
                                        wavelength=point_obj.wavelength)
@@ -146,6 +148,12 @@ def exportDataToGisFormat(*, file_path: str, output_path: str, input_path: str,
     df_points.insert(4, 'st_consistency', stc * 1000)  # in [mm]
     df_points.insert(5, 'dem_error', demerr)  # in [m]
     df_points.insert(6, 'dem', point_obj.height)  # in [m]
+    df_points.insert(7, 'velocity_pre', vel_pre * 1000)  # in [mm]
+    df_points.insert(8, 'velocity_exca', vel_exca * 1000)  # in [mm]
+    df_points.insert(9, 'velocity_conso', vel_conso * 1000)  # in [mm]
+    df_points.insert(10, 'coherence_pre', coherence_pre)
+    df_points.insert(11, 'coherence_exca', coherence_exca)
+    df_points.insert(12, 'coherence_conso', coherence_conso)
 
     df_points.columns = [col[:10] for col in df_points.columns]
 

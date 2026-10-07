@@ -178,27 +178,11 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.nda
     )
 
     if gamma_vel > gamma_demerr:
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum( obs_phase=obs_phase - pred_phase_vel, design_mat=design_mat[:, 0], val_range=demerr_range )
+        vel, gamma_vel, pred_phase_vel = findOptimum( obs_phase=obs_phase - pred_phase_demerr, design_mat=design_mat[:, 1], val_range=vel_range )
     else:
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
+        vel, gamma_vel, pred_phase_vel = findOptimum( obs_phase=obs_phase - pred_phase_demerr, design_mat=design_mat[:, 1], val_range=vel_range )
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum( obs_phase=obs_phase - pred_phase_vel, design_mat=design_mat[:, 0], val_range=demerr_range )
 
     # improve initial estimate with gradient descent approach
     scale_demerr = demerr_range.max()
