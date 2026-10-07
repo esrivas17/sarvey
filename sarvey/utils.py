@@ -333,7 +333,7 @@ def predictPhasePiece3wise(*, obj: [NetworkParameter3Piecewise, Points3Piecewise
                            ifg_space: bool = True, logger: Logger):
 
     if isinstance(obj, Points3Piecewise):
-        if (vel is None) or (demerr is None):
+        if (vel_exca is None) or (demerr is None):
             logger.error(msg="Both 'vel' and 'demerr' are needed if 'obj' is instance of class 'points'!")
             raise ValueError
         pred_phase_demerr, pred_phase_vel = predictPhaseCorePiece3wise(
