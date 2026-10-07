@@ -351,8 +351,14 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
         args=(design_mat, obs_phase, scale_vel, scale_demerr, ix_pre, ix_exca, ix_conso),
         bounds=((-1, 1), (-1, 1), (-1, 1), (-1, 1)),
         method="L-BFGS-B",
-    )
-
+        options={
+        "maxiter": 100,
+        "maxfun": 200,
+    })
+    print(
+    f"iterations={opt_res.nit}, "
+    f"function evaluations={opt_res.nfev}, "
+    f"gamma={1-opt_res.fun:.5f}")
     gamma = 1 - opt_res.fun
     demerr = opt_res.x[0] * scale_demerr
     vel_pre = opt_res.x[1] * scale_vel
