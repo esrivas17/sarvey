@@ -400,7 +400,9 @@ def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
 
     demerr_range = np.linspace( -demerr_bound, demerr_bound, num_samples )
     vel_range = np.linspace( -velocity_bound, velocity_bound, num_samples )
-    vel_excavation_range = np.linspace( -vel_excavation_bound, vel_excavation_bound, num_samples )
+    vel_excavation_range = np.linspace( -vel_excavation_bound, vel_excavation_bound, num_samples)
+    prog_bar = ptime.progressBar(maxValue=num_arcs)
+    every = max(1, num_arcs // 10)
 
     for k in range(num_arcs):
         design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
@@ -431,6 +433,9 @@ def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
             ix_pre=ix_pre,
             ix_exca=ix_exca,
             ix_conso=ix_conso)
+        
+        prog_bar.update(value=k + 1, every=every,
+                                suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
 
     return arc_idx_range, demerr, vel_pre, vel_exca, vel_conso, gamma
 
