@@ -1551,23 +1551,16 @@ class NetworkParameter3Piecewise(Network3Piecewise):
         """Init."""
         super().__init__(file_path=file_path, logger=logger)
         self.gamma = None
-        self.vel = None
         self.demerr = None
         self.phase = None
         # pre-excavation
-        self.gamma_pre = None
         self.vel_pre = None
-        self.demerr_pre = None
         self.phase_pre = None
         # excavation
-        self.gamma_exca = None
         self.vel_exca = None
-        self.demerr_exca = None
         self.phase_exca = None
         # consolidation
-        self.gamma_conso = None
         self.vel_conso = None
-        self.demerr_conso = None
         self.phase_conso = None
 
         self.slant_range = None
@@ -1576,9 +1569,8 @@ class NetworkParameter3Piecewise(Network3Piecewise):
         self.num_arcs = None
         self.logger = logger
 
-    def prepare(self, *, net_obj: NetworkPiecewise, demerr: np.ndarray, vel: np.ndarray, gamma: np.ndarray,
-                demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca,
-                demerr_conso, vel_conso, gamma_conso):
+    def prepare(self, *, net_obj: NetworkPiecewise, demerr: np.ndarray, gamma: np.ndarray,
+                vel_pre, vel_exca, vel_conso):
         """Prepare.
 
         Parameter
@@ -1598,23 +1590,16 @@ class NetworkParameter3Piecewise(Network3Piecewise):
         self.slant_range = net_obj.slant_range
         self.phase = net_obj.phase
         self.demerr = demerr
-        self.vel = vel
         self.gamma = gamma
         # pre excavation
         self.phase_pre = net_obj.phase_pre
-        self.demerr_pre = demerr_pre
         self.vel_pre = vel_pre
-        self.gamma_pre = gamma_pre
         # during excavation
         self.phase_exca = net_obj.phase_exca
-        self.demerr_exca = demerr_exca
         self.vel_exca = vel_exca
-        self.gamma_exca = gamma_exca
         # consolidation
         self.phase_conso = net_obj.phase_conso
-        self.demerr_conso = demerr_conso
         self.vel_conso = vel_conso
-        self.gamma_conso = gamma_conso
 
     def writeToFile(self):
         """Write DEM error, velocity and temporal coherence to file."""
@@ -1622,20 +1607,13 @@ class NetworkParameter3Piecewise(Network3Piecewise):
 
         with h5py.File(self.file_path, 'r+') as f:  # append existing file
             f.create_dataset('demerr', data=self.demerr)
-            f.create_dataset('vel', data=self.vel)
             f.create_dataset('gamma', data=self.gamma)
             # pre
-            f.create_dataset('demerr_pre', data=self.demerr_pre)
             f.create_dataset('vel_pre', data=self.vel_pre)
-            f.create_dataset('gamma_pre', data=self.gamma_pre)
             # excavation
-            f.create_dataset('demerr_exca', data=self.demerr_exca)
             f.create_dataset('vel_exca', data=self.vel_exca)
-            f.create_dataset('gamma_exca', data=self.gamma_exca)
             # consolidation
-            f.create_dataset('demerr_conso', data=self.demerr_conso)
             f.create_dataset('vel_conso', data=self.vel_conso)
-            f.create_dataset('gamma_conso', data=self.gamma_conso)
 
     def open(self, *, input_path: str):
         """Read data from file."""
@@ -1643,20 +1621,13 @@ class NetworkParameter3Piecewise(Network3Piecewise):
 
         with h5py.File(self.file_path, 'r') as f:
             self.demerr = f["demerr"][:]
-            self.vel = f["vel"][:]
             self.gamma = f["gamma"][:]
             # pre excavation
-            self.demerr_pre = f["demerr_pre"][:]
             self.vel_pre = f["vel_pre"][:]
-            self.gamma_pre = f["gamma_pre"][:]
             # excavation
-            self.demerr_exca = f["demerr_exca"][:]
             self.vel_exca = f["vel_exca"][:]
-            self.gamma_exca = f["gamma_exca"][:]
             # consolidation
-            self.demerr_conso = f["demerr_conso"][:]
             self.vel_conso = f["vel_conso"][:]
-            self.gamma_conso = f["gamma_conso"][:]
 
     def openExternalData(self, *, input_path: str):
         """Read data from slcStack.h5 and IfgNetwork.h5 files."""
@@ -1669,14 +1640,3 @@ class NetworkParameter3Piecewise(Network3Piecewise):
         # 3) read IfgNetwork
         self.ifg_net_obj = IfgNetwork3Piecewise()
         self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
-
-    def redefine_gamma(self, period='stable'):
-        self.gamma_saved = self.gamma
-        if period.lower() == 'stable':
-            self.gamma = self.gamma_pre
-        elif period.lower() in ['excavation', 'exca']:
-            self.gamma = self.gamma_exca
-        elif period.lower() in ['consolidation', 'conso']:
-            self.gamma = self.gamma_conso
-        else:
-            raise Exception(f"Period not defined")

@@ -49,7 +49,7 @@ from sarvey.objects import Points, AmplitudeImage, CoordinatesUTM, NetworkParame
 from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, temporalUnwrappingTunnelling, temporalUnwrappingTunnellingReduced, spatialUnwrapping,
                                removeBadArcsIteratively, removeBadPointsIteratively)
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_date
-from sarvey.unwrapping_piece3wise import temporalUnwrapping3Piecewise
+from sarvey.unwrapping_piece3wise import temporalUnwrapping3Piecewise, temporalUnwrapping_combinedgamma
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgsStack
 from sarvey.triangulation import PointNetworkTriangulation
@@ -409,25 +409,21 @@ class Processing:
         net_piecewise_obj.writeToFile()
         net_piecewise_obj.open(input_path=self.config.general.input_path)  # to retrieve external data       
 
-        results = temporalUnwrapping3Piecewise(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
-                                                net_obj=net_piecewise_obj,
-                                                wavelength=point_piecewise_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
-        
-        demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca, demerr_conso, vel_conso, gamma_conso = results
-        
+        results = temporalUnwrapping_combinedgamma(
+                    ifg_net_obj=point_piecewise_obj.ifg_net_obj,
+                    net_obj=net_piecewise_obj,
+                    wavelength=point_piecewise_obj.wavelength,
+                    velocity_bound=self.config.consistency_check.velocity_bound,
+                    vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
+                    demerr_bound=self.config.consistency_check.dem_error_bound,
+                    num_samples=self.config.consistency_check.num_optimization_samples,
+                    num_cores=self.config.general.num_cores,
+                    logger=self.logger)
+        demerr, vel_pre, vel_exca, vel_conso, gamma = results
+                
         net_par_obj = NetworkParameter3Piecewise(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
-        net_par_obj.prepare(net_obj=net_piecewise_obj, demerr=demerr, vel=vel, gamma=gamma, 
-                            demerr_pre=demerr_pre, vel_pre=vel_pre, gamma_pre=gamma_pre, 
-                            demerr_exca=demerr_exca, vel_exca=vel_exca, gamma_exca=gamma_exca, 
-                            demerr_conso=demerr_conso, vel_conso=vel_conso, gamma_conso=gamma_conso)
-        net_par_obj.redefine_gamma(period='excavation') # gamma is set according to the period chosen, this is used to filter out bad arcs
+        net_par_obj.prepare(net_obj=net_piecewise_obj, demerr=demerr, gamma=gamma, vel_pre=vel_pre, vel_exca=vel_exca, vel_conso=vel_conso)
         net_par_obj.writeToFile()
 
         # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
@@ -444,7 +440,7 @@ class Processing:
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_0_initial.png"), dpi=300)
 
-            # plotting long gamma
+            # plotting gamma
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
                                                                   arcs=net_par_obj.arcs,
@@ -453,40 +449,8 @@ class Processing:
             ax.set_title("Coherence from temporal unwrapping\nInitial network")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_longgamma.png"), dpi=300)
-        
-            # plot gamma pre excavation
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
-                                                                  arcs=net_par_obj.arcs,
-                                                                  val=gamma_pre,
-                                                                  ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from unwrapping - pre excavation\nInitial network")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_1preexcavation.png"), dpi=300)
-
-            # during excavation
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
-                                                                    arcs=net_par_obj.arcs,
-                                                                    val=gamma_exca,
-                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from unwrapping  - excavation\nInitial network")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_2excavation.png"), dpi=300)
-
-            # during consolidation
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
-                                                                    arcs=net_par_obj.arcs,
-                                                                    val=gamma_conso,
-                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from  unwrapping - consolidation\nInitial network")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_3consolidation.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_network_0_initial_gamma.png"), dpi=300)
+    
 
         except BaseException as e:
                     self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
@@ -525,62 +489,42 @@ class Processing:
         net_piecewise_obj.writeToFile()
         net_piecewise_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
 
-        results = temporalUnwrapping3Piecewise(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
-                                                net_obj=net_piecewise_obj,
-                                                wavelength=point_piecewise_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
+        results = temporalUnwrapping_combinedgamma(ifg_net_obj=point_piecewise_obj.ifg_net_obj,
+                            net_obj=net_piecewise_obj,
+                            wavelength=point_piecewise_obj.wavelength,
+                            velocity_bound=self.config.consistency_check.velocity_bound,
+                            vel_excavation_bound=self.config.consistency_check.excavation_velocity_bound,
+                            demerr_bound=self.config.consistency_check.dem_error_bound,
+                            num_samples=self.config.consistency_check.num_optimization_samples,
+                            num_cores=self.config.general.num_cores,
+                            logger=self.logger)
+        demerr, vel_pre, vel_exca, vel_conso, gamma = results
         
-        demerr, vel, gamma, demerr_pre, vel_pre, gamma_pre, demerr_exca, vel_exca, gamma_exca, demerr_conso, vel_conso, gamma_conso = results
-        
-        net_par_obj = NetworkParameter3Piecewise(file_path=join(self.path, "point_network_parameter.h5"),
-                                       logger=self.logger)
-        net_par_obj.prepare(net_obj=net_piecewise_obj, demerr=demerr, vel=vel, gamma=gamma, 
-                            demerr_pre=demerr_pre, vel_pre=vel_pre, gamma_pre=gamma_pre, 
-                            demerr_exca=demerr_exca, vel_exca=vel_exca, gamma_exca=gamma_exca,
-                            demerr_conso=demerr_conso, vel_conso=vel_conso, gamma_conso=gamma_conso)
-        net_par_obj.redefine_gamma(period='excavation')
+        net_par_obj = NetworkParameter3Piecewise(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
+        net_par_obj.prepare(net_obj=net_piecewise_obj, demerr=demerr, gamma=gamma, vel_pre=vel_pre, vel_exca=vel_exca, vel_conso=vel_conso)
         net_par_obj.writeToFile()
+
 
         #### histogram ####
         # histogram
-        fig = plt.figure(figsize=(12, 8))
-        axs = fig.subplots(4, 2)
+        fig = plt.figure(figsize=(10, 8))
+        axs = fig.subplots(2, 2)
         axs[0,0].hist(vel_pre*100, bins=2000)
         axs[0,0].set_ylabel('Absolute frequency')
         axs[0,0].set_xlabel('Pre-Velocity [cm/yr]')
 
-        axs[0,1].hist(demerr_pre, bins=2000)
+        axs[0,1].hist(demerr, bins=2000)
         axs[0,1].set_ylabel('Absolute frequency')
-        axs[0,1].set_xlabel('Pre DEM error [m]')
+        axs[0,1].set_xlabel('DEM error [m]')
 
         axs[1,0].hist(vel_exca*100, bins=2000)
         axs[1,0].set_ylabel('Absolute frequency')
         axs[1,0].set_xlabel('Exca-Velocity [cm/yer]')
 
-        axs[1,1].hist(demerr_exca, bins=2000)
+        axs[1,1].hist(vel_conso*100, bins=2000)
         axs[1,1].set_ylabel('Absolute frequency')
-        axs[1,1].set_xlabel('Exca-DEM error [m]')
+        axs[1,1].set_xlabel('Consolidation-Velocity [cm/yer]')
 
-        axs[2,0].hist(vel_conso*100, bins=2000)
-        axs[2,0].set_ylabel('Absolute frequency')
-        axs[2,0].set_xlabel('Consolidation-Velocity [cm/yer]')
-
-        axs[2,1].hist(demerr_conso, bins=2000)
-        axs[2,1].set_ylabel('Absolute frequency')
-        axs[2,1].set_xlabel('Consolidation-DEM error [m]')
-        
-        axs[3,0].hist(vel*100, bins=2000)
-        axs[3,0].set_ylabel('Absolute frequency')
-        axs[3,0].set_xlabel('Velocity [cm/yer]')
-
-        axs[3,1].hist(demerr, bins=2000)
-        axs[3,1].set_ylabel('Absolute frequency')
-        axs[3,1].set_xlabel('DEM error [m]')
         fig.savefig(join(self.path, "pic", "step_1_tempunwrapping_params.png"), dpi=300)
         plt.close(fig)
         ###################
@@ -596,7 +540,7 @@ class Processing:
             plt.tight_layout()
             fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated.png"), dpi=300)
 
-            # plotting long gamma
+            # plotting gamma
             ax = bmap_obj.plot(logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
                                                                     arcs=net_par_obj.arcs,
@@ -605,49 +549,12 @@ class Processing:
             ax.set_title("Coherence from unwrapping - gamma")
             fig = ax.get_figure()
             plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_1fullgamma.png"), dpi=300)
-
-            # plot gamma pre excavation
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
-                                                                    arcs=net_par_obj.arcs,
-                                                                    val=gamma_pre,
-                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from unwrapping - gamma pre excavation")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_2preexcavation.png"), dpi=300)
-
-            # plot gamma during excavation
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
-                                                                    arcs=net_par_obj.arcs,
-                                                                    val=gamma_exca,
-                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from unwrapping - gamma during excavation")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_3excavation.png"), dpi=300)
-
-            #plot gamma consolidation
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_piecewise_obj.coord_xy[:, 1], y=point_piecewise_obj.coord_xy[:, 0],
-                                                                    arcs=net_par_obj.arcs,
-                                                                    val=gamma_conso,
-                                                                    ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping - gamma consolidation")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_4consolidation.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated_1gamma.png"), dpi=300)
 
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj = removeBadArcsIteratively(
-            net_obj=net_par_obj,
-            quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
-            logger=self.logger
-        )
+        net_par_obj = removeBadArcsIteratively( net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
@@ -695,35 +602,8 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
-        self.logger.info(msg="Integrate mean velocity.")
-        vel = spatialParameterIntegration(val_arcs=net_par_obj.vel,
-                                          arcs=net_par_obj.arcs,
-                                          coord_xy=point_obj.coord_xy,
-                                          weights=net_par_obj.gamma,
-                                          spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-
-        fig = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: mean velocity in [m / year]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
-        plt.close(fig)
 
         ### pre excavation
-        self.logger.info(msg="Integrate DEM correction before excavation.")
-        demerr_pre = spatialParameterIntegration(val_arcs=net_par_obj.demerr_pre,
-                                             arcs=net_par_obj.arcs,
-                                             coord_xy=point_obj.coord_xy,
-                                             weights=net_par_obj.gamma_pre,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-
-        fig = viewer.plotScatter(value=-demerr_pre, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_1pre.png"), dpi=300)
-        plt.close(fig)
-
         self.logger.info(msg="Integrate mean velocity before excavation.")
         vel_pre = spatialParameterIntegration(val_arcs=net_par_obj.vel_pre,
                                           arcs=net_par_obj.arcs,
@@ -739,20 +619,6 @@ class Processing:
         plt.close(fig)
 
         # during excavation
-        self.logger.info(msg="Integrate DEM correction during excavation.")
-        demerr_exca = spatialParameterIntegration(val_arcs=net_par_obj.demerr_exca,
-                                             arcs=net_par_obj.arcs,
-                                             coord_xy=point_obj.coord_xy,
-                                             weights=net_par_obj.gamma_exca,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-
-        fig = viewer.plotScatter(value=-demerr_exca, coord=point_obj.coord_xy,
-                                 ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_2exca.png"), dpi=300)
-        plt.close(fig)
-
         self.logger.info(msg="Integrate mean velocity during excavation.")
         vel_exca = spatialParameterIntegration(val_arcs=net_par_obj.vel_exca,
                                           arcs=net_par_obj.arcs,
@@ -768,20 +634,6 @@ class Processing:
         plt.close(fig)
 
         ## consolidation
-        self.logger.info(msg="Integrate DEM correction during consolidation.")
-        demerr_conso = spatialParameterIntegration(val_arcs=net_par_obj.demerr_conso,
-                                                arcs=net_par_obj.arcs,
-                                                coord_xy=point_obj.coord_xy,
-                                                weights=net_par_obj.gamma_conso,
-                                                spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-
-        fig = viewer.plotScatter(value=-demerr_conso, coord=point_obj.coord_xy,
-                                    ttl="Parameter integration: DEM correction in [m]",
-                                    bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                    logger=self.logger)[0]
-        fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_3conso.png"), dpi=300)
-        plt.close(fig)
-
         self.logger.info(msg="Integrate mean velocity during excavation.")
         vel_conso = spatialParameterIntegration(val_arcs=net_par_obj.vel_conso,
                                             arcs=net_par_obj.arcs,
@@ -800,7 +652,7 @@ class Processing:
         # predict piecewise phase
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhasePiece3wise(obj=point_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, 
+        pred_phase_demerr, pred_phase_vel = ut.predictPhasePiece3wise(obj=point_obj, vel_pre=vel_pre, vel_exca=vel_exca, 
                                                                       vel_conso=vel_conso, demerr=demerr, ifg_space=True, logger=self.logger)
         
         pred_phase = pred_phase_demerr + pred_phase_vel
@@ -947,9 +799,7 @@ class Processing:
             auto_corr = ut.temporalAutoCorrelation(residuals=residuals_exca, lag=1).reshape(-1)
         else:
             # remove DEM error, but not velocity before estimating the temporal autocorrelation
-            pred_phase_demerr = ut.predictPhasePiece3wise(obj=point1_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, vel_conso=vel_conso, demerr=demerr, ifg_space=True, logger=self.logger)[0]
-            #pred_phase_demerr = ut.predictPhasePiecewise(obj=point1_obj, vel=vel, vel_pre=vel_pre, vel_exca=vel_exca, demerr=demerr,  
-                        #ifg_space=True, logger=self.logger)[0]
+            pred_phase_demerr = ut.predictPhasePiece3wise(obj=point1_obj, vel_pre=vel_pre, vel_exca=vel_exca, vel_conso=vel_conso, demerr=demerr, ifg_space=True, logger=self.logger)[0]
             phase_wo_demerr = point1_obj.phase - pred_phase_demerr
             auto_corr = ut.temporalAutoCorrelation(residuals=phase_wo_demerr, lag=1).reshape(-1)
 
@@ -1215,25 +1065,8 @@ class Processing:
         """RunDensificationTimeAndSpace."""
         coh_value = int(self.config.filtering.coherence_p2 * 100)
 
-        #point2_obj = Points(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
-        #point2_obj.open(other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),input_path=self.config.general.input_path)  # wrapped phase
-
-        # piecewise points
-        #point2_obj = PointsPiecewise(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
-        #point2_obj.open(other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),input_path=self.config.general.input_path)  # wrapped phase
-
         point2_obj = Points3Piecewise(file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), logger=self.logger)
         point2_obj.open(other_file_path=join(self.path, "p2_coh{}_ifg_wr.h5".format(coh_value)),input_path=self.config.general.input_path)  # wrapped phase
-
-        # estimate parameters from unwrapped phase
-        #point1_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
-        #point1_obj.open(input_path=self.config.general.input_path)
-        #vel_p1, demerr_p1 = ut.estimateParameters(obj=point1_obj, ifg_space=True)[:2]
-
-        # piecewise
-        #point1_obj = PointsPiecewise(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
-        #point1_obj.open(input_path=self.config.general.input_path)
-        #vel_p1, vel_pre_p1, vel_exca_p1, demerr_p1 = ut.estimateParametersPiecewise(obj=point1_obj, ifg_space=True)[:4]
 
         point1_obj = Points3Piecewise(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
         point1_obj.open(input_path=self.config.general.input_path)
@@ -1565,7 +1398,7 @@ class Processing:
         #    ifg_space=True,
         #    logger=self.logger)
 
-        pred_phase_demerr, pred_phase_vel = ut.predictPhasePiece3wise(obj=point2_obj, vel=vel[mask_gamma], vel_pre=vel_pre[mask_gamma], vel_exca=vel_exca[mask_gamma],
+        pred_phase_demerr, pred_phase_vel = ut.predictPhasePiece3wise(obj=point2_obj, vel_pre=vel_pre[mask_gamma], vel_exca=vel_exca[mask_gamma],
                                                                                   vel_conso=vel_conso[mask_gamma], demerr=demerr[mask_gamma], ifg_space=True, logger=self.logger)
         pred_phase = pred_phase_demerr + pred_phase_vel
 

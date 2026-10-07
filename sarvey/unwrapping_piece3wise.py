@@ -372,7 +372,7 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
 
 def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
 
-    ( arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, velocity_bound, demerr_bound, num_samples ) = parameters
+    ( arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, velocity_bound, vel_excavation_bound, demerr_bound, num_samples ) = parameters
 
     num_ifgs = ifg_net_obj.num_ifgs
     num_ifgs_pre = ifg_net_obj.num_ifgs_pre
@@ -400,7 +400,7 @@ def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
 
     demerr_range = np.linspace( -demerr_bound, demerr_bound, num_samples )
     vel_range = np.linspace( -velocity_bound, velocity_bound, num_samples )
-    vel_excavation_range = np.linspace( -velocity_bound, velocity_bound, num_samples )
+    vel_excavation_range = np.linspace( -vel_excavation_bound, vel_excavation_bound, num_samples )
 
     for k in range(num_arcs):
         design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
@@ -435,7 +435,8 @@ def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
     return arc_idx_range, demerr, vel_pre, vel_exca, vel_conso, gamma
 
 def temporalUnwrapping_combinedgamma( *, ifg_net_obj: IfgNetwork3Piecewise, net_obj: Network3Piecewise, wavelength: float, 
-                                     velocity_bound: float, demerr_bound: float, num_samples: int, num_cores: int = 1, logger: Logger):
+                                     velocity_bound: float, vel_excavation_bound: float, 
+                                     demerr_bound: float, num_samples: int, num_cores: int = 1, logger: Logger):
     msg = "#" * 10
     msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION  - COMBINED GAMMA"
     msg += "#" * 10
@@ -443,7 +444,7 @@ def temporalUnwrapping_combinedgamma( *, ifg_net_obj: IfgNetwork3Piecewise, net_
 
     if num_cores == 1:
         args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase, net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, 
-                velocity_bound, demerr_bound, num_samples )
+                velocity_bound, vel_excavation_bound, demerr_bound, num_samples )
 
         arc_idx_range, demerr, vel_pre, vel_exca, vel_conso, gamma = launchAmbiguityFunctionSearch_combinedgamma(parameters=args)
 
@@ -469,6 +470,7 @@ def temporalUnwrapping_combinedgamma( *, ifg_net_obj: IfgNetwork3Piecewise, net_
                 ifg_net_obj,
                 wavelength,
                 velocity_bound,
+                vel_excavation_bound,
                 demerr_bound,
                 num_samples) for idx_range in idx]
 
