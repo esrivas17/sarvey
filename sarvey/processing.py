@@ -1415,7 +1415,12 @@ class Processing:
         Combining gamma into one variable produces a intermediate gamma value between gamma_pre and gamma_exca, therefore I am choosing one of them
         In this case gamma_exca
         """
-        mask_gamma = gamma_exca >= self.config.densification.arc_unwrapping_coherence
+        mask_gamma_full = gamma >= self.config.densification.arc_unwrapping_coherence
+        mask_gamma_pre = gamma_pre >= self.config.densification.arc_unwrapping_coherence
+        mask_gamma_exca = gamma_exca >= self.config.densification.arc_unwrapping_coherence
+        mask_gamma_conso = gamma_conso >= self.config.densification.arc_unwrapping_coherence
+        masklist = [mask_gamma_full, mask_gamma_pre, mask_gamma_exca, mask_gamma_conso]
+        mask_gamma = sorted(masklist, key=np.sum)[-1]
         self.logger.info(msg=f"Reduce the dense point set by {mask_gamma[~mask_gamma].shape[0]} points,")
         self.logger.info(msg=f"due to coherence from temporal unwrapping < "
                              f"{self.config.densification.arc_unwrapping_coherence}")
