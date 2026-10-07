@@ -324,7 +324,6 @@ def gradientSearchTemporalCoherence(*, scale_vel: float, scale_demerr: float, ob
     return demerr, vel, gamma
 
 def objFuncTemporalCoherence_Combined(x, *args):
-
     design_mat, obs_phase, scale_vel, scale_demerr, ix_pre, ix_exca, ix_conso = args
 
     demerr = x[0] * scale_demerr
@@ -333,13 +332,12 @@ def objFuncTemporalCoherence_Combined(x, *args):
     vel_conso = x[3] * scale_vel
 
     pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
-    pred_phase_vel_combined[ix_pre] = (design_mat[ix_pre, 1] * vel_pre)
-    pred_phase_vel_combined[ix_exca] = ( design_mat[ix_exca, 1] * vel_exca )
-    pred_phase_vel_combined[ix_conso] = ( design_mat[ix_conso, 1] * vel_conso )
-    pred_phase = (design_mat[:, 0] * demerr + pred_phase_vel_combined)
-    res = (obs_phase - pred_phase[:, None]).ravel()
+    pred_phase_vel_combined[ix_pre] = design_mat[ix_pre, 1] * vel_pre
+    pred_phase_vel_combined[ix_exca] = design_mat[ix_exca, 1] * vel_exca
+    pred_phase_vel_combined[ix_conso] = design_mat[ix_conso, 1] * vel_conso
+    #pred_phase = design_mat[:, 0] * demerr + pred_phase_vel_combined
 
-    gamma = np.abs(np.mean(np.exp(1j * res)))
+    gamma = np.abs(np.mean(np.exp(1j * (obs_phase - (design_mat[:, 0] * demerr + pred_phase_vel_combined)))))
 
     return 1 - gamma
 
@@ -351,10 +349,8 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
         args=(design_mat, obs_phase, scale_vel, scale_demerr, ix_pre, ix_exca, ix_conso),
         bounds=((-1, 1), (-1, 1), (-1, 1), (-1, 1)),
         method="L-BFGS-B",
-        options={
-        "maxiter": 100,
-        "maxfun": 200,
-    })
+        options={"maxiter": 50, "maxfun": 150,})
+    
     print(
     f"iterations={opt_res.nit}, "
     f"function evaluations={opt_res.nfev}, "
