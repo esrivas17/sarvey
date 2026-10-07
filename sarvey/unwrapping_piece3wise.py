@@ -354,7 +354,6 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
     )
 
     gamma = 1 - opt_res.fun
-
     demerr = opt_res.x[0] * scale_demerr
     vel_pre = opt_res.x[1] * scale_vel
     vel_exca = opt_res.x[2] * scale_vel
@@ -392,9 +391,9 @@ def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
 
     demerr_range = np.linspace( -demerr_bound, demerr_bound, num_samples )
     vel_range = np.linspace( -velocity_bound, velocity_bound, num_samples )
-    vel_excavation_range = np.linspace( -vel_excavation_bound, vel_excavation_bound, num_samples)
+    vel_excavation_range = np.linspace(-vel_excavation_bound, vel_excavation_bound, num_samples)
     prog_bar = ptime.progressBar(maxValue=num_arcs)
-    every = max(1, num_arcs // 10)
+    every = max(1, num_arcs // 100)
 
     for k in range(num_arcs):
         design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))

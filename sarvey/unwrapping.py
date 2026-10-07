@@ -388,7 +388,7 @@ def launchAmbiguityFunctionSearch(parameters: tuple):
     prog_bar = ptime.progressBar(maxValue=num_arcs)
 
     factor = 4 * np.pi / wavelength
-    every = max(1, num_arcs // 10)
+    every = max(1, num_arcs // 100)
 
     for k in range(num_arcs):
         design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
