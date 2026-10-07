@@ -425,7 +425,7 @@ def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
             ix_exca=ix_exca,
             ix_conso=ix_conso)
         
-        prog_bar.update(value=k + 1, every=every, suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
+        prog_bar.update(value=k+1, every=every, suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
 
     return arc_idx_range, demerr, vel_pre, vel_exca, vel_conso, gamma
 
