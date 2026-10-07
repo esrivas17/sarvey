@@ -568,8 +568,7 @@ def temporalUnwrappingTunnellingReduced(*, ifg_net_obj: IfgNetworkPiecewise, net
     logger.info(msg=msg)
 
     start_time = time.time()
-    ix_pre = net_obj.ifg_net_obj.ix_ifg_pre
-    ix_exca = net_obj.ifg_net_obj.ix_ifg_exca
+
     if num_cores == 1:
         args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase, net_obj.slant_range, net_obj.loc_inc, 
                 ifg_net_obj, wavelength, velocity_bound, vel_excavation_bound, demerr_bound, num_samples)

@@ -224,11 +224,7 @@ def oneDimSearchTemporalCoherencePiecewise_CombinedGamma(*, demerr_range: np.nda
                                            design_mat: np.ndarray, design_mat_pre: np.ndarray, design_mat_exca: np.ndarray, design_mat_conso: np.ndarray,
                                            ix_pre: list, ix_exca: list, ix_conso: list):
 
-    demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 0],
-        val_range=demerr_range
-    )
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0], val_range=demerr_range)
 
     vel_pre, _, _ = findOptimum( obs_phase=obs_phase[ix_pre], design_mat=design_mat_pre[:, 1], val_range=vel_range)
     vel_exca, _, _ = findOptimum( obs_phase=obs_phase[ix_exca], design_mat=design_mat_exca[:, 1], val_range=vel_excavation_range)
@@ -240,7 +236,6 @@ def oneDimSearchTemporalCoherencePiecewise_CombinedGamma(*, demerr_range: np.nda
     pred_phase_vel_combined[ix_conso] = design_mat_conso[:,1] * vel_conso
     residual = obs_phase - pred_phase_vel_combined.T
     gamma_vel_combined = np.abs(np.mean(np.exp(1j*residual)))
-
 
     if gamma_vel_combined > gamma_demerr:
         demerr, gamma_demerr, pred_phase_demerr = findOptimum( obs_phase=obs_phase - pred_phase_vel_combined, design_mat=design_mat[:, 0], val_range=demerr_range)
@@ -268,8 +263,7 @@ def oneDimSearchTemporalCoherencePiecewise_CombinedGamma(*, demerr_range: np.nda
     scale_vel = np.max(np.abs(vel_excavation_range))
     x0 = np.array([ demerr / scale_demerr, vel_pre / scale_vel, vel_exca / scale_vel, vel_conso / scale_vel])
 
-    demerr, vel_pre, vel_exca, vel_conso, gamma = (
-        gradientSearchTemporalCoherence_Combined(
+    demerr, vel_pre, vel_exca, vel_conso, gamma = gradientSearchTemporalCoherence_Combined(
             scale_vel=scale_vel,
             scale_demerr=scale_demerr,
             obs_phase=obs_phase,
@@ -277,9 +271,7 @@ def oneDimSearchTemporalCoherencePiecewise_CombinedGamma(*, demerr_range: np.nda
             ix_pre=np.asarray(ix_pre),
             ix_exca=np.asarray(ix_exca),
             ix_conso=np.asarray(ix_conso),
-            x0=x0,
-        )
-    )
+            x0=x0)
 
     pred_phase_demerr = design_mat[:, 0] * demerr
     pred_phase_vel_combined = np.zeros_like(design_mat[:, 1])
@@ -372,7 +364,7 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
 
 def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
 
-    ( arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, velocity_bound, vel_excavation_bound, demerr_bound, num_samples ) = parameters
+    arc_idx_range, num_arcs, phase, slant_range, loc_inc, ifg_net_obj, wavelength, velocity_bound, vel_excavation_bound, demerr_bound, num_samples = parameters
 
     num_ifgs = ifg_net_obj.num_ifgs
     num_ifgs_pre = ifg_net_obj.num_ifgs_pre
@@ -434,8 +426,7 @@ def launchAmbiguityFunctionSearch_combinedgamma(parameters: tuple):
             ix_exca=ix_exca,
             ix_conso=ix_conso)
         
-        prog_bar.update(value=k + 1, every=every,
-                                suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
+        prog_bar.update(value=k + 1, every=every, suffix='{}/{} arcs processed. '.format(k + 1, num_arcs))
 
     return arc_idx_range, demerr, vel_pre, vel_exca, vel_conso, gamma
 
@@ -443,9 +434,10 @@ def temporalUnwrapping_combinedgamma( *, ifg_net_obj: IfgNetwork3Piecewise, net_
                                      velocity_bound: float, vel_excavation_bound: float, 
                                      demerr_bound: float, num_samples: int, num_cores: int = 1, logger: Logger):
     msg = "#" * 10
-    msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION  - COMBINED GAMMA"
+    msg += " TEMPORAL UNWRAPPING: AMBIGUITY FUNCTION  - COMBINED GAMMA "
     msg += "#" * 10
     logger.info(msg=msg)
+    start_time = time.time()
 
     if num_cores == 1:
         args = (np.arange(net_obj.num_arcs), net_obj.num_arcs, net_obj.phase, net_obj.slant_range, net_obj.loc_inc, ifg_net_obj, wavelength, 
@@ -490,6 +482,9 @@ def temporalUnwrapping_combinedgamma( *, ifg_net_obj: IfgNetwork3Piecewise, net_
             gamma[i] = gamma_i
 
     logger.info( "Temporal unwrapping completed using combined-gamma " "piecewise velocity model." )
+    m, s = divmod(time.time() - start_time, 60)
+    logger.info(msg="Finished temporal unwrapping.")
+    logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
 
     return demerr, vel_pre, vel_exca, vel_conso, gamma
 
