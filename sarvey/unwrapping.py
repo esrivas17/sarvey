@@ -72,6 +72,11 @@ def objFuncTemporalCoherence(x, *args):
     gamma = np.abs(np.mean(np.exp(1j * res)))
     return 1 - gamma
 
+def objFuncTemporalCoherence_fast(x, *args):
+    design_mat, obs_complex_mean, scale_vel, scale_demerr = args
+    pred_phase = design_mat[:, 0] * x[0] * scale_demerr + design_mat[:, 1] * x[1] * scale_vel
+    gamma = np.abs(np.mean( obs_complex_mean * np.exp(-1j * pred_phase)))
+    return 1 - gamma
 
 def gridSearchTemporalCoherence(*, demerr_grid: np.ndarray, vel_grid: np.ndarray, design_mat: np.ndarray,
                                 obs_phase: np.ndarray):
