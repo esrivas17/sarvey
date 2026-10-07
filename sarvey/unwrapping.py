@@ -46,7 +46,7 @@ from sarvey.ifg_network import IfgNetwork
 from sarvey.objects import Network, NetworkParameter
 
 
-def objFuncTemporalCoherence(x, *args):
+def objFuncTemporalCoherence_orig(x, *args):
     """Compute temporal coherence from parameters and phase. To be used as objective function for optimization.
 
     Parameters
@@ -71,6 +71,11 @@ def objFuncTemporalCoherence(x, *args):
     gamma = np.abs(np.mean(np.exp(1j * res)))
     return 1 - gamma
 
+def objFuncTemporalCoherence(x, *args):
+    design_mat, obs_phase, scale_vel, scale_demerr = args
+    pred_phase = design_mat[:, 0] * x[0] * scale_demerr + design_mat[:, 1] * x[1] * scale_vel
+    gamma = 1 - np.abs(np.mean(obs_phase * np.exp(-1j * pred_phase)))
+    return 1 - gamma
 
 def gridSearchTemporalCoherence(*, demerr_grid: np.ndarray, vel_grid: np.ndarray, design_mat: np.ndarray,
                                 obs_phase: np.ndarray):
@@ -377,7 +382,7 @@ def temporalUnwrapping(*, ifg_net_obj: IfgNetwork, net_obj: Network, wavelength:
 
     m, s = divmod(time.time() - start_time, 60)
     logger.info(msg="Finished temporal unwrapping.")
-    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+    logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
     return demerr, vel, gamma
 
 
