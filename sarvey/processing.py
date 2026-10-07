@@ -427,7 +427,7 @@ class Processing:
                             demerr_pre=demerr_pre, vel_pre=vel_pre, gamma_pre=gamma_pre, 
                             demerr_exca=demerr_exca, vel_exca=vel_exca, gamma_exca=gamma_exca, 
                             demerr_conso=demerr_conso, vel_conso=vel_conso, gamma_conso=gamma_conso)
-        net_par_obj.redefine_gamma()
+        net_par_obj.redefine_gamma(period='excavation') # gamma is set according to the period chosen, this is used to filter out bad arcs
         net_par_obj.writeToFile()
 
         # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
@@ -543,7 +543,7 @@ class Processing:
                             demerr_pre=demerr_pre, vel_pre=vel_pre, gamma_pre=gamma_pre, 
                             demerr_exca=demerr_exca, vel_exca=vel_exca, gamma_exca=gamma_exca,
                             demerr_conso=demerr_conso, vel_conso=vel_conso, gamma_conso=gamma_conso)
-        net_par_obj.redefine_gamma()
+        net_par_obj.redefine_gamma(period='excavation')
         net_par_obj.writeToFile()
 
         #### histogram ####

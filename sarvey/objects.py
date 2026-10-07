@@ -1670,6 +1670,13 @@ class NetworkParameter3Piecewise(Network3Piecewise):
         self.ifg_net_obj = IfgNetwork3Piecewise()
         self.ifg_net_obj.open(path=join(dirname(self.file_path), "ifg_network.h5"))
 
-    def redefine_gamma(self):
+    def redefine_gamma(self, period='stable'):
         self.gamma_saved = self.gamma
-        self.gamma = self.gamma_pre
+        if period.lower() == 'stable':
+            self.gamma = self.gamma_pre
+        elif period.lower() in ['excavation', 'exca']:
+            self.gamma = self.gamma_exca
+        elif period.lower() in ['consolidation', 'conso']:
+            self.gamma = self.gamma_conso
+        else:
+            raise Exception(f"Period not defined")
