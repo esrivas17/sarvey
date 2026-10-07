@@ -351,7 +351,6 @@ def gradientSearchTemporalCoherence_Combined( *, scale_vel: float, scale_demerr:
         args=(design_mat, obs_phase, scale_vel, scale_demerr, ix_pre, ix_exca, ix_conso),
         bounds=((-1, 1), (-1, 1), (-1, 1), (-1, 1)),
         method="L-BFGS-B",
-        jac=gradObjFuncTemporalCoherence_Combined,
         options={
         "maxiter": 100,
         "maxfun": 200,
