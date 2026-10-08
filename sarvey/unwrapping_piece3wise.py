@@ -166,7 +166,7 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.nda
     vel: float
     gamma: float
     """
-    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0], val_range=demerr_rang)
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0], val_range=demerr_range)
     vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 1], val_range=vel_range)
 
     if gamma_vel > gamma_demerr:

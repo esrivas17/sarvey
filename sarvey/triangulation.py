@@ -97,7 +97,25 @@ class PointNetworkTriangulation:
         for s, e_list in arc_tmp:
             for e in e_list:
                 arcs.append([s, e])
-        arcs = np.array(arcs)
+        #arcs = np.array(arcs)
+        return np.array(arcs)
+
+    def getArcsFromAdjMat2(self):
+        """Convert adjacency matrix into an array of arcs."""
+
+        adj = self.adj_mat
+
+        # Make sure matrix is in CSR format
+        adj = adj.tocsr()
+
+        # Get non-zero entries
+        rows, cols = adj.nonzero()
+
+        # Keep only one direction of each edge
+        mask = rows > cols
+
+        arcs = np.column_stack((rows[mask], cols[mask]))
+
         return arcs
 
     def removeLongArcs(self, *, max_dist: float):
