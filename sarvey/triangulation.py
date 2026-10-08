@@ -108,9 +108,9 @@ class PointNetworkTriangulation:
         max_dist: float
             distance threshold on arc length in [m]
         """
-        mask = self.dist_mat > max_dist
-        self.logger.debug(f"Removing {np.sum(mask)} arcs with distance longer that {max_dist}.")
-        self.adj_mat[mask] = False
+        #mask = self.dist_mat > max_dist
+        #self.logger.debug(f"Removing {np.sum(mask)} arcs with distance longer that {max_dist}.")
+        self.adj_mat[self.dist_mat > max_dist] = False
 
     def isConnected(self):
         """Check if the network is connected."""
