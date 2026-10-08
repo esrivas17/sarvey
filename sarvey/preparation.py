@@ -331,20 +331,8 @@ def createArcsBetweenPoints(*, point_obj: Points, knn: int = None, max_arc_lengt
         triang_obj.triangulateGlobal()
 
     logger.info("Retrieve arcs from adjacency matrix.")
-    import time
-    start_time = time.time()
     arcs = triang_obj.getArcsFromAdjMat()
     logger.debug(f"Final number of arcs: {arcs.shape[0]}.")
-    m, s = divmod(time.time() - start_time, 60)
-    logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
-
-    start_time = time.time()
-    arcs2 = triang_obj.getArcsFromAdjMat2()
-    m, s = divmod(time.time() - start_time, 60)
-    logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
-    logger.debug(f"Final number of arcs: {arcs2.shape[0]}.")
-    if arcs == arcs2:
-        print("SUCESS")
 
     ut_mask = np.triu(triang_obj.dist_mat, k=1) != 0
     logger.debug(f"Final triangulation arc lengths - "
