@@ -681,27 +681,23 @@ class Processing:
         ############ PARAMETER INTEGRATION ##################
         self.logger.info(msg="Integrate parameters from arcs to points.")
         self.logger.info(msg="Integrate DEM correction.")
-        import time
-        start_time = time.time()
-        demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
+
+        #demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
                                              arcs=net_par_obj.arcs,
                                              coord_xy=point_obj.coord_xy,
                                              weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        m, s = divmod(time.time() - start_time, 60)
-        self.logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
 
-        self.logger.info(msg="Integrate DEM correction with sparse function.")
-        start_time = time.time()
-        demerr2 = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr,
+        #self.logger.info(msg="Integrate DEM correction with sparse function.")
+        demerr = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr,
                                                      arcs=net_par_obj.arcs,
                                                      coord_xy=point_obj.coord_xy,
                                                      weights=net_par_obj.gamma,
                                                      spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-        m, s = divmod(time.time() - start_time, 60)
+
         self.logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
-        for a, b in zip(demerr[:10], demerr2[:10]):
-            print(f"{a:.6f}  {b:.6f}  diff={b-a:+.6f}")
+        #for a, b in zip(demerr[:10], demerr2[:10]):
+            #print(f"{a:.6f}  {b:.6f}  diff={b-a:+.6f}")
 
         fig, ax, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
@@ -712,7 +708,7 @@ class Processing:
         plt.close(fig)
 
         self.logger.info(msg="Integrate mean velocity.")
-        vel = spatialParameterIntegration(val_arcs=net_par_obj.vel,
+        vel = spatialParameterIntegration_sparse(val_arcs=net_par_obj.vel,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
                                           weights=net_par_obj.gamma,
@@ -729,7 +725,7 @@ class Processing:
         ############# PRE-EXCAVATION ################
         self.logger.info(msg="PRE-EXCAVATION")
         self.logger.info(msg="Integrate DEM correction before excavation.")
-        demerr_pre = spatialParameterIntegration(val_arcs=net_par_obj.demerr_pre,
+        demerr_pre = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr_pre,
                                              arcs=net_par_obj.arcs,
                                              coord_xy=point_obj.coord_xy,
                                              weights=net_par_obj.gamma,
@@ -744,7 +740,7 @@ class Processing:
         plt.close(fig)
 
         self.logger.info(msg="Integrate mean velocity before excavation.")
-        vel_pre = spatialParameterIntegration(val_arcs=net_par_obj.vel_pre,
+        vel_pre = spatialParameterIntegration_sparse(val_arcs=net_par_obj.vel_pre,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
                                           weights=net_par_obj.gamma,
@@ -761,7 +757,7 @@ class Processing:
         ########### EXCAVATION ############
         self.logger.info(msg="EXCAVATION")
         self.logger.info(msg="Integrate DEM correction during excavation.")
-        demerr_exca = spatialParameterIntegration(val_arcs=net_par_obj.demerr_exca,
+        demerr_exca = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr_exca,
                                              arcs=net_par_obj.arcs,
                                              coord_xy=point_obj.coord_xy,
                                              weights=net_par_obj.gamma,
@@ -776,7 +772,7 @@ class Processing:
         plt.close(fig)
 
         self.logger.info(msg="Integrate mean velocity during excavation.")
-        vel_exca = spatialParameterIntegration(val_arcs=net_par_obj.vel_exca,
+        vel_exca = spatialParameterIntegration_sparse(val_arcs=net_par_obj.vel_exca,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
                                           weights=net_par_obj.gamma,
@@ -793,7 +789,7 @@ class Processing:
         ############# CONSOLIDATION #############
         self.logger.info(msg="CONSOLIDATION")
         self.logger.info(msg="Integrate DEM correction during consolidation.")
-        demerr_conso = spatialParameterIntegration(val_arcs=net_par_obj.demerr_conso,
+        demerr_conso = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr_conso,
                                                 arcs=net_par_obj.arcs,
                                                 coord_xy=point_obj.coord_xy,
                                                 weights=net_par_obj.gamma,
@@ -808,7 +804,7 @@ class Processing:
         plt.close(fig)
 
         self.logger.info(msg="Integrate mean velocity during excavation.")
-        vel_conso = spatialParameterIntegration(val_arcs=net_par_obj.vel_conso,
+        vel_conso = spatialParameterIntegration_sparse(val_arcs=net_par_obj.vel_conso,
                                             arcs=net_par_obj.arcs,
                                             coord_xy=point_obj.coord_xy,
                                             weights=net_par_obj.gamma,
