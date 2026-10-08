@@ -695,7 +695,6 @@ class Processing:
                                                      weights=net_par_obj.gamma,
                                                      spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        self.logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
         #for a, b in zip(demerr[:10], demerr2[:10]):
             #print(f"{a:.6f}  {b:.6f}  diff={b-a:+.6f}")
 
