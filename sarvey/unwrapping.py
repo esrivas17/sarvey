@@ -926,8 +926,6 @@ def spatialParameterIntegration(*,
     if structural_rank(design_mat) < design_mat.shape[1]:
         raise Exception("Spatial point network is not connected. Cannot integrate parameters spatially!")
 
-    start_time = time.time()
-
     obv_vec = val_arcs.reshape(-1, ) * weights.reshape(-1, )
 
     x_hat = lsqr(design_mat, obv_vec)[0]
