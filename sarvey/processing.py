@@ -681,20 +681,28 @@ class Processing:
         ############ PARAMETER INTEGRATION ##################
         self.logger.info(msg="Integrate parameters from arcs to points.")
         self.logger.info(msg="Integrate DEM correction.")
+        import time
+        start_time = time.time()
         demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
                                              arcs=net_par_obj.arcs,
                                              coord_xy=point_obj.coord_xy,
                                              weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        m, s = divmod(time.time() - start_time, 60)
+        self.logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+
         self.logger.info(msg="Integrate DEM correction with sparse function.")
+        start_time = time.time()
         demerr2 = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr,
                                                      arcs=net_par_obj.arcs,
                                                      coord_xy=point_obj.coord_xy,
                                                      weights=net_par_obj.gamma,
                                                      spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        m, s = divmod(time.time() - start_time, 60)
+        self.logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
         for a, b in zip(demerr[:10], demerr2[:10]):
             print(f"{a:.6f}  {b:.6f}  diff={b-a:+.6f}")
-            
+
         fig, ax, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
