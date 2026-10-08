@@ -103,18 +103,22 @@ class PointNetworkTriangulation:
     def getArcsFromAdjMat2(self):
         """Convert adjacency matrix into an array of arcs."""
 
-        adj = self.adj_mat
+        rows, cols = self.adj_mat.nonzero()
 
-        # Make sure matrix is in CSR format
-        adj = adj.tocsr()
+        # Keep one copy of each undirected edge
+        mask = rows != cols
 
-        # Get non-zero entries
-        rows, cols = adj.nonzero()
+        rows = rows[mask]
+        cols = cols[mask]
 
-        # Keep only one direction of each edge
-        mask = rows > cols
+        # Put larger index first, matching the original function
+        arcs = np.column_stack((
+            np.maximum(rows, cols),
+            np.minimum(rows, cols)
+        ))
 
-        arcs = np.column_stack((rows[mask], cols[mask]))
+        # Remove duplicate edges
+        arcs = np.unique(arcs, axis=0)
 
         return arcs
 
