@@ -908,6 +908,7 @@ def spatialParameterIntegration(*,
     val_points: np.ndarray
         Estimated parameters at the points resulting from the integration of the parameters at the arcs.
     """
+    start_time = time.time()
     arcs = np.array(arcs)
     num_points = coord_xy.shape[0]
     num_arcs = arcs.shape[0]
@@ -931,13 +932,59 @@ def spatialParameterIntegration(*,
 
     x_hat = lsqr(design_mat, obv_vec)[0]
 
-    m, s = divmod(time.time() - start_time, 60)
-    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
-
     val_points = np.zeros((num_points,))
     points_idx = np.ones((num_points,), dtype=bool)
     points_idx[spatial_ref_idx] = False
     val_points[points_idx] = x_hat
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+
+    return val_points
+
+def spatialParameterIntegration_sparse(*,
+                                val_arcs: np.ndarray,
+                                arcs: np.ndarray,
+                                coord_xy: np.ndarray,
+                                weights: np.ndarray,
+                                spatial_ref_idx: int = 0,
+                                logger: Logger):
+    start_time = time.time()
+    arcs = np.array(arcs)
+
+    num_points = coord_xy.shape[0]
+    num_arcs = arcs.shape[0]
+
+    # BUILD A SPARSE MATRIX
+    # Build sparse incidence matrix directly
+    rows = np.repeat(np.arange(num_arcs), 2)
+    cols = arcs.reshape(-1)
+    data = np.tile([1.0, -1.0], num_arcs)
+
+    if rows.shape != cols.shape != data.shape:
+        raise Exception("Wrong shape")
+    else:
+        design_mat = csr_matrix((data, (rows, cols)), shape=(num_arcs, num_points))
+    
+    if structural_rank(design_mat) < design_mat.shape[1]:
+        raise Exception("Spatial point network is not connected. Cannot integrate parameters spatially!")
+    
+    # Remove reference point
+    design_mat = design_mat[:, np.arange(num_points) != spatial_ref_idx]
+
+    # Apply weights
+    design_mat = design_mat.multiply(weights[:, None])
+
+    obv_vec = val_arcs * weights
+    x_hat = lsqr(design_mat, obv_vec)[0]
+    val_points = np.zeros(num_points)
+
+    points_idx = np.ones(num_points, dtype=bool)
+    points_idx[spatial_ref_idx] = False
+    val_points[points_idx] = x_hat
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.info(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
 
     return val_points
 

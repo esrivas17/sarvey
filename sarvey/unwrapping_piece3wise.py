@@ -166,53 +166,27 @@ def oneDimSearchTemporalCoherence(*, demerr_range: np.ndarray, vel_range: np.nda
     vel: float
     gamma: float
     """
-    demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 0],
-        val_range=demerr_range
-    )
-
-    vel, gamma_vel, pred_phase_vel = findOptimum(
-        obs_phase=obs_phase,
-        design_mat=design_mat[:, 1],
-        val_range=vel_range
-    )
+    demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0], val_range=demerr_rang)
+    vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 1], val_range=vel_range)
 
     if gamma_vel > gamma_demerr:
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase - pred_phase_vel, design_mat=design_mat[:, 0], val_range=demerr_range)
+        vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase - pred_phase_demerr, design_mat=design_mat[:, 1], val_range=vel_range)
     else:
-        vel, gamma_vel, pred_phase_vel = findOptimum(
-            obs_phase=obs_phase - pred_phase_demerr,
-            design_mat=design_mat[:, 1],
-            val_range=vel_range
-        )
-        demerr, gamma_demerr, pred_phase_demerr = findOptimum(
-            obs_phase=obs_phase - pred_phase_vel,
-            design_mat=design_mat[:, 0],
-            val_range=demerr_range
-        )
+        vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase - pred_phase_demerr, design_mat=design_mat[:, 1], val_range=vel_range)
+        demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase - pred_phase_vel, design_mat=design_mat[:, 0], val_range=demerr_range)
 
     # improve initial estimate with gradient descent approach
-    scale_demerr = demerr_range.max()
+    scale_demerr = np.max(np.abs(demerr_range))
     scale_vel = np.max(np.abs(vel_range))
+    x0 = np.array([demerr / scale_demerr, vel / scale_vel]).T
 
     demerr, vel, gamma = gradientSearchTemporalCoherence(
         scale_vel=scale_vel,
         scale_demerr=scale_demerr,
         obs_phase=obs_phase,
         design_mat=design_mat,
-        x0=np.array([demerr / scale_demerr,
-                     vel / scale_vel]).T
-    )
+        x0=x0)
 
     pred_phase = np.matmul(design_mat, np.array([demerr, vel]))
     res = (obs_phase - pred_phase.T).ravel()
@@ -319,13 +293,12 @@ def gradientSearchTemporalCoherence(*, scale_vel: float, scale_demerr: float, ob
     vel: float
     gamma: float
     """
-    opt_res = minimize(
-        objFuncTemporalCoherence,
-        x0,
-        args=(design_mat, obs_phase, scale_vel, scale_demerr),
-        bounds=((-1, 1), (-1, 1)),
-        method='L-BFGS-B'
-    )
+    opt_res = minimize(objFuncTemporalCoherence,
+                    x0,
+                    args=(design_mat, obs_phase, scale_vel, scale_demerr),
+                    bounds=((-1, 1), (-1, 1)),
+                    method='L-BFGS-B')
+    
     gamma = 1 - opt_res.fun
     demerr = opt_res.x[0] * scale_demerr
     vel = opt_res.x[1] * scale_vel
@@ -516,7 +489,7 @@ def launchAmbiguityFunctionSearch(parameters: tuple):
     prog_bar = ptime.progressBar(maxValue=num_arcs)
 
     factor = 4 * np.pi / wavelength
-    every = max(1, num_arcs // 10)
+    every = max(1, num_arcs // 100)
 
     for k in range(num_arcs):
         design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))
@@ -670,7 +643,7 @@ def launchAmbiguityFunctionSearchPiece3wise(parameters: tuple):
     prog_bar = ptime.progressBar(maxValue=num_arcs)
 
     factor = 4 * np.pi / wavelength
-    every = max(1, num_arcs // 10)
+    every = max(1, num_arcs // 100)
 
     for k in range(num_arcs):
         design_mat[:, 0] = factor * ifg_net_obj.pbase_ifg / (slant_range[k] * np.sin(loc_inc[k]))

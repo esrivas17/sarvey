@@ -46,7 +46,7 @@ from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 #from sarvey.ifg_network_piecewise import StarNetwork, SmallTemporalBaselinesNetwork
 from sarvey.ifg_network_piecewise_three import SmallTemporalBaselinesNetwork
 from sarvey.objects import Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack, PointsPiecewise, NetworkPiecewise, Points3Piecewise, Network3Piecewise, NetworkParameter3Piecewise 
-from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, temporalUnwrappingTunnelling, temporalUnwrappingTunnellingReduced, spatialUnwrapping,
+from sarvey.unwrapping import (spatialParameterIntegration, spatialParameterIntegration_sparse, temporalUnwrappingTunnelling, temporalUnwrappingTunnellingReduced, spatialUnwrapping,
                                removeBadArcsIteratively, removeBadPointsIteratively)
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, ix_from_date
 from sarvey.unwrapping_piece3wise import temporalUnwrapping3Piecewise
@@ -643,11 +643,9 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        net_par_obj = removeBadArcsIteratively(
-            net_obj=net_par_obj,
-            quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
-            logger=self.logger
-        )
+        net_par_obj = removeBadArcsIteratively(net_obj=net_par_obj, 
+                                               quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, 
+                                               logger=self.logger)
 
         try:
             ax = bmap_obj.plot(logger=self.logger)
@@ -667,19 +665,20 @@ class Processing:
 
     def runUnwrappingTimeAndSpace(self):
         """RunTemporalAndSpatialUnwrapping."""
-        net_par_obj = NetworkParameter3Piecewise(file_path=join(self.path, "point_network_parameter.h5"),
-                                       logger=self.logger)
+        filepath = join(self.path, "point_network_parameter.h5")
+        net_par_obj = NetworkParameter3Piecewise(file_path=filepath, logger=self.logger)
         net_par_obj.open(input_path=self.config.general.input_path)
 
-        point_obj = Points3Piecewise(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
-        point_obj.open(other_file_path=join(self.path, "p1_ifg_wr.h5"),
-            input_path=self.config.general.input_path)
+        filepath = join(self.path, "p1_ifg_unw.h5")
+        point_obj = Points3Piecewise(file_path=filepath, logger=self.logger)
+        filepath = join(self.path, "p1_ifg_wr.h5")
+        point_obj.open(other_file_path=filepath,input_path=self.config.general.input_path)
 
         # reference point can be set arbitrarily, because outliers are removed.
         spatial_ref_idx = 0
-
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
+        ############ PARAMETER INTEGRATION ##################
         self.logger.info(msg="Integrate parameters from arcs to points.")
         self.logger.info(msg="Integrate DEM correction.")
         demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
@@ -687,11 +686,20 @@ class Processing:
                                              coord_xy=point_obj.coord_xy,
                                              weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
-
-        fig = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+        self.logger.info(msg="Integrate DEM correction with sparse function.")
+        demerr2 = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr,
+                                                     arcs=net_par_obj.arcs,
+                                                     coord_xy=point_obj.coord_xy,
+                                                     weights=net_par_obj.gamma,
+                                                     spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+        for a, b in zip(demerr[:10], demerr2[:10]):
+            print(f"{a:.6f}  {b:.6f}  diff={b-a:+.6f}")
+            
+        fig, ax, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
@@ -702,25 +710,28 @@ class Processing:
                                           weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
+        fig, ax, _ = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
 
-        ### pre excavation
+        ############# PRE-EXCAVATION ################
+        self.logger.info(msg="PRE-EXCAVATION")
         self.logger.info(msg="Integrate DEM correction before excavation.")
         demerr_pre = spatialParameterIntegration(val_arcs=net_par_obj.demerr_pre,
                                              arcs=net_par_obj.arcs,
                                              coord_xy=point_obj.coord_xy,
-                                             weights=net_par_obj.gamma_pre,
+                                             weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-demerr_pre, coord=point_obj.coord_xy,
+        fig, ax, _ = viewer.plotScatter(value=-demerr_pre, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_1pre.png"), dpi=300)
         plt.close(fig)
 
@@ -728,28 +739,31 @@ class Processing:
         vel_pre = spatialParameterIntegration(val_arcs=net_par_obj.vel_pre,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
-                                          weights=net_par_obj.gamma_pre,
+                                          weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-vel_pre, coord=point_obj.coord_xy,
+        fig, ax, _ = viewer.plotScatter(value=-vel_pre, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_1pre.png"), dpi=300)
         plt.close(fig)
 
-        # during excavation
+        ########### EXCAVATION ############
+        self.logger.info(msg="EXCAVATION")
         self.logger.info(msg="Integrate DEM correction during excavation.")
         demerr_exca = spatialParameterIntegration(val_arcs=net_par_obj.demerr_exca,
                                              arcs=net_par_obj.arcs,
                                              coord_xy=point_obj.coord_xy,
-                                             weights=net_par_obj.gamma_exca,
+                                             weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-demerr_exca, coord=point_obj.coord_xy,
+        fig, ax, _ = viewer.plotScatter(value=-demerr_exca, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_2exca.png"), dpi=300)
         plt.close(fig)
 
@@ -757,28 +771,31 @@ class Processing:
         vel_exca = spatialParameterIntegration(val_arcs=net_par_obj.vel_exca,
                                           arcs=net_par_obj.arcs,
                                           coord_xy=point_obj.coord_xy,
-                                          weights=net_par_obj.gamma_pre,
+                                          weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-vel_exca, coord=point_obj.coord_xy,
+        fig, ax, _ = viewer.plotScatter(value=-vel_exca, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_2exca.png"), dpi=300)
         plt.close(fig)
 
-        ## consolidation
+        ############# CONSOLIDATION #############
+        self.logger.info(msg="CONSOLIDATION")
         self.logger.info(msg="Integrate DEM correction during consolidation.")
         demerr_conso = spatialParameterIntegration(val_arcs=net_par_obj.demerr_conso,
                                                 arcs=net_par_obj.arcs,
                                                 coord_xy=point_obj.coord_xy,
-                                                weights=net_par_obj.gamma_conso,
+                                                weights=net_par_obj.gamma,
                                                 spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-demerr_conso, coord=point_obj.coord_xy,
+        fig, ax, _ = viewer.plotScatter(value=-demerr_conso, coord=point_obj.coord_xy,
                                     ttl="Parameter integration: DEM correction in [m]",
                                     bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                    logger=self.logger)[0]
+                                    logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction_3conso.png"), dpi=300)
         plt.close(fig)
 
@@ -786,13 +803,14 @@ class Processing:
         vel_conso = spatialParameterIntegration(val_arcs=net_par_obj.vel_conso,
                                             arcs=net_par_obj.arcs,
                                             coord_xy=point_obj.coord_xy,
-                                            weights=net_par_obj.gamma_conso,
+                                            weights=net_par_obj.gamma,
                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-vel_conso, coord=point_obj.coord_xy,
+        fig, ax, _ = viewer.plotScatter(value=-vel_conso, coord=point_obj.coord_xy,
                                     ttl="Parameter integration: mean velocity in [m / year]",
                                     bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
-                                    logger=self.logger)[0]
+                                    logger=self.logger)
+        ax.set_aspect('equal')
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity_3conso.png"), dpi=300)
         plt.close(fig)
         ################################################
@@ -843,12 +861,10 @@ class Processing:
             ifg_net_obj=point_obj.ifg_net_obj,
             num_cores=1,  # self.config.general.num_cores,
             ref_idx=0,
-            logger=self.logger
-        )
+            logger=self.logger)
 
         point_obj = Points3Piecewise(file_path=join(self.path, "p1_ts.h5"), logger=self.logger)
-        point_obj.open(other_file_path=join(self.path, "p1_ifg_unw.h5"),
-            input_path=self.config.general.input_path)
+        point_obj.open(other_file_path=join(self.path, "p1_ifg_unw.h5"), input_path=self.config.general.input_path)
         point_obj.phase = phase_ts
         point_obj.writeToFile()
 
