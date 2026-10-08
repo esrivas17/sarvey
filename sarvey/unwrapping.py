@@ -969,11 +969,9 @@ def spatialParameterIntegration_sparse(*,
     if structural_rank(design_mat) < design_mat.shape[1]:
         raise Exception("Spatial point network is not connected. Cannot integrate parameters spatially!")
     
-    # Remove reference point
+    # Remove reference point and weight matrix
     design_mat = design_mat[:, np.arange(num_points) != spatial_ref_idx]
-
-    # Apply weights
-    design_mat = design_mat.multiply(weights[:, None])
+    design_mat = design_mat.multiply(weights.reshape(-1, 1))
 
     obv_vec = val_arcs * weights
     x_hat = lsqr(design_mat, obv_vec)[0]
