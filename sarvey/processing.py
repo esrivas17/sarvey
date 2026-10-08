@@ -683,10 +683,10 @@ class Processing:
         self.logger.info(msg="Integrate DEM correction.")
 
         #demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
-                                             arcs=net_par_obj.arcs,
-                                             coord_xy=point_obj.coord_xy,
-                                             weights=net_par_obj.gamma,
-                                             spatial_ref_idx=spatial_ref_idx, logger=self.logger)
+                                             #arcs=net_par_obj.arcs,
+                                             #coord_xy=point_obj.coord_xy,
+                                             #weights=net_par_obj.gamma,
+                                             #spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
         #self.logger.info(msg="Integrate DEM correction with sparse function.")
         demerr = spatialParameterIntegration_sparse(val_arcs=net_par_obj.demerr,
