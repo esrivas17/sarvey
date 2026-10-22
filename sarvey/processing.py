@@ -475,10 +475,9 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-
+        # KEEP THE LARGEST CONNECTED COMPONENT
         net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
         point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
-
         net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
 
         if not net_par_obj.isNetworkConnected(point_obj.num_points):
