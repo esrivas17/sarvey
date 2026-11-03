@@ -33,9 +33,9 @@ import time
 import networkx as nx
 import numpy as np
 from kamui import unwrap_arbitrary
-from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import structural_rank
-from scipy.sparse.linalg import lsqr
+from scipy.sparse import csr_matrix, diags
+from scipy.sparse.csgraph import structural_rank, connected_components
+from scipy.sparse.linalg import lsqr, splu
 from scipy.optimize import minimize
 from scipy.linalg import pinvh
 from logging import Logger
@@ -44,7 +44,7 @@ from mintpy.utils import ptime
 
 import sarvey.utils as ut
 from sarvey.ifg_network import IfgNetwork
-from sarvey.objects import Network, NetworkParameter, NetworkParameter_Temp
+from sarvey.objects import Network, NetworkParameter, NetworkParameter_Temp, AmplitudeImage
 import pdb
 
 def objFuncTemporalCoherence(x, *args):
@@ -747,90 +747,84 @@ def spatialParameterIntegration_with_distance(*,
 
     return val_points
 
-
 def spatialParameterIntegration_withUncertainty(*,
                                                 val_arcs: np.ndarray,
                                                 arcs: np.ndarray,
                                                 coord_xy: np.ndarray,
                                                 weights: np.ndarray,
                                                 spatial_ref_idx: int = 0,
+                                                chunk: int = 256,
                                                 logger=None):
     """
-    Spatial integration of arc parameters + uncertainty propagation.
+    Sparse spatial integration of arc parameters + uncertainty propagation.
 
     Returns
     -------
-    val_points : np.ndarray
-        Estimated parameters at points
-    std_points : np.ndarray
-        Standard deviation at each point
+    val_points : (num_points,) estimated parameters (reference point = 0)
+    std_points : (num_points,) standard deviation (reference point = 0)
     """
-
-    arcs = np.array(arcs)
+    t0 = time.time()
+    arcs = np.asarray(arcs, dtype=int)
+    val_arcs = np.asarray(val_arcs, dtype=float)
+    weights = np.asarray(weights, dtype=float)
     num_points = coord_xy.shape[0]
     num_arcs = arcs.shape[0]
 
-    # --- 1. Build design matrix A ---
-    A = np.zeros((num_arcs, num_points))
-    for i in range(num_arcs):
-        A[i, arcs[i][0]] = 1
-        A[i, arcs[i][1]] = -1
+    # --- 1. Connectivity check on the graph (structural_rank only looks at
+    #        the sparsity pattern, so it can't reliably detect disconnection)
+    adj = csr_matrix((np.ones(num_arcs), (arcs[:, 0], arcs[:, 1])),
+                     shape=(num_points, num_points))
+    n_comp, _ = connected_components(adj, directed=False)
+    if n_comp > 1:
+        raise ValueError(f"Spatial point network is not connected ({n_comp} components).")
 
-    # --- 2. Remove reference column ---
-    A_red = np.delete(A, spatial_ref_idx, axis=1)
+    # --- 2. Sparse design matrix
+    rows = np.repeat(np.arange(num_arcs), 2)
+    cols = arcs.reshape(-1)
+    data = np.tile([1.0, -1.0], num_arcs)
+    A = csr_matrix((data, (rows, cols)), shape=(num_arcs, num_points))
 
-    # --- 3. Apply weights (your formulation: WA x = Wd) ---
-    W = weights.reshape(-1, 1)
-    A_w = W * A_red
-    d_w = val_arcs.reshape(-1, 1) * W
+    # --- 3. Remove reference column, apply weights (W A x = W d)
+    keep = np.ones(num_points, dtype=bool)
+    keep[spatial_ref_idx] = False
+    A_w = (diags(weights) @ A[:, keep]).tocsr()
+    d_w = val_arcs * weights
 
-    A_w = csr_matrix(A_w)
+    # --- 4. Normal matrix (sparse, = A^T W^2 A) and factorization
+    N = (A_w.T @ A_w).tocsc()
+    lu = splu(N)
 
-    # --- 4. Connectivity check ---
-    if structural_rank(A_w) < A_w.shape[1]:
-        raise Exception("Spatial point network is not connected.")
-
-    # --- 5. Solve LS ---
-    start_time = time.time()
-    x_hat = lsqr(A_w, d_w.flatten())[0]
-    logger and logger.debug(f"LS solved in {time.time() - start_time:.2f} sec")
-
-    # --- 6. Reconstruct full vector ---
+    # --- 5. Solve (reuses the factorization)
+    x_hat = lu.solve(A_w.T @ d_w)
     val_points = np.zeros(num_points)
-    mask = np.ones(num_points, dtype=bool)
-    mask[spatial_ref_idx] = False
-    val_points[mask] = x_hat
+    val_points[keep] = x_hat
+    if logger:
+        logger.debug(f"LS solved in {time.time() - t0:.2f} sec")
 
-    # =====================================================
-    # ===== UNCERTAINTY PROPAGATION ========================
-    # =====================================================
-
-    # --- 7. Residuals ---
-    v = (A_w @ x_hat) - d_w.flatten()
-
-    # redundancy
+    # --- 6. Residuals and variance factor
+    v = A_w @ x_hat - d_w
     r = num_arcs - (num_points - 1)
-
-    # variance factor
+    if r <= 0:
+        raise ValueError("No redundancy (arcs <= points-1): variance factor undefined.")
     sigma0_sq = (v @ v) / r
 
-    # --- 8. Normal matrix ---
-    # IMPORTANT: P = W^2
-    W2 = weights**2
-    N = A_red.T @ (W2[:, None] * A_red)
+    # --- 7. diag(N^-1) without forming the dense inverse:
+    #        solve N X = E for blocks of unit vectors, keep only the diagonal
+    n = N.shape[0]
+    diag_Qx = np.empty(n)
+    for s in range(0, n, chunk):
+        e = min(s + chunk, n)
+        E = np.zeros((n, e - s))
+        E[np.arange(s, e), np.arange(e - s)] = 1.0
+        X = lu.solve(E)
+        diag_Qx[s:e] = X[np.arange(s, e), np.arange(e - s)]
 
-    # --- 9. Inverse (covariance of reduced system) ---
-    Qx = pinvh(N)   # robust symmetric pseudo-inverse
-
-    Cov_x = sigma0_sq * Qx
-
-    # --- 10. Standard deviation ---
-    std_red = np.sqrt(np.diag(Cov_x))
-
-    # reconstruct full vector
     std_points = np.zeros(num_points)
-    std_points[mask] = std_red
-    std_points[spatial_ref_idx] = 0.0  # fixed reference
+    std_points[keep] = np.sqrt(sigma0_sq * diag_Qx)
+
+    if logger:
+        m, s = divmod(time.time() - t0, 60)
+        logger.info(f"time used: {m:02.0f} mins {s:04.1f} secs.")
 
     return val_points, std_points
 
@@ -1076,6 +1070,339 @@ def removeBadArcsIteratively(*,
     return net_obj
 
 
+def computeAvgCoherencePerPoint(*, net_obj: Network, point_id: np.ndarray, logger: Logger) -> np.ndarray:
+    """Compute the average coherence from all arcs that a point is connected with. Used to remove incoherent points.
+
+    Parameters
+    ----------
+    net_obj: Network
+        The Network object.
+    point_id: np.ndarray
+        ID of the points in the network.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    mean_gamma_point: np.ndarray
+        Average coherence per point
+    """
+    logger.info(msg="Removal of points whose arcs are incoherent in average.")
+
+    num_points = point_id.shape[0]
+
+    # create design matrix
+    a = np.zeros((net_obj.num_arcs, num_points))
+    for i in range(net_obj.num_arcs):
+        a[i, net_obj.arcs[i][0]] = net_obj.gamma[i]
+        a[i, net_obj.arcs[i][1]] = net_obj.gamma[i]
+
+    a[a == 0] = np.nan
+    mean_gamma_point = np.nanmean(a, axis=0)
+
+    return mean_gamma_point
+
+def computeNumArcsPerPoints(*, net_obj: Network, point_id: np.ndarray,
+                            logger: Logger) -> tuple[np.ndarray, np.ndarray]:
+    """Remove Points with less than specified number of arcs.
+
+    Parameters
+    ----------
+    net_obj: Network
+        The spatial Network object.
+    point_id: np.ndarray
+        ID of the points in the network.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+     design_mat: np.ndarray
+        Design matrix of the spatial network
+     arcs_per_point: np.ndarray
+        Number of arcs that each point is connected with.
+    """
+    logger.info(msg="Removal of arcs and PSC that cannot be tested.")
+
+    num_points = point_id.shape[0]
+
+    # create design matrix
+    design_mat = np.zeros((net_obj.num_arcs, num_points))
+    for i in range(net_obj.num_arcs):
+        design_mat[i, net_obj.arcs[i][0]] = 1
+        design_mat[i, net_obj.arcs[i][1]] = -1
+
+    # find the number of arcs per point
+    arcs_per_point = np.zeros(num_points, )
+
+    for i in range(num_points):
+        arcs_per_point[i] = np.where(design_mat[:, i] != 0)[0].shape[0]
+
+    return design_mat, arcs_per_point
+
+
+def removeArcsByPointMask(*, net_obj: Union[Network, NetworkParameter], point_id: np.ndarray, coord_xy: np.ndarray,
+                          p_mask: np.ndarray, design_mat: np.ndarray,
+                          logger: Logger) -> tuple[Network, np.ndarray, np.ndarray, np.ndarray]:
+    """Remove all entries related to the arc observations connected to the points which have a False value in p_mask.
+
+    Parameters
+    ----------
+    net_obj: Network
+        The Network object.
+    point_id: np.ndarray
+        ID of the points in the network.
+    coord_xy: np.ndarray
+        Radar coordinates of the points in the spatial network.
+    p_mask: np.ndarray
+        Boolean mask with True for points to keep, and False for points to remove.
+    design_mat: np.ndarray
+        Design matrix describing the relation between arcs and points.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: Network
+        Network object without the removed arcs and points.
+    point_id: np.ndarray
+        ID of the points in the network without the removed points.
+    coord_xy: np.ndarray
+        Radar coordinates of the points in the spatial network without the removed points.
+    design_mat: np.ndarray
+        Design matrix describing the relation between arcs and points without the removed points and arcs.
+    """
+    # find respective arcs
+    a_idx = list()
+    for p_idx in np.where(~p_mask)[0]:
+        a_idx.append(np.where(design_mat[:, p_idx] != 0)[0])
+
+    if len(a_idx) != 0:
+        a_idx = np.hstack(a_idx)
+        a_mask = np.ones((net_obj.num_arcs,), dtype=np.bool_)
+        a_mask[a_idx] = False
+        net_obj.removeArcs(mask=a_mask)
+        design_mat = design_mat[a_mask, :]
+    else:
+        a_idx = np.array(a_idx)  # so I can check the size
+
+    # remove psPoints
+    point_id = point_id[p_mask]
+    design_mat = design_mat[:, p_mask]
+    coord_xy = coord_xy[p_mask, :]
+
+    # beside removing the arcs in "arcs", the tuple indices have to be changed to make them fit to new point indices
+    for p_idx in np.sort(np.where(~p_mask)[0])[::-1]:
+        net_obj.arcs[np.where((net_obj.arcs[:, 0] > p_idx)), 0] -= 1
+        net_obj.arcs[np.where((net_obj.arcs[:, 1] > p_idx)), 1] -= 1
+
+    logger.info(msg="Removed {} arc(s) connected to the removed point(s)".format(a_idx.size))
+    return net_obj, point_id, coord_xy, design_mat
+
+
+def removeGrossOutliers(*, net_obj: Network, point_id: np.ndarray, coord_xy: np.ndarray, min_num_arc: int = 3,
+                        quality_thrsh: float = 0.0,
+                        logger: Logger) -> tuple[Network, np.ndarray, np.ndarray, np.ndarray]:
+    """Remove both gross outliers which have many low quality arcs and points which are not well connected.
+
+    Parameters
+    ----------
+    net_obj: Network
+        The spatial Network object.
+    point_id: np.ndarray
+        ID of the points in the network.
+    coord_xy: np.ndarray
+        Radar coordinates of the points in the spatial network.
+    min_num_arc: int
+        Threshold on the minimal number of arcs per point. Default = 3.
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs. Default = 0.0.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: Network
+        Network object without the removed arcs and points.
+    point_id: np.ndarray
+        ID of the points in the network without the removed points.
+    coord_xy: np.ndarray
+        Radar coordinates of the points in the spatial network without the removed points.
+    a: np.ndarray
+        Design matrix describing the relation between arcs and points without the removed points and arcs.
+    """
+    logger.info(msg="Detect points with low quality arcs (mean): < {}".format(quality_thrsh))
+    mean_gamma_point = computeAvgCoherencePerPoint(net_obj=net_obj,
+                                                   point_id=point_id, logger=logger)
+    # not yet removed, because arcs are removed separately
+    p_mask_mean_coh = (mean_gamma_point >= quality_thrsh).ravel()
+    logger.info(msg="Detected {} point(s) with mean coherence of all connected arcs < {} ".format(
+        p_mask_mean_coh[~p_mask_mean_coh].shape[0], quality_thrsh))
+
+    logger.info(msg="Removal of low quality arcs: < {}".format(quality_thrsh))
+    a_mask = (net_obj.gamma >= quality_thrsh).ravel()
+    logger.info(msg="Removed {} arc(s)".format(a_mask[~a_mask].shape[0]))
+    net_obj.removeArcs(mask=a_mask)
+
+    design_mat, arcs_per_point = computeNumArcsPerPoints(net_obj=net_obj, point_id=point_id, logger=logger)
+
+    p_mask_num_arcs = (arcs_per_point >= min_num_arc).ravel()
+    logger.info(msg="Detected {} point(s) with less than {} arcs".format(p_mask_num_arcs[~p_mask_num_arcs].shape[0],
+                                                                         min_num_arc))
+
+    # remove them jointly
+    p_mask = p_mask_num_arcs & p_mask_mean_coh
+    logger.info(msg="Remove {} point(s)".format(p_mask[~p_mask].shape[0]))
+    net_obj, point_id, coord_xy, design_mat = removeArcsByPointMask(net_obj=net_obj, point_id=point_id,
+                                                                    coord_xy=coord_xy, p_mask=p_mask,
+                                                                    design_mat=design_mat, logger=logger)
+    return net_obj, point_id, coord_xy, design_mat
+
+
+def parameterBasedNoisyPointRemoval(*, net_par_obj: NetworkParameter, point_id: np.ndarray, coord_xy: np.ndarray,
+                                    design_mat: np.ndarray, rmse_thrsh: float = 0.02, num_points_remove: int = 1,
+                                    bmap_obj: AmplitudeImage = None, bool_plot: bool = False,
+                                    logger: Logger):
+    """Remove Points during spatial integration step if residuals at many connected arcs are high.
+
+    The idea is similar to outlier removal in DePSI, but without hypothesis testing.
+    It can be used as a preprocessing step to spatial integration.
+    The points are removed based on the RMSE computed from the residuals of the parameters (DEM error, velocity) per
+    arc. The point with the highest RMSE is removed in each iteration. The process stops when the maximum RMSE is below
+    a threshold.
+
+
+    Parameters
+    ----------
+    net_par_obj: NetworkParameter
+        The spatial NetworkParameter object containing the parameters estimates at each arc.
+    point_id: np.ndarray
+        ID of the points in the network.
+    coord_xy: np.ndarray
+        Radar coordinates of the points in the spatial network.
+    design_mat: np.ndarray
+        Design matrix describing the relation between arcs and points.
+    rmse_thrsh: float
+        Threshold for the RMSE of the residuals per point. Default = 0.02.
+    num_points_remove: int
+        Number of points to remove in each iteration. Default = 1.
+    bmap_obj: AmplitudeImage
+        Basemap object for plotting. Default = None.
+    bool_plot: bool
+        Plot the RMSE per point. Default = False.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    spatial_ref_id: int
+        ID of the spatial reference point.
+    point_id: np.ndarray
+        ID of the points in the network without the removed points.
+    net_par_obj: NetworkParameter
+        The NetworkParameter object without the removed points.
+    """
+    msg = "#" * 10
+    msg += " NOISY POINT REMOVAL BASED ON ARC PARAMETERS "
+    msg += "#" * 10
+    logger.info(msg=msg)
+
+    num_points = point_id.shape[0]
+
+    logger.info(msg="Selection of the reference PSC")
+    # select one of the two pixels which are connected via the arc with the highest quality
+    spatial_ref_idx = np.where(design_mat[np.argmax(net_par_obj.gamma), :] != 0)[0][0]
+    coord_xy = np.delete(arr=coord_xy, obj=spatial_ref_idx, axis=0)
+    spatial_ref_id = point_id[spatial_ref_idx]
+    point_id = np.delete(arr=point_id, obj=spatial_ref_idx, axis=0)
+    num_points -= 1
+
+    # remove reference point from design matrix
+    design_mat = net_par_obj.gamma * np.delete(arr=design_mat, obj=spatial_ref_idx, axis=1)
+
+    logger.info(msg="Spatial integration to detect noisy point")
+    start_time = time.time()
+
+    it_count = 0
+    while True:
+        logger.info(msg="ITERATION: {}".format(it_count))
+        design_mat = csr_matrix(design_mat)
+
+        if structural_rank(design_mat) < design_mat.shape[1]:
+            logger.error(msg="Singular normal matrix. Network is no longer connected!")
+            # point_id = np.sort(np.hstack([spatial_ref_id, point_id]))
+            # return spatial_ref_id, point_id, net_par_obj
+            raise ValueError
+        # demerr
+        obv_vec = net_par_obj.demerr.reshape(-1, )
+        demerr_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
+        r_demerr = obv_vec - np.matmul(design_mat.toarray(), demerr_points)
+
+        # vel
+        obv_vec = net_par_obj.vel.reshape(-1, )
+        vel_points = lsqr(design_mat.toarray(), obv_vec * net_par_obj.gamma.reshape(-1, ))[0]
+        r_vel = obv_vec - np.matmul(design_mat.toarray(), vel_points)
+
+        rmse_demerr = np.zeros((num_points,))
+        rmse_vel = np.zeros((num_points,))
+        for p in range(num_points):
+            r_mask = design_mat[:, p].toarray() != 0
+            rmse_demerr[p] = np.sqrt(np.mean(r_demerr[r_mask.ravel()].ravel() ** 2))
+            rmse_vel[p] = np.sqrt(np.mean(r_vel[r_mask.ravel()].ravel() ** 2))
+
+        rmse = rmse_vel.copy()
+        max_rmse = np.max(rmse.ravel())
+        logger.info(msg="Maximum RMSE DEM correction: {:.2f} m".format(np.max(rmse_demerr.ravel())))
+        logger.info(msg="Maximum RMSE velocity: {:.4f} m / year".format(np.max(rmse_vel.ravel())))
+
+        if bool_plot:
+            # vel
+            ax = bmap_obj.plot(logger=logger)
+            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_vel * 1000, s=3.5,
+                            cmap=cmc.cm.cmaps["lajolla"], vmin=0, vmax=rmse_thrsh * 1000)
+            plt.colorbar(sc, pad=0.03, shrink=0.5)
+            ax.set_title("{}. iteration\nmean velocity - RMSE per point in [mm / year]".format(it_count))
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(dirname(net_par_obj.file_path), "pic", f"step_1_rmse_vel_{it_count}th_iter.png"),
+                        dpi=300)
+            plt.close(fig)
+
+            # demerr
+            ax = bmap_obj.plot(logger=logger)
+            sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=rmse_demerr, s=3.5,
+                            cmap=cmc.cm.cmaps["lajolla"])
+            plt.colorbar(sc, pad=0.03, shrink=0.5)
+            ax.set_title("{}. iteration\nDEM correction - RMSE per point in [m]".format(it_count))
+            fig = ax.get_figure()
+            plt.tight_layout()
+            fig.savefig(join(dirname(net_par_obj.file_path), "pic",
+                             f"step_1_rmse_dem_correction_{it_count}th_iter.png"),
+                        dpi=300)
+            plt.close(fig)
+
+        if max_rmse <= rmse_thrsh:
+            logger.info(msg="No noisy pixels detected.")
+            break
+
+        # remove point with highest rmse
+        p_mask = np.ones((num_points,), dtype=np.bool_)
+        p_mask[np.argsort(rmse)[::-1][:num_points_remove]] = False  # see description of function removeArcsByPointMask
+        net_par_obj, point_id, coord_xy, design_mat = removeArcsByPointMask(net_obj=net_par_obj, point_id=point_id,
+                                                                            coord_xy=coord_xy, p_mask=p_mask,
+                                                                            design_mat=design_mat.toarray(),
+                                                                            logger=logger)
+        num_points -= num_points_remove
+        it_count += 1
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
+
+    # add spatialRefIdx back to point_id
+    point_id = np.sort(np.hstack([spatial_ref_id, point_id]))
+    return spatial_ref_id, point_id, net_par_obj
+
+
 def removeArcsAndPointsKeepLargestConnectedComponent(*,
                              net_obj: NetworkParameter_Temp,
                              quality_thrsh: float = 0.0,
@@ -1306,6 +1633,66 @@ def removeBadArcsWithThreshAndNRO(*,
 
     # --- Apply removal ---
     net_obj.removeArcs(mask=mask)
+
+    return net_obj
+
+
+def removeBadArcsWithThreshKeepingMST(*,
+                            net_obj: NetworkParameter_Temp,
+                            quality_thrsh: float = 0.0,
+                            logger: Logger) -> NetworkParameter_Temp:
+    """Remove bad arcs from network based on quality threshold, preserving the minimum spanning tree.
+
+    The spanning tree is computed on the full network (before any arc is removed), with the
+    arcs of highest temporal coherence preferred. Arcs of this tree are never removed, even if
+    they are below the threshold, so the network stays connected whenever the input network
+    is connected.
+
+    Parameters
+    ----------
+    net_obj: NetworkParameter_Temp
+        The spatial NetworkParameter object (full network, before thresholding).
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs. Default = 0.0.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: NetworkParameter_Temp
+        NetworkParameter object without the removed arcs.
+    """
+    logger.info(msg="Iteratively removing bad arcs with quality < {}".format(quality_thrsh))
+
+    gamma = np.asarray(net_obj.gamma, dtype=float).ravel()
+
+    # undirected graph; weight = 1 - gamma, so the *minimum* spanning tree
+    # is the one with the highest possible coherence.
+    # For duplicate / reversed arcs between the same two points only the best one is kept.
+    graph = nx.Graph()
+    for idx, arc in enumerate(net_obj.arcs):
+        u, v = int(arc[0]), int(arc[1])
+        if u == v:
+            continue
+        if graph.has_edge(u, v) and graph[u][v]['weight'] <= 1 - gamma[idx]:
+            continue
+        graph.add_edge(u, v, weight=1-gamma[idx], arc_idx=idx)
+
+    mst = nx.minimum_spanning_tree(graph, weight='weight')
+    mst_arc_idx = np.array([data['arc_idx'] for _, _, data in mst.edges(data=True)], dtype=np.int64)
+
+    is_mst = np.zeros(net_obj.num_arcs, dtype=bool)
+    is_mst[mst_arc_idx] = True
+
+    # arcs below threshold are removed, except those belonging to the MST
+    bad_arc_mask = gamma < quality_thrsh
+    remove_mask = bad_arc_mask & ~is_mst
+
+    logger.info(msg="Removing {} bad arc(s) ({} below threshold kept because they are part of the MST)".format(
+        int(remove_mask.sum()), int((bad_arc_mask & is_mst).sum())))
+
+    # removeArcs expects a mask of the arcs to KEEP
+    net_obj.removeArcs(mask=~remove_mask)
 
     return net_obj
 

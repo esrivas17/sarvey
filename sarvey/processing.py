@@ -450,14 +450,10 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        ######### removing bad arcs #####
-        if self.config.consistency_check.nro > 0:
-            net_par_obj = removeBadArcsWithThreshAndNRO(net_obj=net_par_obj,
-                                                    quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
-                                                    NRO=self.config.consistency_check.nro, logger=self.logger)
-        else:
-            net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
-
+        ######### removing bad arcs and keeping maximum spanning tree #####
+        net_par_obj = removeBadArcsWithThreshKeepingMST(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        if not net_par_obj.isNetworkConnected():
+            self.logger.exception(msg="NETWORK IS NOT CONNECTED")
 
         try:
            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
@@ -475,32 +471,8 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        # KEEP THE LARGEST CONNECTED COMPONENT
-        net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
-        point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
-        net_par_obj = removeArcsFromNonExistingPoints(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
-
-        if not net_par_obj.isNetworkConnected(point_obj.num_points):
-            raise Exception("Network disconnected")
-
         net_par_obj.writeToFile()
         point_obj.writeToFile()
-
-        try:
-           fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
-           ax = fig.add_subplot()
-           ax = bmap_obj.plot(ax=ax, logger=self.logger)
-           ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                      arcs=net_par_obj.arcs,
-                                                      val=net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-           ax.set_title("Coherence from temporal unwrapping")
-           fig = ax.get_figure()
-           fig.set_constrained_layout(True)
-           #plt.tight_layout()
-           fig.savefig(join(self.path, "pic", "step_1_network_removed_points.png"), dpi=300)
-        except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
 
     def runUnwrappingTimeAndSpace(self):
