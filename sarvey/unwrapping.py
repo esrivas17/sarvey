@@ -706,3 +706,62 @@ def removeBadArcsIteratively(*,
     net_obj.removeArcs(mask=mask)
 
     return net_obj
+
+def removeBadArcsWithThreshKeepingMST(*,
+                            net_obj: NetworkParameter,
+                            quality_thrsh: float = 0.0,
+                            logger: Logger) -> NetworkParameter:
+    """Remove bad arcs from network based on quality threshold, preserving the minimum spanning tree.
+
+    The spanning tree is computed on the full network (before any arc is removed), with the
+    arcs of highest temporal coherence preferred. Arcs of this tree are never removed, even if
+    they are below the threshold, so the network stays connected whenever the input network
+    is connected.
+
+    Parameters
+    ----------
+    net_obj: NetworkParameter_Temp
+        The spatial NetworkParameter object (full network, before thresholding).
+    quality_thrsh: float
+        Threshold on the temporal coherence of the arcs. Default = 0.0.
+    logger: Logger
+        Logging handler.
+
+    Returns
+    -------
+    net_obj: NetworkParameter_Temp
+        NetworkParameter object without the removed arcs.
+    """
+    logger.info(msg="Iteratively removing bad arcs with quality < {}".format(quality_thrsh))
+
+    gamma = np.asarray(net_obj.gamma, dtype=float).ravel()
+
+    # undirected graph; weight = 1 - gamma, so the *minimum* spanning tree
+    # is the one with the highest possible coherence.
+    # For duplicate / reversed arcs between the same two points only the best one is kept.
+    graph = nx.Graph()
+    for idx, arc in enumerate(net_obj.arcs):
+        u, v = int(arc[0]), int(arc[1])
+        if u == v:
+            continue
+        if graph.has_edge(u, v) and graph[u][v]['weight'] <= 1 - gamma[idx]:
+            continue
+        graph.add_edge(u, v, weight=1-gamma[idx], arc_idx=idx)
+
+    mst = nx.minimum_spanning_tree(graph, weight='weight')
+    mst_arc_idx = np.array([data['arc_idx'] for _, _, data in mst.edges(data=True)], dtype=np.int64)
+
+    is_mst = np.zeros(net_obj.num_arcs, dtype=bool)
+    is_mst[mst_arc_idx] = True
+
+    # arcs below threshold are removed, except those belonging to the MST
+    bad_arc_mask = gamma < quality_thrsh
+    remove_mask = bad_arc_mask & ~is_mst
+
+    logger.info(msg="Removing {} bad arc(s) ({} below threshold kept because they are part of the MST)".format(
+        int(remove_mask.sum()), int((bad_arc_mask & is_mst).sum())))
+
+    # removeArcs expects a mask of the arcs to KEEP
+    net_obj.removeArcs(mask=~remove_mask)
+
+    return net_obj

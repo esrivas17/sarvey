@@ -368,14 +368,8 @@ class Processing:
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
 
-        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
-                                       logger=self.logger)
-        net_par_obj.prepare(
-            net_obj=net_obj,
-            demerr=demerr,
-            vel=vel,
-            gamma=gamma
-        )
+        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
+        net_par_obj.prepare( net_obj=net_obj, demerr=demerr, vel=vel, gamma=gamma )
         net_par_obj.writeToFile()
 
         try:
