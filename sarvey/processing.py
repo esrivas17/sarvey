@@ -44,8 +44,7 @@ from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
 from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, NetworkParameter, BaseStack
-from sarvey.unwrapping import (spatialParameterIntegration, temporalUnwrapping, spatialUnwrapping,
-                               removeBadArcsIteratively, removeBadPointsIteratively)
+from sarvey.unwrapping import *
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates
 import sarvey.utils as ut
 from sarvey.coherence import computeIfgsAndTemporalCoherence
@@ -299,113 +298,68 @@ class Processing:
                                                 num_cores=self.config.general.num_cores,
                                                 logger=self.logger)
 
+        # histogram
+        fig = plt.figure(figsize=(16, 5))
+        axs = fig.subplots(1, 2)
+        axs[0].hist(demerr, bins="auto")
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('DEM error [m]')
+
+        axs[1].hist(vel*100, bins="auto")
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('Velocity [cm/yer]')
+
+        fig.savefig(join(self.path, "pic", "step_1_tempunwrapping_params.png"), dpi=300)
+        plt.close(fig)
+        ###################
+
         net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
-        net_par_obj.prepare(
-            net_obj=net_obj,
-            demerr=demerr,
-            vel=vel,
-            gamma=gamma
-        )
+        net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,gamma=gamma)
         net_par_obj.writeToFile()
 
-        # 3) spatial unwrapping of the arc network and removal of outliers (arcs and points)
+        # PLOT
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
         try:
-            ax = bmap_obj.plot(logger=self.logger)
+            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+            ax = fig.add_subplot()
+            ax = bmap_obj.plot(ax=ax, logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                      arcs=net_par_obj.arcs,
-                                                      val=net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nInitial network")
+                                                      arcs=net_par_obj.arcs, val=net_par_obj.gamma,
+                                                      ax=ax, linewidth=0.8, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping")
             fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_0_initial.png"), dpi=300)
+            #plt.tight_layout()
+            fig.set_constrained_layout(True)
+            fig.savefig(join(self.path, "pic", "step_1_network_arcs.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        _, point_id = removeBadPointsIteratively(
-            net_obj=net_par_obj,
-            point_id=point_obj.point_id,
-            quality_thrsh=self.config.consistency_check.point_median_coherence,
-            logger=self.logger
-        )
-        point_obj.removePoints(keep_id=point_id, input_path=self.config.general.input_path)
+        ######### removing bad arcs and keeping maximum spanning tree #####
+        net_par_obj = removeBadArcsWithThreshKeepingMST(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+        if not net_par_obj.isNetworkConnected(num_points=point_obj.num_points):
+            self.logger.exception(msg="NETWORK IS NOT CONNECTED")
 
         try:
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+           fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+           ax = fig.add_subplot()
+           ax = bmap_obj.plot(ax=ax, logger=self.logger)
+           ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
                                                       arcs=net_par_obj.arcs,
                                                       val=net_par_obj.gamma,
                                                       ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nAfter removing noisy points")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_removed.png"), dpi=300)
+           ax.set_title("Coherence from temporal unwrapping")
+           fig = ax.get_figure()
+           fig.set_constrained_layout(True)
+           #plt.tight_layout()
+           fig.savefig(join(self.path, "pic", "step_1_network_removed_arcs.png"), dpi=300)
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-        # 4) re-triangulate the points (network might not be connected anymore) and redo temporal unwrapping
-        arcs = createArcsBetweenPoints(point_obj=point_obj,
-                                       max_arc_length=self.config.consistency_check.max_arc_length,
-                                       knn=self.config.consistency_check.num_nearest_neighbours,
-                                       logger=self.logger)
-        net_obj = Network(file_path=join(self.path, "point_network.h5"), logger=self.logger)
-        net_obj.computeArcObservations(
-            point_obj=point_obj,
-            arcs=arcs
-        )
-        net_obj.writeToFile()
-        net_obj.open(input_path=self.config.general.input_path)  # to retrieve external data
-
-        demerr, vel, gamma = temporalUnwrapping(ifg_net_obj=point_obj.ifg_net_obj,
-                                                net_obj=net_obj,
-                                                wavelength=point_obj.wavelength,
-                                                velocity_bound=self.config.consistency_check.velocity_bound,
-                                                demerr_bound=self.config.consistency_check.dem_error_bound,
-                                                num_samples=self.config.consistency_check.num_optimization_samples,
-                                                num_cores=self.config.general.num_cores,
-                                                logger=self.logger)
-
-        net_par_obj = NetworkParameter(file_path=join(self.path, "point_network_parameter.h5"), logger=self.logger)
-        net_par_obj.prepare( net_obj=net_obj, demerr=demerr, vel=vel, gamma=gamma )
         net_par_obj.writeToFile()
-
-        try:
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                      arcs=net_par_obj.arcs,
-                                                      val=net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nAfter re-triangulation")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_1_points_retriangulated.png"), dpi=300)
-        except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-
-        net_par_obj = removeBadArcsIteratively(
-            net_obj=net_par_obj,
-            quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence,
-            logger=self.logger
-        )
-
-        try:
-            ax = bmap_obj.plot(logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                      arcs=net_par_obj.arcs,
-                                                      val=net_par_obj.gamma,
-                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-            ax.set_title("Coherence from temporal unwrapping\nAfter removing low quality arcs")
-            fig = ax.get_figure()
-            plt.tight_layout()
-            fig.savefig(join(self.path, "pic", "step_1_network_2_arcs_removed.png"), dpi=300)
-        except BaseException as e:
-            self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
-
-        net_par_obj.writeToFile()  # arcs were removed. obj still needed in next step.
         point_obj.writeToFile()
+
 
     def runUnwrappingTimeAndSpace(self):
         """RunTemporalAndSpatialUnwrapping."""
