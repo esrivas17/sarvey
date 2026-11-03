@@ -30,6 +30,7 @@
 """Unwrapping module for SARvey."""
 import multiprocessing
 import time
+from typing import Union
 import networkx as nx
 import numpy as np
 from kamui import unwrap_arbitrary
