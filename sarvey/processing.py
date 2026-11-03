@@ -452,7 +452,7 @@ class Processing:
 
         ######### removing bad arcs and keeping maximum spanning tree #####
         net_par_obj = removeBadArcsWithThreshKeepingMST(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
-        if not net_par_obj.isNetworkConnected():
+        if not net_par_obj.isNetworkConnected(num_points=point_obj.num_points):
             self.logger.exception(msg="NETWORK IS NOT CONNECTED")
 
         try:
