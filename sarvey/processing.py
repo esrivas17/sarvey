@@ -553,6 +553,15 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
+        # histogram ##
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        axs[0].hist(demerr, bins="auto")
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('DEM error [m]')
+
+        fig.savefig(join(self.path, "pic", "step_2_hist_demerror.png"), dpi=300)
+        plt.close(fig)
 
         self.logger.info(msg="Integrate mean velocity.")
         vel = spatialParameterIntegration(val_arcs=net_par_obj.vel,
@@ -573,6 +582,16 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
 
+        # histogram ##
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        axs[0].hist(vel*1000, bins="auto")
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Velocity [mm/yr]')
+
+        fig.savefig(join(self.path, "pic", "step_2_hist_velocity.png"), dpi=300)
+        plt.close(fig)
+
         #temperature coefficient
         self.logger.info(msg="Integrate temperature coefficient.")
         tcoef = spatialParameterIntegration(val_arcs=net_par_obj.tcoef,
@@ -590,6 +609,16 @@ class Processing:
         fig.set_figheight(self.config.general.plotheight)
         fig.set_constrained_layout(True)
         fig.savefig(join(self.path, "pic", "step_2_estimation_temp_coefficient.png"), dpi=300)
+        plt.close(fig)
+
+        # histogram ##
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        axs[0].hist(tcoef*1000, bins="auto")
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('Thermal expansion [mm/C]')
+
+        fig.savefig(join(self.path, "pic", "step_2_hist_thermalcoeff.png"), dpi=300)
         plt.close(fig)
 
         self.logger.info(msg="Remove phase contributions from mean velocity"
