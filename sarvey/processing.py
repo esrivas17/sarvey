@@ -398,7 +398,6 @@ class Processing:
                                  bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
                                  logger=self.logger)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
-        fig.set_constrained_layout(True)
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
@@ -416,7 +415,6 @@ class Processing:
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
                                  logger=self.logger)
         axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
-        fig.set_constrained_layout(True)
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
