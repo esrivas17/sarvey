@@ -366,10 +366,7 @@ class Processing:
         net_par_obj.open(input_path=self.config.general.input_path)
 
         point_obj = Points(file_path=join(self.path, "p1_ifg_unw.h5"), logger=self.logger)
-        point_obj.open(
-            other_file_path=join(self.path, "p1_ifg_wr.h5"),
-            input_path=self.config.general.input_path
-        )
+        point_obj.open( other_file_path=join(self.path, "p1_ifg_wr.h5"), input_path=self.config.general.input_path )
 
         # reference point can be set arbitrarily, because outliers are removed.
         if self.config.consistency_check.reference_p1_lon:
@@ -381,9 +378,13 @@ class Processing:
         else:
             spatial_ref_idx = 0
 
-        self.logger.info(msg=f"Spatial reference ix: {spatial_ref_idx}")
-        bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
 
+        self.logger.info(msg=f"Spatial reference ix: {spatial_ref_idx}")
+        ref_lalo = point_obj.coord_lalo[spatial_ref_idx]
+        ref_xy = point_obj.coord_xy[spatial_ref_idx]
+        self.logger.info(msg=f"coordinate for reference: {ref_lalo}")
+        
+        bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
         self.logger.info(msg="Integrate parameters from arcs to points.")
         self.logger.info(msg="Integrate DEM correction.")
         demerr = spatialParameterIntegration(val_arcs=net_par_obj.demerr,
@@ -392,10 +393,14 @@ class Processing:
                                              weights=net_par_obj.gamma,
                                              spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
+        fig, axf, _ = viewer.plotScatter(value=-demerr, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: DEM correction in [m]",
-                                 bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
+                                 bmap_obj=bmap_obj, s=5, cmap="vanimo", symmetric=True,
+                                 logger=self.logger)
+        axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
+        fig.set_constrained_layout(True)
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
@@ -406,19 +411,20 @@ class Processing:
                                           weights=net_par_obj.gamma,
                                           spatial_ref_idx=spatial_ref_idx, logger=self.logger)
 
-        fig = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
+        fig, axf, _ = viewer.plotScatter(value=-vel, coord=point_obj.coord_xy,
                                  ttl="Parameter integration: mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        axf.scatter(ref_xy[1], ref_xy[0], s=18, marker="^", color="black")
+        fig.set_constrained_layout(True)
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
         plt.close(fig)
 
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
-        pred_phase_demerr, pred_phase_vel = ut.predictPhase(
-            obj=point_obj, vel=vel, demerr=demerr,
-            ifg_space=True, logger=self.logger
-        )
+        pred_phase_demerr, pred_phase_vel = ut.predictPhase(obj=point_obj, vel=vel, demerr=demerr, ifg_space=True, logger=self.logger)
         pred_phase = pred_phase_demerr + pred_phase_vel
 
         wr_phase = point_obj.phase
@@ -465,10 +471,7 @@ class Processing:
             logger=self.logger
         )
         point_obj = Points(file_path=join(self.path, "p1_ts.h5"), logger=self.logger)
-        point_obj.open(
-            other_file_path=join(self.path, "p1_ifg_unw.h5"),
-            input_path=self.config.general.input_path
-        )
+        point_obj.open( other_file_path=join(self.path, "p1_ifg_unw.h5"), input_path=self.config.general.input_path )
         point_obj.phase = phase_ts
         point_obj.writeToFile()
 
