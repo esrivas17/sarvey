@@ -436,6 +436,20 @@ class Processing:
             triang_obj.triangulateGlobal()
             arcs = triang_obj.getArcsFromAdjMat()
 
+        # histogram
+        fig = plt.figure(figsize=(10, 5))
+        axs = fig.subplots(1, 2)
+        axs[0].hist(-demerr, bins="auto")
+        axs[0].set_ylabel('Absolute frequency')
+        axs[0].set_xlabel('DEM error [m]')
+
+        axs[1].hist(-vel*100, bins="auto")
+        axs[1].set_ylabel('Absolute frequency')
+        axs[1].set_xlabel('Velocity [cm/yer]')
+
+        fig.savefig(join(self.path, "pic", "step_2_unwrapping_hist_p1_params.png"), dpi=300)
+        plt.close(fig)
+
         unw_res_phase = spatialUnwrapping(num_ifgs=point_obj.ifg_net_obj.num_ifgs,
                                           num_points=point_obj.num_points,
                                           phase=wr_res_phase,
