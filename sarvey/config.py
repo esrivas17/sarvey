@@ -81,6 +81,18 @@ class General(BaseModel, extra="forbid"):
         default=True
     )
 
+    plotwidth: int = Field(
+            title="Plot width",
+            description="plot width",
+            default=8
+        )
+    
+    plotheight: int = Field(
+        title="Plot height",
+        description="Plot height",
+        default=8
+    )
+
     logging_level: str = Field(
         title="Logging level.",
         description="Set loggig level.",
