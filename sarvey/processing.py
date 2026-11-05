@@ -39,7 +39,7 @@ from mintpy.utils import readfile
 from mintpy.utils.plot import auto_flip_direction
 
 from sarvey import viewer
-from sarvey.densification import densifyNetwork
+from sarvey.densification import densifyNetwork, densifyNetworkConstrained
 from sarvey.filtering import estimateAtmosphericPhaseScreen, simpleInterpolation
 from sarvey.ifg_network import (DelaunayNetwork, SmallBaselineYearlyNetwork, SmallTemporalBaselinesNetwork,
                                 SmallBaselineNetwork, StarNetwork)
@@ -936,6 +936,7 @@ class Processing:
         point2_obj.phase = np.angle(np.exp(1j * point2_obj.phase) * np.conjugate(np.exp(1j * aps2_ifg_phase)))
         point1_obj.phase = np.angle(np.exp(1j * point1_obj.phase) * np.conjugate(np.exp(1j * aps1_ifg_phase)))
 
+        """
         demerr, vel, gamma = densifyNetwork(
             point1_obj=point1_obj,
             vel_p1=vel_p1,
@@ -949,7 +950,24 @@ class Processing:
             num_cores=self.config.general.num_cores,
             logger=self.logger
         )  # returns parameters of both first- and second-order points
+        """
+        
 
+        demerr, vel, gamma = densifyNetworkConstrained(
+                    point1_obj=point1_obj,
+                    vel_p1=vel_p1,
+                    demerr_p1=demerr_p1,
+                    point2_obj=point2_obj,
+                    num_conn_p1=self.config.densification.num_connections_to_p1,
+                    max_dist_p1=self.config.densification.max_distance_to_p1,
+                    velocity_bound=self.config.densification.velocity_bound,
+                    demerr_bound=self.config.densification.dem_error_bound,
+                    gamma_selection_p1=self.config.densification.gamma_selection_p1,
+                    num_samples=self.config.densification.num_optimization_samples,
+                    num_cores=self.config.general.num_cores,
+                    logger=self.logger
+                )  # returns parameters of both first- and second-order points
+        
         # store combined set of first and second-order points
         point2_obj.addPointsFromObj(
             new_point_id=point1_obj.point_id,

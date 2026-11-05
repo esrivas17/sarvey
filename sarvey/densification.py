@@ -236,6 +236,74 @@ def launchDensifyNetworkConstraint(args: tuple):
 
     return idx_range, demerr_p2, vel_p2, gamma_p2
 
+
+def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, point2_obj: Points, 
+                              num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,  
+                            gamma_selection_p1: float, num_samples: int, num_cores: int = 1, logger: Logger):
+
+    msg = "#" * 10
+    msg += " DENSIFICATION WITH SECOND-ORDER POINTS "
+    msg += "#" * 10
+    logger.info(msg=msg)
+    start_time = time.time()
+
+    # find the closest points from first-order network
+    tree_p1 = KDTree(data=point1_obj.coord_utm)
+
+    # remove parameters from wrapped phase
+    pred_phase_demerr, pred_phase_vel = ut.predictPhase( obj=point1_obj, vel=vel_p1, demerr=demerr_p1, ifg_space=True, logger=logger )
+    pred_phase = pred_phase_demerr + pred_phase_vel
+    demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
+
+    # initialize output
+    init_args = (tree_p1, point1_obj, point2_obj, demod_phase1)
+
+    if num_cores == 1:
+        densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
+        args = (np.arange(point2_obj.num_points), point2_obj.num_points, num_conn_p1, max_dist_p1, 
+                gamma_selection_p1, demerr_bound, velocity_bound, num_samples)
+        idx_range, demerr_p2, vel_p2, gamma_p2 = launchDensifyNetworkConstraint(args)
+    else:
+        with multiprocessing.Pool(num_cores, initializer=densificationInitializer, initargs=init_args) as pool:
+            logger.info(msg="start parallel processing with {} cores.".format(num_cores))
+            num_cores = point2_obj.num_points if num_cores > point2_obj.num_points else num_cores
+            # avoids having less samples than cores
+            idx = ut.splitDatasetForParallelProcessing(num_samples=point2_obj.num_points, num_cores=num_cores)
+            args = [(idx_range, idx_range.shape[0], num_conn_p1, max_dist_p1, gamma_selection_p1, 
+                     demerr_bound, velocity_bound, num_samples) for idx_range in idx]
+
+            results = pool.map_async(launchDensifyNetworkConstraint, args, chunksize=1)
+            while True:
+                time.sleep(5)
+                if results.ready():
+                    results = results.get()
+                    break
+
+        demerr_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        vel_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+        gamma_p2 = np.zeros((point2_obj.num_points,), dtype=np.float32)
+
+        # retrieve results
+        for i, demerr_i, vel_i, gamma_i in results:
+            demerr_p2[i] = demerr_i
+            vel_p2[i] = vel_i
+            gamma_p2[i] = gamma_i
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
+
+    # combine p1 and p2 parameters and bring them in correct order using point_id
+    sort_idx = np.argsort(np.append(point1_obj.point_id, point2_obj.point_id))
+    demerr_p2 = np.append(demerr_p1, demerr_p2)  # add gamma=1 for p1 pixels
+    vel_p2 = np.append(vel_p1, vel_p2)
+    gamma_p2 = np.append(np.ones_like(point1_obj.point_id), gamma_p2)  # add gamma=1 for p1 pixels
+
+    demerr_p2 = demerr_p2[sort_idx]
+    vel_p2 = vel_p2[sort_idx]
+    gamma_p2 = gamma_p2[sort_idx]
+    
+    return demerr_p2, vel_p2, gamma_p2
+
         
 def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, point2_obj: Points,
                    num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,
