@@ -147,7 +147,96 @@ def launchDensifyNetworkConsistencyCheck(args: tuple):
 
     return idx_range, demerr_p2, vel_p2, gamma_p2
 
+def launchDensifyNetworkConstraint(args: tuple):
 
+    (idx_range, num_points, num_conn_p1, max_dist_p1, gamma_selection_p1, demerr_bound, velocity_bound, num_samples) = args
+
+    counter = 0
+    prog_bar = ptime.progressBar(maxValue=num_points)
+
+    # initialize output
+    demerr_p2 = np.zeros((num_points,), dtype=np.float32)
+    vel_p2 = np.zeros((num_points,), dtype=np.float32)
+    gamma_p2 = np.zeros((num_points,), dtype=np.float32)
+
+    design_mat = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 2), dtype=np.float32)
+
+    demerr_range = np.linspace(-demerr_bound, demerr_bound, num_samples)
+    vel_range = np.linspace(-velocity_bound, velocity_bound, num_samples)
+
+    design_mat_demerr = np.zeros((global_point2_obj.ifg_net_obj.num_ifgs, 1), dtype=np.float32)
+    factor = 4 * np.pi / global_point2_obj.wavelength
+    
+
+    pixels_forced_to_zerogamma = list()
+
+    for idx in range(num_points):
+
+        p2 = idx_range[idx]
+        # nearest points in p1
+        nk = num_conn_p1 * 2
+        dist, nearest_p1 = global_tree_p1.query([global_point2_obj.coord_utm[p2, 0], global_point2_obj.coord_utm[p2, 1]], k=nk)
+        yp, xp = global_point2_obj.coord_xy[p2, :]
+
+        # filter distance
+        mask = (dist < max_dist_p1) & (dist != 0)
+        mask[:3] = True  # ensure that always at least the three closest points are used
+        nearest_p1 = nearest_p1[mask]
+        
+        nearest_p1_filtered = list()
+        arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1, :])))
+
+        # design matrix
+        design_mat[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
+                            / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
+        design_mat[:, 1] = factor * global_point2_obj.ifg_net_obj.tbase_ifg
+        npoints = 0
+
+        for ix, np1dx in zip(range(arc_phase_p1.shape[0]), nearest_p1):
+            design_mat_demerr[:, 0] = (factor * global_point2_obj.ifg_net_obj.pbase_ifg
+                            / (global_point2_obj.slant_range[p2] * np.sin(global_point2_obj.loc_inc[p2])))
+
+            demerr_p2_coarse, vel_p2_coarse, gamma_p2_coarse = oneDimSearchTemporalCoherence(
+                        demerr_range=demerr_range,
+                        vel_range=vel_range,
+                        obs_phase=arc_phase_p1[ix, :],
+                        design_mat=design_mat)
+            
+            if gamma_p2_coarse >= gamma_selection_p1:
+                nearest_p1_filtered.append(np1dx)
+                npoints += 1
+
+                if npoints >= num_conn_p1:
+                    break
+
+        if not nearest_p1_filtered:
+            #nearest_p1_filtered = nearest_p1
+            demerr_p2[idx] = 0
+            vel_p2[idx] = 0
+            gamma_p2[idx] = 0
+            pixels_forced_to_zerogamma.append((xp, yp))
+            #print(f"Pixels: {xp, yp} - making 0")
+            continue
+        else:
+
+            if len(nearest_p1_filtered) >= num_conn_p1:
+                nearest_p1_filtered = nearest_p1_filtered[:num_conn_p1]
+
+        arc_phase_p1 = np.angle(np.exp(1j * global_point2_obj.phase[p2, :]) * np.conjugate(np.exp(1j * global_demod_phase1[nearest_p1_filtered, :])))
+
+        demerr_p2[idx], vel_p2[idx], gamma_p2[idx] = oneDimSearchTemporalCoherence(
+                    demerr_range=demerr_range,
+                    vel_range=vel_range,
+                    obs_phase=arc_phase_p1,
+                    design_mat=design_mat)
+
+        prog_bar.update(counter + 1, every=np.int16(200),
+                        suffix='{}/{} points'.format(counter + 1, num_points))
+        counter += 1
+
+    return idx_range, demerr_p2, vel_p2, gamma_p2
+
+        
 def densifyNetwork(*, point1_obj: Points, vel_p1: np.ndarray, demerr_p1: np.ndarray, point2_obj: Points,
                    num_conn_p1: int, max_dist_p1: float, velocity_bound: float, demerr_bound: float,
                    num_samples: int, num_cores: int = 1, logger: Logger):
