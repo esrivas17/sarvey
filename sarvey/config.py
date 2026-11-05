@@ -614,6 +614,12 @@ class Densification(BaseModel, extra="forbid"):
         default=100
     )
 
+    gamma_selection_p1: float = Field(
+            title="Arc unwrapping coherence threshold for densification",
+            description="Set arc unwrapping coherence threshold for choosing p1 in densification.",
+            default=0.5
+        )
+    
     arc_unwrapping_coherence: float = Field(
         title="Arc unwrapping coherence threshold for densification",
         description="Set arc unwrapping coherence threshold for densification.",
