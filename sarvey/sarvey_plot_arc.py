@@ -1,289 +1,238 @@
 #!/usr/bin/env python
+"""Simulate the phase of an arc (double difference between two points) in the SARvey model.
 
-# SARvey - A multitemporal InSAR time series tool for the derivation of displacements.
-#
-# Copyright (C) 2021-2026 Andreas Piter (IPI Hannover, piter@ipi.uni-hannover.de)
-#
-# This software was developed together with FERN.Lab (fernlab@gfz-potsdam.de) in the context
-# of the SAR4Infra project with funds of the German Federal Ministry for Digital and
-# Transport and contributions from Landesamt fuer Vermessung und Geoinformation
-# Schleswig-Holstein and Landesbetrieb Strassenbau und Verkehr Schleswig-Holstein.
-#
-# This program is free software: you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation, either version 3 of the License, or (at your option) any later
-# version.
-#
-# Important: This package uses PyMaxFlow. The core of PyMaxflows library is the C++
-# implementation by Vladimir Kolmogorov. It is also licensed under the GPL, but it REQUIRES that you
-# cite [BOYKOV04] (see LICENSE) in any resulting publication if you use this code for research purposes.
-# This requirement extends to SARvey.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
-# details.
-#
-# You should have received a copy of the GNU Lesser General Public License along
-# with this program. If not, see <https://www.gnu.org/licenses/>.
+phase = wrap( factor * [ pb/(r*sin(inc)) * demerr + tb * vel + te * tcoef ] + noise )
 
-"""Plot module for SARvey."""
+with factor = 4*pi/wavelength.
+
+Inputs
+------
+- ifg_network.h5 : temporal, perpendicular and temperature baselines (sarvey.ifg_network.IfgNetwork)
+- points file    : wavelength, slant range and local incidence angle (sarvey.objects.Points).
+                   Slant range and incidence angle are taken from one point of the file, which is
+                   chosen randomly unless --point-index is given.
+
+Modes
+-----
+network (default) : one simulated value per real interferogram (baselines (tb, pb, te) belong together).
+                    This is the physically consistent simulation.
+grid              : dense grid where tb, pb and te are three independent linspaces between the min and max
+                    of the network (as in the plotting code of sarvey_plot_arc). The baselines of a sample
+                    do NOT belong to the same interferogram. Only meant for visualising the model.
+
+Units (same as SARvey):
+    demerr : DEM error [m]
+    vel    : velocity [m/year]
+    tcoef  : thermal coefficient [m/degC]
+    noise  : phase noise standard deviation [rad]
+
+Examples
+--------
+    python sarvey_simulate_arc.py ifg_network.h5 p1_ifg_wr.h5 inputs/ --demerr 5 --vel 0.005 --tcoef 0.0002 \
+        --noise-std 0.6 --seed 1 --plot --estimate \
+        --dembound 20 --velbound 0.05 --tcoefbound 0.001 -n 100 --save sim.npz
+
+    python sarvey_simulate_arc.py ifg_network.h5 p1_ifg_wr.h5 inputs/ --demerr 5 --vel 0.005 --tcoef 0.0002 \
+        --mode grid --num-grid 1000 --plot
+"""
 import argparse
-import time
-import os
-from os.path import join, basename, dirname
-import datetime
-import matplotlib
-import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons
-import numpy as np
-import logging
 from logging import Logger
-import sys
-import cmcrameri as cmc
 
-from miaplpy.objects.slcStack import slcStack
-from scipy.spatial import KDTree
+import numpy as np
 
-
-from sarvey import version
-from sarvey.objects import Points, AmplitudeImage
-from sarvey import console
-from sarvey import viewer
-from sarvey.config import loadConfiguration
-import sarvey.utils as ut
-from sarvey.viewer import LineSelector, ImageViewer
 from sarvey.ifg_network import IfgNetwork
-from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_3variables_hytest, oneDimSearchTemporalCoherence_3variables
-
-try:
-    matplotlib.use('QtAgg')
-except ImportError as e:
-    print(e)
+from sarvey.objects import Points
 
 
-def main():
-    args = createParser()
-    inputpath = args.inputpath
-    pointspath = args.disp_file
-    p1x, p1y = args.xyp1
-    p2x, p2y = args.xyp2
-    dembound = args.dembound
-    velbound = args.velbound
-    tcoefbound = args.tcoefbound
-    num_samples = args.numsamples
+def load_baselines(ifg_network_file):
+    """Read temporal, perpendicular and temperature baselines of all interferograms."""
+    ifgnet = IfgNetwork()
+    ifgnet.open(path=ifg_network_file)
+    tb_ifg = np.asarray(ifgnet.tbase_ifg)
+    pb_ifg = np.asarray(ifgnet.pbase_ifg)
+    te_ifg = np.asarray(ifgnet.temperatures_ifg)
+    return tb_ifg, pb_ifg, te_ifg
 
 
-    logger = Logger("log")
-    point_obj = Points(file_path=pointspath, logger=logger)
-    point_obj.open(input_path=inputpath)
+def load_geometry(points_file, input_path, point_index=None, seed=None):
+    """Read wavelength, slant range and local incidence angle from a SARvey points file.
 
-    xy_tree = KDTree(point_obj.coord_xy)
-    ixp1 = xy_tree.query([p1y, p1x])[-1]
-    ixp2 = xy_tree.query([p2y, p2x])[-1]
-    p1y, p1x = np.unravel_index(point_obj.point_id[ixp1], (point_obj.length, point_obj.width))
-    p2y, p2x = np.unravel_index(point_obj.point_id[ixp2], (point_obj.length, point_obj.width))
+    If point_index is None, a random point is chosen (reproducible with seed).
+    """
+    point_obj = Points(file_path=points_file, logger=Logger("log"))
+    point_obj.open(input_path=input_path)
 
-    phase = np.angle(np.exp(1j * point_obj.phase[ixp1, :]) * np.conjugate(np.exp(1j * point_obj.phase[ixp2, :])))
-    loc_inc = np.mean([point_obj.loc_inc[ixp1], point_obj.loc_inc[ixp2]])
-    slant_range = np.mean([point_obj.slant_range[ixp1], point_obj.slant_range[ixp2]])
+    if point_index is None:
+        rng = np.random.default_rng(seed)
+        point_index = int(rng.integers(0, point_obj.num_points))
+    elif not (0 <= point_index < point_obj.num_points):
+        raise SystemExit(f"--point-index must be in [0, {point_obj.num_points - 1}]")
 
-    tb_ifg = point_obj.ifg_net_obj.tbase_ifg
-    pb_ifg = point_obj.ifg_net_obj.pbase_ifg
-    te_ifg = point_obj.ifg_net_obj.temperatures_ifg
-
-    design_mat = np.zeros((point_obj.ifg_net_obj.num_ifgs, 3), dtype=np.float32)
-
-
-    factor = 4 * np.pi / point_obj.wavelength
-
-    design_mat[:, 0] = factor * pb_ifg / (slant_range * np.sin(loc_inc))
-    design_mat[:, 1] = factor * tb_ifg
-    design_mat[:, 2] = factor * te_ifg
-
-    demerr_range = np.linspace(-dembound, dembound, num_samples)
-    vel_range = np.linspace(-velbound, velbound, num_samples)
-    tcoef_range = np.linspace(-tcoefbound, tcoefbound, num_samples)
-
-    demerr, vel, tcoef, gamma = oneDimSearchTemporalCoherence_3variables_hytest(
-                demerr_range=demerr_range,
-                vel_range=vel_range,
-                tcoef_range=tcoef_range,
-                obs_phase=phase,
-                design_mat=design_mat)
-
-    demerr, vel, tcoef, gamma = oneDimSearchTemporalCoherence_3variables(
-                    demerr_range=demerr_range,
-                    vel_range=vel_range,
-                    tcoef_range=tcoef_range,
-                    obs_phase=phase,
-                    design_mat=design_mat)
+    slant_range = float(point_obj.slant_range[point_index])
+    loc_inc = float(point_obj.loc_inc[point_index])
+    wavelength = float(point_obj.wavelength)
+    return wavelength, slant_range, loc_inc, point_index
 
 
-    pred_phase_demerr = factor * pb_ifg / (slant_range * np.sin(loc_inc)) * demerr
-    pred_phase_vel = factor * tb_ifg * vel
-    pred_phase_tcoef = factor * te_ifg * tcoef
-
-    print(f"Estimated parameter: DEM error {demerr}, velocity: {vel}, thermal coefficient: {tcoef}, gamma: {gamma}")
-    #print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
-
-    
-
-    ######### Create 4x3 subplot grid ###############
-    fig, axes = plt.subplots(4, 3, figsize=(11, 13), sharey='col')
-
-    # Set y-limits from -pi to pi for all subplots
-    for ax_row in axes:
-        for ax in ax_row:
-            ax.set_ylim(-np.pi, np.pi)
-            ax.set_yticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
-            ax.set_yticklabels([r"$-\pi$", r"$-\pi/2$", "0", r"$\pi/2$", r"$\pi$"])
-
-    #### predicted phase for plotting ####
-    nsamples = 1000
-    tb_space = np.linspace(tb_ifg.min(), tb_ifg.max(), nsamples)
-    pb_space = np.linspace(pb_ifg.min(), pb_ifg.max(), nsamples)
-    te_space = np.linspace(te_ifg.min(), te_ifg.max(), nsamples)
-    design_mat_pred = np.zeros((tb_space.size, 3), dtype=np.float32)
-    design_mat_pred[:, 0] = factor * pb_space / (slant_range * np.sin(loc_inc))
-    design_mat_pred[:, 1] = factor * tb_space
-    design_mat_pred[:, 2] = factor * te_space
-
-    # Column 1: Temporal baseline
-    # Row 1: Raw phase
-    axes[0, 0].scatter(tb_ifg, phase, c='b', s=15, alpha=0.7)
-    predphase = design_mat_pred[:, 0] * demerr
-    axes[0, 0].scatter(tb_space, np.angle(np.exp(1j * predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[0, 0].grid(True, alpha=0.3)
-    axes[0, 0].text(0.02, 0.95, r'$\phi$', transform=axes[0, 0].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
-    # Row 2: phase - pred_demerror
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
-    axes[1, 0].scatter(tb_ifg, resphase, c='g', s=15, alpha=0.7)
-    predphase = design_mat_pred[:, 1] * vel
-    axes[1, 0].scatter(tb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[1, 0].grid(True, alpha=0.3)
-    axes[1, 0].text(0.02, 0.95, r'$\phi - \phi_{DEM}$', transform=axes[1, 0].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
-    # Row 3: phase - (pred_demerror + pred_tcoef)
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_vel))))
-    axes[2, 0].scatter(tb_ifg, resphase, c='r', s=15, alpha=0.7)
-    predphase = tcoef * design_mat_pred[:, 2]
-    axes[2, 0].scatter(tb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[2, 0].grid(True, alpha=0.3)
-    axes[2, 0].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{Vel})$', transform=axes[2, 0].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
-    # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_vel + pred_phase_tcoef))))
-    axes[3, 0].scatter(tb_ifg, resphase, c='m', s=15, alpha=0.7)
-    axes[3, 0].set_xlabel('Temporal Baseline')
-    axes[3, 0].grid(True, alpha=0.3)
-    axes[3, 0].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{Vel} + \phi_{TCoef})$', transform=axes[3, 0].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+def build_design_matrix(tb, pb, te, wavelength, slant_range, loc_inc):
+    """Design matrix: one row per sample, columns = [demerr, velocity, thermal coefficient]."""
+    factor = 4 * np.pi / wavelength
+    design_mat = np.zeros((tb.size, 3), dtype=np.float32)
+    design_mat[:, 0] = factor * pb / (slant_range * np.sin(loc_inc))
+    design_mat[:, 1] = factor * tb
+    design_mat[:, 2] = factor * te
+    return design_mat
 
 
-    # Column 2: Perpendicular baseline
-    # Row 1: Raw phase
-    axes[0, 1].scatter(pb_ifg, phase, c='b', s=15, alpha=0.7)
-    predphase = tcoef * design_mat_pred[:, 2]
-    axes[0, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[0, 1].grid(True, alpha=0.3)
-    axes[0, 1].text(0.02, 0.95, r'$\phi$', transform=axes[0, 1].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
-    # Row 2: phase - pred_demerror
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_tcoef)))
-    axes[1, 1].scatter(pb_ifg, resphase, c='g', s=15, alpha=0.7)
-    predphase = demerr * design_mat_pred[:, 0]
-    axes[1, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[1, 1].grid(True, alpha=0.3)
-    axes[1, 1].text(0.02, 0.95, r'$\phi - \phi_{TCoef}$', transform=axes[1, 1].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
-    # Row 3: phase - (pred_demerror + pred_tcoef)
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
-    axes[2, 1].scatter(pb_ifg, resphase, c='r', s=15, alpha=0.7)
-    predphase = vel * design_mat_pred[:, 1]
-    axes[2, 1].scatter(pb_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[2, 1].grid(True, alpha=0.3)
-    axes[2, 1].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 1].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
-    # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel))))
-    axes[3, 1].scatter(pb_ifg, resphase, c='m', s=15, alpha=0.7)
-    axes[3, 1].set_xlabel('Perpendicular Baseline')
-    axes[3, 1].grid(True, alpha=0.3)
-    axes[3, 1].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 1].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+def make_grid(tb_ifg, pb_ifg, te_ifg, num_grid):
+    """Independent linspaces between min and max of each baseline (not physically consistent)."""
+    tb = np.linspace(tb_ifg.min(), tb_ifg.max(), num_grid)
+    pb = np.linspace(pb_ifg.min(), pb_ifg.max(), num_grid)
+    te = np.linspace(te_ifg.min(), te_ifg.max(), num_grid)
+    return tb, pb, te
 
 
-    # Column 3: Temperature baseline
-    # Row 1: Raw phase
-    axes[0, 2].scatter(te_ifg, phase, c='b', s=15, alpha=0.7)
-    predphase = demerr * design_mat_pred[:, 0]
-    axes[0, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[0, 2].grid(True, alpha=0.3)
-    axes[0, 2].text(0.02, 0.95, r'$\phi$', transform=axes[0, 2].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+def wrap(phase):
+    return np.angle(np.exp(1j * phase))
 
-    # Row 2: phase - pred_demerror
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase_demerr)))
-    axes[1, 2].scatter(te_ifg, resphase, c='g', s=15, alpha=0.7)
-    predphase = tcoef * design_mat_pred[:, 2]
-    axes[1, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[1, 2].grid(True, alpha=0.3)
-    axes[1, 2].text(0.02, 0.95, r'$\phi - \phi_{DEM}$', transform=axes[1, 2].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
-    # Row 3: phase - (pred_demerror + pred_tcoef)
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef))))
-    axes[2, 2].scatter(te_ifg, resphase, c='r', s=15, alpha=0.7)
-    predphase = vel * design_mat_pred[:, 1]
-    axes[2, 2].scatter(te_space, np.angle(np.exp(1j *predphase)), marker='.', s=0.5, alpha=0.7)
-    axes[2, 2].grid(True, alpha=0.3)
-    axes[2, 2].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef})$', transform=axes[2, 2].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+def simulate_phase(design_mat, demerr, vel, tcoef, noise_std=0.0, seed=None, wrap_phase=True):
+    """Simulate arc phase.
 
-    # Row 4: phase - (pred_demerror + pred_tcoef + pred_vel)
-    resphase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * (pred_phase_demerr + pred_phase_tcoef + pred_phase_vel))))
-    axes[3, 2].scatter(te_ifg, resphase, c='m', s=15, alpha=0.7)
-    axes[3, 2].set_xlabel('Temperature Baseline')
-    axes[3, 2].grid(True, alpha=0.3)
-    axes[3, 2].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 2].transAxes, 
-                    fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+    Returns
+    -------
+    phase_obs   : simulated (noisy, wrapped) phase
+    phase_clean : noise-free phase (wrapped if wrap_phase=True)
+    noise       : the noise realisation [rad]
+    """
+    rng = np.random.default_rng(seed)
+    params = np.array([demerr, vel, tcoef], dtype=np.float64)
+    phase_true = design_mat.astype(np.float64) @ params
+    noise = rng.normal(0.0, noise_std, phase_true.size) if noise_std > 0 else np.zeros_like(phase_true)
+    phase_obs = phase_true + noise
+    if wrap_phase:
+        return wrap(phase_obs), wrap(phase_true), noise
+    return phase_obs, phase_true, noise
 
-    # Adjust layout to prevent overlapping
+
+def plot_simulation(tb, pb, te, phase_obs, phase_clean, tb_ifg, pb_ifg, te_ifg,
+                    wavelength, slant_range, loc_inc, demerr, vel, tcoef, title=""):
+    """Scatter the simulated phase against each baseline and overlay the model curve of the matching component."""
+    import matplotlib.pyplot as plt
+
+    # dense, independent grids for the per-component model curves
+    tb_s, pb_s, te_s = make_grid(tb_ifg, pb_ifg, te_ifg, 1000)
+    dm = build_design_matrix(tb_s, pb_s, te_s, wavelength, slant_range, loc_inc)
+    curves = [wrap(dm[:, 1] * vel), wrap(dm[:, 0] * demerr), wrap(dm[:, 2] * tcoef)]
+    curve_x = [tb_s, pb_s, te_s]
+    curve_label = ["velocity", "DEM error", "thermal coef."]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
+    for ax, x, label, cx, cy, cl in zip(axes, [tb, pb, te],
+                                        ["Temporal baseline", "Perpendicular baseline", "Temperature baseline"],
+                                        curve_x, curves, curve_label):
+        ax.scatter(x, phase_obs, c='b', s=15, alpha=0.7, label="simulated (noisy)")
+        ax.scatter(x, phase_clean, c='r', s=4, alpha=0.7, label="noise-free")
+        ax.scatter(cx, cy, c='k', marker='.', s=0.5, alpha=0.7, label=f"{cl} only")
+        ax.set_xlabel(label)
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(-np.pi, np.pi)
+        ax.set_yticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi])
+        ax.set_yticklabels([r"$-\pi$", r"$-\pi/2$", "0", r"$\pi/2$", r"$\pi$"])
+        ax.legend(loc="lower left", fontsize=7)
+    axes[0].set_ylabel("Phase [rad]")
+    fig.suptitle(title)
     plt.tight_layout()
     plt.show()
 
-    # Option to save the figure
-    # plt.savefig('phase_corrections_plot.png', dpi=300, bbox_inches='tight')
+
+def create_parser():
+    p = argparse.ArgumentParser(description="Simulate arc phase (DEM error, velocity, thermal coefficient).",
+                                formatter_class=argparse.RawTextHelpFormatter, epilog=__doc__)
+    p.add_argument('ifg_network', type=str, help='path to ifg_network.h5')
+    p.add_argument('points_file', type=str, help='SARvey points file (wavelength, slant range, incidence angle)')
+    p.add_argument('inputpath', type=str, help='input path of the SARvey points file')
+
+    # model parameters
+    p.add_argument('--demerr', type=float, default=0.0, help='DEM error [m]')
+    p.add_argument('--vel', type=float, default=0.0, help='velocity [m/year]')
+    p.add_argument('--tcoef', type=float, default=0.0, help='thermal coefficient [m/degC]')
+
+    # sampling
+    p.add_argument('--mode', choices=['network', 'grid'], default='network',
+                   help='network: real ifg baselines (default); grid: dense independent linspaces')
+    p.add_argument('--num-grid', dest='num_grid', type=int, default=1000, help='number of samples for --mode grid')
+
+    # noise
+    p.add_argument('--noise-std', dest='noise_std', type=float, default=0.0,
+                   help='std of Gaussian phase noise [rad]; 0 = no noise (default)')
+    p.add_argument('--seed', type=int, default=None, help='random seed (noise and random point choice)')
+    p.add_argument('--no-wrap', dest='wrap', action='store_false', help='do not wrap the phase')
+
+    # geometry point
+    p.add_argument('--point-index', dest='point_index', type=int, default=None,
+                   help='index of the point used for slant range / incidence angle (default: random)')
+
+    # output
+    p.add_argument('--plot', action='store_true', help='plot simulated phase')
+    p.add_argument('--save', type=str, default=None, help='save simulation to .npz')
+
+    # optional re-estimation
+    p.add_argument('--estimate', action='store_true', help='run the SARvey 3-parameter search on the simulated phase')
+    p.add_argument('--dembound', type=float, help='DEM error bound (needed for --estimate)')
+    p.add_argument('--velbound', type=float, help='velocity bound (needed for --estimate)')
+    p.add_argument('--tcoefbound', type=float, help='thermal coefficient bound (needed for --estimate)')
+    p.add_argument('-n', dest='numsamples', type=int, default=100, help='number of samples per parameter for --estimate')
+    return p.parse_args()
 
 
-def createParser():
-    """plotting arc with temperature for testing"""
-    EXAMPLE = """
-        sarvey_plot_arc.py p1_ifg_wr.h5 -p1 84 391 -p2 48 392
-    """
-    parser = argparse.ArgumentParser(
-        description='Arc modelling\n\n',
-        formatter_class=argparse.RawTextHelpFormatter,
-        epilog=EXAMPLE)
+def main():
+    args = create_parser()
 
-    parser.add_argument('disp_file', type=str, help='displacement file to wr in h5 format')
-    parser.add_argument('inputpath', type=str, help='inputpath')
-    parser.add_argument('-p1', dest="xyp1", nargs=2, type=int, help="x and y coords of p1: 391 50")
-    parser.add_argument('-p2', dest="xyp2", nargs=2, type=int, help="x and y coords of p2: 388 50")
-    parser.add_argument('--dembound', dest='dembound', type=float, required=True, help='DEM error bound')
-    parser.add_argument('--velbound', dest='velbound', type=float, required=True, help='linear velocity bound')
-    parser.add_argument('--tcoefbound', dest='tcoefbound', type=float, required=True, help='Temperature coefficient bound')
-    parser.add_argument('-n', dest='numsamples', type=int, required=True, help='Number of samples for optimization')
+    tb_ifg, pb_ifg, te_ifg = load_baselines(args.ifg_network)
+    wavelength, slant_range, loc_inc, point_index = load_geometry(
+        args.points_file, args.inputpath, point_index=args.point_index, seed=args.seed)
 
-    return parser.parse_args()
+    if args.mode == 'grid':
+        tb, pb, te = make_grid(tb_ifg, pb_ifg, te_ifg, args.num_grid)
+    else:
+        tb, pb, te = tb_ifg, pb_ifg, te_ifg
+
+    design_mat = build_design_matrix(tb, pb, te, wavelength, slant_range, loc_inc)
+    phase_obs, phase_clean, noise = simulate_phase(
+        design_mat, args.demerr, args.vel, args.tcoef, noise_std=args.noise_std, seed=args.seed,
+        wrap_phase=args.wrap)
+
+    print(f"Mode: {args.mode}, simulated {phase_obs.size} samples")
+    print(f"Geometry from point {point_index}: slant range {slant_range:.1f} m, "
+          f"incidence angle {np.rad2deg(loc_inc):.2f} deg, wavelength {wavelength:.4f} m")
+    print(f"True parameters: DEM error {args.demerr}, velocity {args.vel}, thermal coefficient {args.tcoef}")
+    print(f"Noise std: {args.noise_std} rad (realised: {noise.std():.3f} rad)")
+
+    if args.estimate:
+        if None in (args.dembound, args.velbound, args.tcoefbound):
+            raise SystemExit("--estimate requires --dembound, --velbound and --tcoefbound")
+        from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_3variables
+        demerr, vel, tcoef, gamma = oneDimSearchTemporalCoherence_3variables(
+            demerr_range=np.linspace(-args.dembound, args.dembound, args.numsamples),
+            vel_range=np.linspace(-args.velbound, args.velbound, args.numsamples),
+            tcoef_range=np.linspace(-args.tcoefbound, args.tcoefbound, args.numsamples),
+            obs_phase=phase_obs,
+            design_mat=design_mat)
+        print(f"Estimated parameters: DEM error {demerr}, velocity {vel}, thermal coefficient {tcoef}, gamma {gamma}")
+
+    if args.save is not None:
+        np.savez(args.save, phase=phase_obs, phase_clean=phase_clean, noise=noise,
+                 tb=tb, pb=pb, te=te, design_mat=design_mat, mode=args.mode,
+                 demerr=args.demerr, vel=args.vel, tcoef=args.tcoef, noise_std=args.noise_std,
+                 wavelength=wavelength, slant_range=slant_range, loc_inc=loc_inc, point_index=point_index)
+        print(f"Saved to {args.save}")
+
+    if args.plot:
+        plot_simulation(tb, pb, te, phase_obs, phase_clean, tb_ifg, pb_ifg, te_ifg,
+                        wavelength, slant_range, loc_inc, args.demerr, args.vel, args.tcoef,
+                        title=f"[{args.mode}] DEM err={args.demerr} m, vel={args.vel} m/yr, "
+                              f"tcoef={args.tcoef} m/degC, noise={args.noise_std} rad")
 
 
 if __name__ == '__main__':
