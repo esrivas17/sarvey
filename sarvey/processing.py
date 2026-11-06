@@ -403,6 +403,16 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_estimation_dem_correction.png"), dpi=300)
         plt.close(fig)
 
+        # histogram ##
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        axs.hist(demerr, bins="auto")
+        axs.set_ylabel('Absolute frequency')
+        axs.set_xlabel('DEM error [m]')
+        fig.savefig(join(self.path, "pic", "step_2_hist_demerror.png"), dpi=300)
+        plt.close(fig)
+
+        # Velocity
         self.logger.info(msg="Integrate mean velocity.")
         vel = spatialParameterIntegration(val_arcs=net_par_obj.vel,
                                           arcs=net_par_obj.arcs,
@@ -418,6 +428,16 @@ class Processing:
         fig.set_figwidth(self.config.general.plotwidth)
         fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_2_estimation_velocity.png"), dpi=300)
+        plt.close(fig)
+
+        # histogram ##
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        axs.hist(vel*1000, bins="auto")
+        axs.set_ylabel('Absolute frequency')
+        axs.set_xlabel('Velocity [mm/yr]')
+
+        fig.savefig(join(self.path, "pic", "step_2_hist_velocity.png"), dpi=300)
         plt.close(fig)
 
         self.logger.info(msg="Remove phase contributions from mean velocity"
