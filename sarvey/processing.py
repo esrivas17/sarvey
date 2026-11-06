@@ -1235,6 +1235,41 @@ class Processing:
                              f"{self.config.densification.arc_unwrapping_coherence}")
         point2_obj.removePoints(mask=mask_gamma, keep_id=[], input_path=self.config.general.input_path)
 
+        # Histograms
+        # Velocity
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        val = -vel[mask_gamma] * 100
+        axs.hist(val, bins="auto")
+        axs.set_ylabel('Absolute frequency')
+        axs.set_xlabel('Velocity [mm/yr]')
+        axs.set_title(f"Variance: {np.nanvar(val):.2f}")
+        fig.savefig(join(self.path, "pic", "step_4_hist_velocity.png"), dpi=300)
+        plt.close(fig)
+
+        # DEM Error
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        val = -demerr[mask_gamma]
+        axs.hist(val, bins="auto")
+        axs.set_ylabel('Absolute frequency')
+        axs.set_xlabel('DEM Error [m]')
+        axs.set_title(f"Variance: {np.nanvar(val):.2f}")
+        fig.savefig(join(self.path, "pic", "step_4_hist_demerror.png"), dpi=300)
+        plt.close(fig)
+
+        # Thermal expansion
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        tc = -tcoef[mask_gamma]*1000
+        axs.hist(tc, bins="auto")
+        axs.set_ylabel('Absolute frequency')
+        axs.set_xlabel('Thermal expansion [mm/C]')
+        axs.set_title(f"Variance: {np.nanvar(tc):.2f}")
+        fig.savefig(join(self.path, "pic", "step_4_hist_thermalcoeff.png"), dpi=300)
+        plt.close(fig)
+
+        # Joint histograms
         fig = plt.figure(figsize=(16, 5))
         axs = fig.subplots(1, 3)
         axs[0].hist(-vel[mask_gamma] * 100, bins=200)
