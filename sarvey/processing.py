@@ -1012,6 +1012,30 @@ class Processing:
                              f"{self.config.densification.arc_unwrapping_coherence}")
         point2_obj.removePoints(mask=mask_gamma, keep_id=[], input_path=self.config.general.input_path)
 
+        # Histograms
+        # Velocity
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        val = -vel[mask_gamma] * 100
+        axs.hist(val, bins="auto")
+        axs.set_ylabel('Absolute frequency')
+        axs.set_xlabel('Velocity [mm/yr]')
+        axs.set_title(f"Variance: {np.nanvar(val):.2f}")
+        fig.savefig(join(self.path, "pic", "step_4_hist_velocity.png"), dpi=300)
+        plt.close(fig)
+
+        # DEM Error
+        fig = plt.figure(figsize=(6, 6))
+        axs = fig.subplots(1, 1)
+        val = -demerr[mask_gamma]
+        axs.hist(val, bins="auto")
+        axs.set_ylabel('Absolute frequency')
+        axs.set_xlabel('DEM Error [m]')
+        axs.set_title(f"Variance: {np.nanvar(val):.2f}")
+        fig.savefig(join(self.path, "pic", "step_4_hist_demerror.png"), dpi=300)
+        plt.close(fig)
+
+        # Joint histograms
         fig = plt.figure(figsize=(15, 5))
         axs = fig.subplots(1, 2)
         axs[0].hist(-vel[mask_gamma] * 100, bins=200)
