@@ -256,7 +256,7 @@ def densifyNetworkConstrained(*, point1_obj: Points, vel_p1: np.ndarray, demerr_
     demod_phase1 = point1_obj.phase - pred_phase  # not re-wrapping
 
     # initialize output
-    init_args = (tree_p1, point1_obj, point2_obj, demod_phase1)
+    init_args = (tree_p1, point2_obj, demod_phase1)
 
     if num_cores == 1:
         densificationInitializer(tree_p1=tree_p1, point2_obj=point2_obj, demod_phase1=demod_phase1)
