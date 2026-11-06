@@ -531,7 +531,7 @@ class Processing:
         axs.hist(demerr, bins="auto")
         axs.set_ylabel('Absolute frequency')
         axs.set_xlabel('DEM Error [m]')
-        axs.title(f"Variance: {np.nanvar(demerr):.2f}")
+        axs.set_title(f"Variance: {np.nanvar(demerr):.2f}")
 
         fig.savefig(join(self.path, "pic", "step_2_hist_demerror.png"), dpi=300)
         plt.close(fig)
@@ -562,7 +562,7 @@ class Processing:
         axs.hist(vel*1000, bins="auto")
         axs.set_ylabel('Absolute frequency')
         axs.set_xlabel('Velocity [mm/yr]')
-        axs.title(f"Variance: {np.nanvar(vel*1000):.2f}")
+        axs.set_title(f"Variance: {np.nanvar(vel*1000):.2f}")
 
         fig.savefig(join(self.path, "pic", "step_2_hist_velocity.png"), dpi=300)
         plt.close(fig)
@@ -592,7 +592,7 @@ class Processing:
         axs.hist(tcoef*1000, bins="auto")
         axs.set_ylabel('Absolute frequency')
         axs.set_xlabel('Thermal coefficient [mm/C]')
-        axs.title(f"Variance: {np.nanvar(tcoef*1000):.2f}")
+        axs.set_title(f"Variance: {np.nanvar(tcoef*1000):.2f}")
         fig.savefig(join(self.path, "pic", "step_2_hist_thermalcoeff.png"), dpi=300)
         plt.close(fig)
 
