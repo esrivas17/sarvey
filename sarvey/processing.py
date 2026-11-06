@@ -409,7 +409,7 @@ class Processing:
         axs.hist(demerr, bins="auto")
         axs.set_ylabel('Absolute frequency')
         axs.set_xlabel('DEM error [m]')
-        axs.title(f"Variance: {np.nanvar(demerr):.2f}")
+        axs.set_title(f"Variance: {np.nanvar(demerr):.2f}")
         fig.savefig(join(self.path, "pic", "step_2_hist_demerror.png"), dpi=300)
         plt.close(fig)
 
@@ -437,7 +437,7 @@ class Processing:
         axs.hist(vel*1000, bins="auto")
         axs.set_ylabel('Absolute frequency')
         axs.set_xlabel('Velocity [mm/yr]')
-        axs.title(f"Variance: {np.nanvar(vel*1000):.2f}")
+        axs.set_title(f"Variance: {np.nanvar(vel*1000):.2f}")
 
         fig.savefig(join(self.path, "pic", "step_2_hist_velocity.png"), dpi=300)
         plt.close(fig)
@@ -1049,23 +1049,30 @@ class Processing:
                     dpi=300)
         plt.close(fig)
 
-        fig = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
+        fig, axf, _ = viewer.plotScatter(value=gamma[mask_gamma], coord=point2_obj.coord_xy, bmap_obj=bmap_obj,
                                  ttl="Coherence from temporal unwrapping\nAfter outlier removal", s=3.5,
-                                 cmap="lajolla", vmin=0, vmax=1, logger=self.logger)[0]
+                                 cmap="lajolla", vmin=0, vmax=1, logger=self.logger)
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_temporal_unwrapping_p2_coh{}_reduced.png".format(coh_value)),
                     dpi=300)
         plt.close(fig)
 
-        fig = viewer.plotScatter(value=-vel[mask_gamma], coord=point2_obj.coord_xy,
+
+        fig, axf, _ = viewer.plotScatter(value=-vel[mask_gamma], coord=point2_obj.coord_xy,
                                  ttl="Mean velocity in [m / year]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="roma", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_estimation_velocity_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
-        fig = viewer.plotScatter(value=-demerr[mask_gamma], coord=point2_obj.coord_xy, ttl="DEM correction in [m]",
+        fig, axf, _ = viewer.plotScatter(value=-demerr[mask_gamma], coord=point2_obj.coord_xy, ttl="DEM correction in [m]",
                                  bmap_obj=bmap_obj, s=3.5, cmap="vanimo", symmetric=True,
-                                 logger=self.logger)[0]
+                                 logger=self.logger)
+        fig.set_figwidth(self.config.general.plotwidth)
+        fig.set_figheight(self.config.general.plotheight)
         fig.savefig(join(self.path, "pic", "step_4_estimation_dem_correction_p2_coh{}.png".format(coh_value)), dpi=300)
         plt.close(fig)
 
@@ -1115,10 +1122,7 @@ class Processing:
             logger=self.logger)
 
         point_obj = Points(file_path=join(self.path, "p2_coh{}_ts.h5".format(coh_value)), logger=self.logger)
-        point_obj.open(
-            other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)),
-            input_path=self.config.general.input_path
-        )
+        point_obj.open( other_file_path=join(self.path, "p2_coh{}_ifg_unw.h5".format(coh_value)), input_path=self.config.general.input_path )
         point_obj.phase = phase_ts
 
         point_obj.writeToFile()
