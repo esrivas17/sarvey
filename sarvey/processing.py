@@ -438,11 +438,15 @@ class Processing:
         net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
         net_par_obj.writeToFile()
 
-        #### copies of network ###
+        #### copies of network  and points ###
         net_par_obj0 = copy.deepcopy(net_par_obj)
         net_par_obj1 = copy.deepcopy(net_par_obj)
         net_par_obj2 = copy.deepcopy(net_par_obj)
         net_par_obj3 = copy.deepcopy(net_par_obj)
+        point_obj0 = copy.deepcopy(point_obj)
+        point_obj1 = copy.deepcopy(point_obj)
+        point_obj2 = copy.deepcopy(point_obj)
+        point_obj3 = copy.deepcopy(point_obj)
 
         # PLOT
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
@@ -489,25 +493,44 @@ class Processing:
            #plt.tight_layout()
            fig.savefig(join(self.path, "pic", "step_1_network_removed_arcs.png"), dpi=300)
 
-           cohval = self.config.consistency_check.arc_unwrapping_coherence 
-           for ix, newift in enumerate([net_par_obj0, net_par_obj1, net_par_obj2, net_par_obj3]):
-                fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
-                ax = fig.add_subplot()
-                ax = bmap_obj.plot(ax=ax, logger=self.logger)
-                ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                            arcs=newift.arcs,
-                                                            val=newift.gamma,
-                                                            ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
-                ax.set_title("Coherence from temporal unwrapping")
-                fig = ax.get_figure()
-                fig.set_constrained_layout(True)
-                #plt.tight_layout()
-                coh = cohval-((ix)*0.1)
-                fig.savefig(join(self.path, "pic", f"step_1_network_removed_arcs_coh{coh:.1f}.png"), dpi=300)
-                
-
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
+
+
+        #### my experiments #####
+        cohval = self.config.consistency_check.arc_unwrapping_coherence 
+        for ix, (newift, newpoi) in enumerate(zip([net_par_obj0, net_par_obj1, net_par_obj2, net_par_obj3], [point_obj0, point_obj1, point_obj2, point_obj3])):
+            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+            ax = fig.add_subplot()
+            ax = bmap_obj.plot(ax=ax, logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+                                                        arcs=newift.arcs,
+                                                        val=newift.gamma,
+                                                        ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping")
+            fig = ax.get_figure()
+            fig.set_constrained_layout(True)
+            #plt.tight_layout()
+            coh = cohval-((ix)*0.1)
+            fig.savefig(join(self.path, "pic", f"step_1_network_removed_arcs_coh{coh:.1f}.png"), dpi=300)
+        
+            # remove poitns
+            newift, point_id_exp = RemovePointsKeepingLargestComponent(net_obj=newift, point_id=newpoi.point_id, logger=self.logger)
+            self.logger(f"Coherence: {coh:.1f},  Number of points kept: {len(point_id_exp)}")
+            newpoi.removePoints(keep_id=point_id_exp, input_path=self.config.general.input_path)
+            net_par_obj_exp = removeArcsFromNonExistingPoints(net_obj=newift, point_id=newpoi.point_id, logger=self.logger)
+
+            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+            ax = fig.add_subplot()
+            ax = bmap_obj.plot(ax=ax, logger=self.logger)
+            ax, cbar = viewer.plotColoredPointNetwork(x=newpoi.coord_xy[:, 1], y=newpoi.coord_xy[:, 0], arcs=net_par_obj_exp.arcs, val=net_par_obj_exp.gamma, ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax.set_title("Coherence from temporal unwrapping")
+            fig = ax.get_figure()
+            fig.set_constrained_layout(True)
+            #plt.tight_layout()
+            fig.savefig(join(self.path, "pic", f"step_1_network_removed_points_coh{coh:.1f}.png"), dpi=300)
+        
+        #########################
 
         # KEEP THE LARGEST CONNECTED COMPONENT
         net_par_obj, point_id = RemovePointsKeepingLargestComponent(net_obj=net_par_obj, point_id=point_obj.point_id, logger=self.logger)
