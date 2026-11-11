@@ -498,6 +498,7 @@ class Processing:
 
 
         #### my experiments #####
+        self.logger(f"Number of points originally: {point_obj.num_points}")
         cohval = self.config.consistency_check.arc_unwrapping_coherence 
         for ix, (newift, newpoi) in enumerate(zip([net_par_obj0, net_par_obj1, net_par_obj2, net_par_obj3], [point_obj0, point_obj1, point_obj2, point_obj3])):
             fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
