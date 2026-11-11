@@ -478,7 +478,7 @@ class Processing:
         
             # remove poitns
             net_par_obj_removed, point_id_exp = RemovePointsKeepingLargestComponent(net_obj=net_par_obj_copy, point_id=point_obj_copy.point_id, logger=self.logger)
-            self.logger.info(msg=f"Coherence: {cohval:.1f},  Number of points kept: {len(point_id_exp)}")
+            self.logger.info(msg=f"Coherence: {cohval:.2f},  Number of points kept: {len(point_id_exp)}")
             point_obj_copy.removePoints(keep_id=point_id_exp, input_path=self.config.general.input_path)
             net_par_obj_exp = removeArcsFromNonExistingPoints(net_obj=net_par_obj_removed, point_id=point_obj_copy.point_id, logger=self.logger)
 
@@ -492,7 +492,7 @@ class Processing:
             ax.set_title("Coherence from temporal unwrapping")
             fig = ax.get_figure()
             fig.set_constrained_layout(True)
-            fig.savefig(join(self.path, "pic", f"step_1_network_removed_points_coh{cohval:.1f}.png"), dpi=300)
+            fig.savefig(join(self.path, "pic", f"step_1_network_removed_points_coh{cohval:.2f}.png"), dpi=300)
         
         #########################
 
