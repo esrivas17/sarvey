@@ -439,6 +439,7 @@ class Processing:
         net_par_obj.writeToFile()
 
         #### copies of network ###
+        net_par_obj0 = copy.deepcopy(net_par_obj)
         net_par_obj1 = copy.deepcopy(net_par_obj)
         net_par_obj2 = copy.deepcopy(net_par_obj)
         net_par_obj3 = copy.deepcopy(net_par_obj)
@@ -468,6 +469,7 @@ class Processing:
                                                     NRO=self.config.consistency_check.nro, logger=self.logger)
         else:
             net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+            net_par_obj0 = removeBadArcsWithThresh(net_obj=net_par_obj1, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
             net_par_obj1 = removeBadArcsWithThresh(net_obj=net_par_obj1, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.1, logger=self.logger)
             net_par_obj2 = removeBadArcsWithThresh(net_obj=net_par_obj2, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.2, logger=self.logger)
             net_par_obj3 = removeBadArcsWithThresh(net_obj=net_par_obj3, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.3, logger=self.logger)
@@ -488,7 +490,7 @@ class Processing:
            fig.savefig(join(self.path, "pic", "step_1_network_removed_arcs.png"), dpi=300)
 
            cohval = self.config.consistency_check.arc_unwrapping_coherence 
-           for ix, newift in enumerate([net_par_obj1, net_par_obj2, net_par_obj3]):
+           for ix, newift in enumerate([net_par_obj0, net_par_obj1, net_par_obj2, net_par_obj3]):
                 fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
                 ax = fig.add_subplot()
                 ax = bmap_obj.plot(ax=ax, logger=self.logger)
@@ -500,8 +502,8 @@ class Processing:
                 fig = ax.get_figure()
                 fig.set_constrained_layout(True)
                 #plt.tight_layout()
-                coh = cohval-((ix+1)*0.1)
-                fig.savefig(join(self.path, "pic", f"step_1_network_removed_arcs_coh{coh}.png"), dpi=300)
+                coh = cohval-((ix)*0.1)
+                fig.savefig(join(self.path, "pic", f"step_1_network_removed_arcs_coh{coh:.1f}.png"), dpi=300)
                 
 
         except BaseException as e:
