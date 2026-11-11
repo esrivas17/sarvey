@@ -474,9 +474,9 @@ class Processing:
         else:
             net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
             net_par_obj0 = removeBadArcsWithThresh(net_obj=net_par_obj1, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
-            net_par_obj1 = removeBadArcsWithThresh(net_obj=net_par_obj1, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.1, logger=self.logger)
-            net_par_obj2 = removeBadArcsWithThresh(net_obj=net_par_obj2, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.2, logger=self.logger)
-            net_par_obj3 = removeBadArcsWithThresh(net_obj=net_par_obj3, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.3, logger=self.logger)
+            net_par_obj1 = removeBadArcsWithThresh(net_obj=net_par_obj1, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.05, logger=self.logger)
+            net_par_obj2 = removeBadArcsWithThresh(net_obj=net_par_obj2, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.075, logger=self.logger)
+            net_par_obj3 = removeBadArcsWithThresh(net_obj=net_par_obj3, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.1, logger=self.logger)
 
 
         try:
@@ -504,8 +504,7 @@ class Processing:
             ax = fig.add_subplot()
             ax = bmap_obj.plot(ax=ax, logger=self.logger)
             ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
-                                                        arcs=newift.arcs,
-                                                        val=newift.gamma,
+                                                        arcs=newift.arcs, val=newift.gamma,
                                                         ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
             ax.set_title("Coherence from temporal unwrapping")
             fig = ax.get_figure()
@@ -523,7 +522,9 @@ class Processing:
             fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
             ax = fig.add_subplot()
             ax = bmap_obj.plot(ax=ax, logger=self.logger)
-            ax, cbar = viewer.plotColoredPointNetwork(x=newpoi.coord_xy[:, 1], y=newpoi.coord_xy[:, 0], arcs=net_par_obj_exp.arcs, val=net_par_obj_exp.gamma, ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+            ax, cbar = viewer.plotColoredPointNetwork(x=newpoi.coord_xy[:, 1], y=newpoi.coord_xy[:, 0], 
+                                                      arcs=net_par_obj_exp.arcs, val=net_par_obj_exp.gamma, 
+                                                      ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
             ax.set_title("Coherence from temporal unwrapping")
             fig = ax.get_figure()
             fig.set_constrained_layout(True)
