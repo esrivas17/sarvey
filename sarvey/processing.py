@@ -500,7 +500,7 @@ class Processing:
                 fig = ax.get_figure()
                 fig.set_constrained_layout(True)
                 #plt.tight_layout()
-                coh = cohval-((ix+1)*0.1))
+                coh = cohval-((ix+1)*0.1)
                 fig.savefig(join(self.path, "pic", f"step_1_network_removed_arcs_coh{coh}.png"), dpi=300)
                 
 
