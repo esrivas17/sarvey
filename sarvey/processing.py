@@ -496,9 +496,8 @@ class Processing:
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 
-
         #### my experiments #####
-        self.logger(f"Number of points originally: {point_obj.num_points}")
+        self.logger.info(msg=f"Number of points originally: {point_obj.num_points}")
         cohval = self.config.consistency_check.arc_unwrapping_coherence 
         for ix, (newift, newpoi) in enumerate(zip([net_par_obj0, net_par_obj1, net_par_obj2, net_par_obj3], [point_obj0, point_obj1, point_obj2, point_obj3])):
             fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
@@ -517,7 +516,7 @@ class Processing:
         
             # remove poitns
             newift, point_id_exp = RemovePointsKeepingLargestComponent(net_obj=newift, point_id=newpoi.point_id, logger=self.logger)
-            self.logger(f"Coherence: {coh:.1f},  Number of points kept: {len(point_id_exp)}")
+            self.logger.info(msg=f"Coherence: {coh:.1f},  Number of points kept: {len(point_id_exp)}")
             newpoi.removePoints(keep_id=point_id_exp, input_path=self.config.general.input_path)
             net_par_obj_exp = removeArcsFromNonExistingPoints(net_obj=newift, point_id=newpoi.point_id, logger=self.logger)
 
