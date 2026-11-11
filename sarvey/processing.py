@@ -33,6 +33,7 @@ import os
 import shutil
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 from logging import Logger
 import cmcrameri as cmc
 
@@ -375,9 +376,7 @@ class Processing:
 
         point_obj = Points(file_path=join(self.path, "p1_ifg_wr.h5"), logger=self.logger)
         point_id1 = point_id_img[cand_mask1]
-
         point_obj.prepare(point_id=point_id1,coord_xy=coord_xy,input_path=self.config.general.input_path)
-
         point_obj.phase = ut.readPhasePatchwise(stack_obj=ifg_stack_obj, dataset_name="ifgs",
                                                 num_patches=self.config.general.num_patches, cand_mask=cand_mask1,
                                                 point_id_img=point_id_img, logger=self.logger)
@@ -427,10 +426,22 @@ class Processing:
         plt.close(fig)
         ###################
 
+        # I want to save also bad arcs, everything
+        full_net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter_full.h5"), logger=self.logger)
+        full_net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
+        full_net_par_obj.writeToFile()
+
+        ###################
+
         net_par_obj = NetworkParameter_Temp(file_path=join(self.path, "point_network_parameter.h5"),
                                        logger=self.logger)
         net_par_obj.prepare(net_obj=net_obj,demerr=demerr,vel=vel,tcoef=tcoef, gamma=gamma)
         net_par_obj.writeToFile()
+
+        #### copies of network ###
+        net_par_obj1 = copy.deepcopy(net_par_obj)
+        net_par_obj2 = copy.deepcopy(net_par_obj)
+        net_par_obj3 = copy.deepcopy(net_par_obj)
 
         # PLOT
         bmap_obj = AmplitudeImage(file_path=join(self.path, "background_map.h5"))
@@ -457,6 +468,9 @@ class Processing:
                                                     NRO=self.config.consistency_check.nro, logger=self.logger)
         else:
             net_par_obj = removeBadArcsWithThresh(net_obj=net_par_obj, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence, logger=self.logger)
+            net_par_obj1 = removeBadArcsWithThresh(net_obj=net_par_obj1, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.1, logger=self.logger)
+            net_par_obj2 = removeBadArcsWithThresh(net_obj=net_par_obj2, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.2, logger=self.logger)
+            net_par_obj3 = removeBadArcsWithThresh(net_obj=net_par_obj3, quality_thrsh=self.config.consistency_check.arc_unwrapping_coherence-0.3, logger=self.logger)
 
 
         try:
@@ -472,6 +486,24 @@ class Processing:
            fig.set_constrained_layout(True)
            #plt.tight_layout()
            fig.savefig(join(self.path, "pic", "step_1_network_removed_arcs.png"), dpi=300)
+
+           cohval = self.config.consistency_check.arc_unwrapping_coherence 
+           for ix, newift in enumerate([net_par_obj1, net_par_obj2, net_par_obj3]):
+                fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight))
+                ax = fig.add_subplot()
+                ax = bmap_obj.plot(ax=ax, logger=self.logger)
+                ax, cbar = viewer.plotColoredPointNetwork(x=point_obj.coord_xy[:, 1], y=point_obj.coord_xy[:, 0],
+                                                            arcs=newift.arcs,
+                                                            val=newift.gamma,
+                                                            ax=ax, linewidth=1, cmap="lajolla", clim=(0, 1))
+                ax.set_title("Coherence from temporal unwrapping")
+                fig = ax.get_figure()
+                fig.set_constrained_layout(True)
+                #plt.tight_layout()
+                coh = cohval-((ix+1)*0.1))
+                fig.savefig(join(self.path, "pic", f"step_1_network_removed_arcs_coh{coh}.png"), dpi=300)
+                
+
         except BaseException as e:
             self.logger.exception(msg="NOT POSSIBLE TO PLOT SPATIAL NETWORK OF POINTS. {}".format(e))
 

@@ -397,23 +397,13 @@ def launchSpatialUnwrapping(parameters: tuple) -> tuple[np.ndarray, np.ndarray]:
     """
     # Unpack the parameters
     (idx_range, num_ifgs, num_points, method, edges, phase) = parameters
-
     prog_bar = ptime.progressBar(maxValue=num_ifgs)
-
     unw_phase = np.zeros((num_points, num_ifgs), dtype=np.float32)
 
     # Perform the PUMA phase unwrapping
     for i in range(num_ifgs):
         if method == "puma":
-            unw_phase[:, i] = unwrap_arbitrary(
-                psi=phase[:, i],
-                edges=edges,
-                simplices=None,
-                method="gc",
-                period=2*np.pi,
-                start_i=0,
-                p=0.2
-            )
+            unw_phase[:, i] = unwrap_arbitrary(psi=phase[:, i], edges=edges, simplices=None, method="gc", period=2*np.pi, start_i=0, p=0.2)
         else:
             unw_phase[:, i] = unwrap_arbitrary(
                 psi=phase[:, i],
@@ -464,14 +454,7 @@ def spatialUnwrapping(*, num_ifgs: int, num_points: int, phase: np.ndarray, edge
     start_time = time.time()
 
     if num_cores == 1:
-        parameters = (
-            np.arange(num_ifgs),
-            num_ifgs,
-            num_points,
-            method,
-            edges,
-            phase
-        )
+        parameters = ( np.arange(num_ifgs), num_ifgs, num_points, method, edges, phase)
         idx_range, unw_phase = launchSpatialUnwrapping(parameters=parameters)
     else:
         logger.info(msg="start parallel processing with {} cores.".format(num_cores))
@@ -481,13 +464,7 @@ def spatialUnwrapping(*, num_ifgs: int, num_points: int, phase: np.ndarray, edge
         # avoids having more samples than cores
         idx = ut.splitDatasetForParallelProcessing(num_samples=num_ifgs, num_cores=num_cores)
 
-        args = [(
-            idx_range,
-            idx_range.shape[0],
-            num_points,
-            method,
-            edges,
-            phase[:, idx_range]) for idx_range in idx]
+        args = [( idx_range, idx_range.shape[0], num_points, method, edges, phase[:, idx_range]) for idx_range in idx]
 
         with multiprocessing.Pool(processes=num_cores) as pool:
             results = pool.map(func=launchSpatialUnwrapping, iterable=args)
@@ -644,8 +621,6 @@ def spatialParameterIntegration_with_distance_and_redundancy(*,
         degree[idx1] += 1
         degree[idx2] += 1
 
-
-    
     # redundancy factor
     k_arc = np.sqrt(degree[p1_idx] * degree[p2_idx])
     w_red = 1 / k_arc
@@ -670,9 +645,7 @@ def spatialParameterIntegration_with_distance_and_redundancy(*,
     start_time = time.time()
 
     obv_vec = val_arcs.reshape(-1, ) * weights.reshape(-1, )
-
     x_hat = lsqr(design_mat, obv_vec)[0]
-
     m, s = divmod(time.time() - start_time, 60)
     logger.debug(msg='time used: {:02.0f} mins {:02.1f} secs.'.format(m, s))
 
@@ -711,8 +684,6 @@ def spatialParameterIntegration_with_distance(*,
         x2, y2 = coord_utmxy[idx2]
 
         arc_distances[i] = np.hypot(x2 - x1, y2 - y1)
-
-
 
     # combine weigths and coherence weights
     d0 = 30
