@@ -695,6 +695,13 @@ class Processing:
                                           edges=arcs,
                                           num_cores=self.config.general.num_cores, logger=self.logger)
 
+        ##### unwrapped phase residual #####
+        point_obj_unw_res = Points(file_path=join(self.path, "p1_ifg_unw_res.h5"), logger=self.logger)
+        point_obj_unw_res.open(other_file_path=join(self.path, "p1_ifg_wr.h5"), input_path=self.config.general.input_path)
+        point_obj_unw_res.phase = unw_res_phase
+        point_obj_unw_res.writeToFile()
+        ####################################
+
         # use same reference point for spatial integration and Puma unwrapping before recombining phases
         unw_res_phase = unw_res_phase - unw_res_phase[spatial_ref_idx, :]
 
@@ -731,19 +738,11 @@ class Processing:
         fig.savefig(join(self.path, "pic", "step_2_unwrapping_hist_p1_params.png"), dpi=300)
         plt.close(fig)
 
-        phase_ts = ut.invertIfgNetwork(
-            phase=unw_phase,
-            num_points=point_obj.num_points,
-            ifg_net_obj=point_obj.ifg_net_obj,
-            num_cores=1,  # self.config.general.num_cores,
-            ref_idx=0,
-            logger=self.logger
-        )
+        phase_ts = ut.invertIfgNetwork(phase=unw_phase,num_points=point_obj.num_points,
+                                       ifg_net_obj=point_obj.ifg_net_obj,num_cores=1,
+                                       ref_idx=0,logger=self.logger)
         point_obj = Points(file_path=join(self.path, "p1_ts.h5"), logger=self.logger)
-        point_obj.open(
-            other_file_path=join(self.path, "p1_ifg_unw.h5"),
-            input_path=self.config.general.input_path
-        )
+        point_obj.open(other_file_path=join(self.path, "p1_ifg_unw.h5"),input_path=self.config.general.input_path)
         point_obj.phase = phase_ts
         point_obj.writeToFile()
 
