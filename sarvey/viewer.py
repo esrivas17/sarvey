@@ -95,6 +95,53 @@ def plotIfgs(*, phase: np.ndarray, coord: np.ndarray, spatial_ref_idx: int = Non
     if ttl is not None:
         fig.suptitle(ttl)
 
+def plotIfgsBaselines(*, phase: np.ndarray, tbase:np.ndarray, pbase:np.ndarray, tebase:np.ndarray, 
+                      coord: np.ndarray, spatial_ref_idx: int = None, ttl: str = None,
+                        cmap: str = "romaO"):
+    """Plot one interferogram per subplot.
+
+    Parameters
+    ----------
+    phase: np.ndarray
+        phase per point and ifg, e.g. wrapped or unwrapped phase (dim: no. psPoints x no. ifgs)
+    coord: np.ndarray
+        coordinates of the psPoints, e.g. pixel or lat lon (dim: no. psPoints x 2)
+    spatial_ref_idx: int
+        index of the spatial reference point (default: None)
+    ttl: str
+        title for the figure (default: None)
+    cmap: str
+        colormap name (default: "romaO")
+    """
+    num_ifgs = phase.shape[1]
+    min_val = np.min(phase)
+    max_val = np.max(phase)
+    fig, axs = plt.subplots(np.ceil(np.sqrt(num_ifgs + 1)).astype(np.int32),
+                            np.ceil(np.sqrt(num_ifgs + 1)).astype(np.int32))
+    sc = None
+    for i, ax in enumerate(axs.flat):
+        if i < num_ifgs:
+            sc = ax.scatter(coord[:, 1], coord[:, 0], c=phase[:, i],
+                            vmin=min_val, vmax=max_val, s=1, cmap=cmc.cm.cmaps[cmap])
+            ax.axes.set_xticks([])
+            ax.axes.set_yticks([])
+
+            ax.set_title(
+                        f"tbase: {tbase[i]:.2f} | "
+                        f"pbase: {pbase[i]:.1f} | "
+                        f"tebase: {tebase[i]}",
+                        fontsize=9)
+
+            if spatial_ref_idx is not None:
+                ax.plot(coord[spatial_ref_idx, 1],
+                        coord[spatial_ref_idx, 0], 'k*')
+        elif i == num_ifgs:
+            plt.colorbar(sc, cax=ax)
+        else:
+            ax.set_visible(False)
+    if ttl is not None:
+        fig.suptitle(ttl)
+
 
 def plotScatter(*, value: np.ndarray, coord: np.ndarray, bmap_obj: AmplitudeImage = None, ttl: str = None,
                 unit: str = None, s: float = 5.0, cmap: str = "batlow", symmetric: bool = False,

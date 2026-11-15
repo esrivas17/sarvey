@@ -46,6 +46,7 @@ from miaplpy.objects.slcStack import slcStack
 
 from sarvey import version
 from sarvey.objects import Points, AmplitudeImage
+from sarvey.ifg_network import IfgNetwork
 from sarvey import console
 from sarvey import viewer
 from sarvey.config import loadConfiguration
@@ -222,6 +223,51 @@ def plotPhase(*, obj_name: str, save_path: str, image_range: tuple, interactive:
     if interactive:
         plt.show()
 
+def plotPhaseBaselines(*, obj_name: str, save_path: str, image_range: tuple, interactive: bool = False, input_path: str,
+              logger: Logger):
+    """Plot the phase of a Points object file in geographic coordinates (WGS84).
+
+    Plot the phase of each interferogram or each image depending on the domain of the input file.
+
+    Parameters
+    ----------
+    obj_name : str
+        Path to the Points object file.
+    save_path : str
+        Path to the directory where the figures are saved.
+    image_range : tuple
+        Range of images to be plotted.
+    interactive : bool
+        If True, the plots will be shown interactively.
+    input_path : str
+        Path to the inputs directory containing slcStack.h5 and geometryRadar.h5.
+    logger : Logger
+        Logger object.
+    """
+    console.showLogoSARvey(logger=logger, step="Plot phase")
+
+    point_obj = Points(file_path=obj_name, logger=logger)
+    point_obj.open(input_path=input_path)
+    from pathlib import Path
+    pfile = Path(obj_name)
+    ifg_network_file = pfile.parent.joinpath("ifg_network.h5")
+    ifg_network = IfgNetwork()
+    ifg_network.open(path=ifg_network_file.as_posix())
+
+    if image_range is None:
+        viewer.plotIfgs(phase=point_obj.phase, coord=point_obj.coord_lalo, ttl="Phase")
+    else:
+        pbaselines = ifg_network.pbase_ifg[image_range[0]:image_range[1]]
+        tbaselines = ifg_network.tbase_ifg[image_range[0]:image_range[1]]
+        tempbaselines = ifg_network.temperatures_ifg[image_range[0]:image_range[1]]
+        viewer.plotIfgsBaselines(phase=point_obj.phase[:, image_range[0]:image_range[1]], tbase=tbaselines,
+                                 pbase=pbaselines, tebase=tempbaselines,
+                                 coord=point_obj.coord_lalo, ttl="Phase")
+
+    plt.gcf().savefig(join(save_path, "{}_phase.png".format(basename(obj_name)[:-3])), dpi=300)
+
+    if interactive:
+        plt.show()
 
 def plotResidualPhase(*, obj_name: str, save_path: str, image_range: tuple, interactive: bool = False,
                       input_path: str, logger: Logger):
@@ -417,7 +463,7 @@ def main(iargs=None):
         selected = True
 
     if args.plotPhase:
-        plotPhase(obj_name=args.input_file, save_path=save_path, image_range=args.image_range,
+        plotPhaseBaselines(obj_name=args.input_file, save_path=save_path, image_range=args.image_range,
                   interactive=args.interactive, input_path=config.general.input_path, logger=logger)
         selected = True
 
