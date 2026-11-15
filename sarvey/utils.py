@@ -948,7 +948,6 @@ def predictPhaseCore_t(*, ifg_net_obj: IfgNetwork, wavelength: float, vel: np.nd
 
     # compute phase due to velocity
     pred_phase_vel = factor * tbase[:, np.newaxis] * vel
-
     pred_phase_tcoef = factor * tempt[:, np.newaxis] * tcoef
 
     if (pred_phase_demerr.size != pred_phase_vel.size) or (pred_phase_demerr.size != pred_phase_tcoef.size) or (pred_phase_vel.size != pred_phase_tcoef.size):

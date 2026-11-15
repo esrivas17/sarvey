@@ -671,9 +671,8 @@ class Processing:
         self.logger.info(msg="Remove phase contributions from mean velocity"
                              " and DEM correction from wrapped phase of points.")
 
-        pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(
-            obj=point_obj, vel=vel, demerr=demerr, tcoef=tcoef,
-            ifg_space=True, logger=self.logger)
+        pred_phase_demerr, pred_phase_vel, pred_phase_tcoef = ut.predictPhase_t(obj=point_obj, 
+                                    vel=vel, demerr=demerr, tcoef=tcoef, ifg_space=True, logger=self.logger)
         
         pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_tcoef
 
@@ -700,6 +699,22 @@ class Processing:
         point_obj_unw_res.open(other_file_path=join(self.path, "p1_ifg_wr.h5"), input_path=self.config.general.input_path)
         point_obj_unw_res.phase = unw_res_phase
         point_obj_unw_res.writeToFile()
+        
+        ############ predicted phase #######
+        point_obj_wr_vel = Points(file_path=join(self.path, "p1_ifg_wr_vel.h5"), logger=self.logger)
+        point_obj_wr_vel.open(other_file_path=join(self.path, "p1_ifg_wr.h5"), input_path=self.config.general.input_path)
+        point_obj_wr_vel.phase = pred_phase_vel
+        point_obj_wr_vel.writeToFile()
+        
+        point_obj_wr_demerr = Points(file_path=join(self.path, "p1_ifg_wr_demerr.h5"), logger=self.logger)
+        point_obj_wr_demerr.open(other_file_path=join(self.path, "p1_ifg_wr.h5"), input_path=self.config.general.input_path)
+        point_obj_wr_demerr.phase = pred_phase_demerr
+        point_obj_wr_demerr.writeToFile()
+        
+        point_obj_wr_tcoef = Points(file_path=join(self.path, "p1_ifg_wr_tcoef.h5"), logger=self.logger)
+        point_obj_wr_tcoef.open(other_file_path=join(self.path, "p1_ifg_wr.h5"), input_path=self.config.general.input_path)
+        point_obj_wr_tcoef.phase = pred_phase_tcoef
+        point_obj_wr_tcoef.writeToFile()
         ####################################
 
         # use same reference point for spatial integration and Puma unwrapping before recombining phases
