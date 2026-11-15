@@ -137,7 +137,7 @@ def plotIfgsBaselines(*, phase: np.ndarray, tbase:np.ndarray, pbase:np.ndarray, 
             plt.colorbar(sc, cax=ax)
         else:
             ax.set_visible(False)
-    fig.tight_layout(pad=2.0, h_pad=2.5)
+    fig.subplots_adjust(hspace=0.4)
     if ttl is not None:
         fig.suptitle(ttl)
 
