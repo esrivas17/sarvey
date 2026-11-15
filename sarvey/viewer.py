@@ -127,8 +127,8 @@ def plotIfgsBaselines(*, phase: np.ndarray, tbase:np.ndarray, pbase:np.ndarray, 
             ax.axes.set_yticks([])
 
             ax.set_title(
-                rf"$\Delta_t$: {tbase[i]:.2f}, $\Delta_B$: {pbase[i]:.1f} $\Delta_T$: {tebase[i]}",
-                fontsize=4)
+                rf"$\Delta_t$: {tbase[i]:.2f}, $\Delta_B$: {pbase[i]:.1f}, $\Delta_T$: {tebase[i]}",
+                fontsize=5)
 
             if spatial_ref_idx is not None:
                 ax.plot(coord[spatial_ref_idx, 1],
