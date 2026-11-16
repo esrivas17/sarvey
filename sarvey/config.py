@@ -129,6 +129,17 @@ class General(BaseModel, extra="forbid"):
         default=True
     )
 
+    siblings_file: str = Field(
+            title="path to siblings file calculated from sarveyside.",
+            description="Set the path of the siblings.",
+            default=None)
+
+    temporal_coherence_with_shp: bool = Field(
+            title="Temporal coherence with siblings",
+            description="Temporal coherence with siblings flag",
+            default=False
+        )
+
     @field_validator('input_path')
     def checkPathInputs(cls, v):
         """Check if the input path exists."""
@@ -332,6 +343,7 @@ class Preparation(BaseModel, extra="forbid"):
         description="Set the size of window for lowpass filtering in azimuth.",
         default=3
     )
+
 
     @field_validator('start_date', 'end_date')
     def checkDates(cls, v):

@@ -52,6 +52,19 @@ def convertBboxToBlock(*, bbox: tuple):
         block = (bbox[2], bbox[5], bbox[1], bbox[4], bbox[0], bbox[3])
     return block
 
+def convertBboxWithAnchorToBlock(*, bbox: tuple, length: int, width:int, anchor_azimuth: int, anchor_range: int):
+
+    block = None
+    if len(bbox) == 4:
+        bbox1 = max(bbox[1]-(anchor_azimuth//2), 0)
+        bbox2 = min(bbox[3]+(anchor_azimuth//2), width)
+        bbox3 = max(bbox[0]-(anchor_range//2), 0)
+        bbox4 = min(bbox[2]+(anchor_range//2), length)
+        block = (bbox1, bbox2, bbox3, bbox4)
+        nbbox = (bbox3, bbox1, bbox4, bbox2)
+    else:
+        raise Exception("Wrong bbox format")
+    return block, nbbox
 
 def invertIfgNetwork(*, phase: np.ndarray, num_points: int, ifg_net_obj: IfgNetwork, num_cores: int, ref_idx: int,
                      logger: Logger):

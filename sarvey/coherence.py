@@ -36,7 +36,7 @@ from scipy.signal import convolve2d
 from logging import Logger
 from miaplpy.objects.slcStack import slcStack
 from sarvey.objects import BaseStack
-from sarvey.utils import convertBboxToBlock
+from sarvey.utils import convertBboxToBlock, convertBboxWithAnchorToBlock
 
 
 def computeIfgsAndTemporalCoherence(*, path_temp_coh: str, path_ifgs: str, path_slc: str, ifg_array: np.ndarray,
@@ -348,6 +348,77 @@ def computeIfgsStack(*, path_ifgs: str, path_slc: str, ifg_array: np.ndarray,
         ifg_stack_obj.writeToFileBlock(data=ifgs, dataset_name="ifgs", block=block2d, print_msg=False)
         del slc
 
+        logger.info(msg="Patches processed:\t {}/{}".format(idx + 1, num_boxes))
+
+    m, s = divmod(time.time() - start_time, 60)
+    logger.debug(msg='\ntime used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
+    return mean_amp_img
+
+def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: str, path_slc: str, path_siblings: str,
+                                             ifg_array: np.ndarray, time_mask: np.ndarray, num_boxes: int, 
+                                             box_list: list, num_cores: int, logger: Logger):
+    import pdb
+    start_time = time.time()
+
+    slc_stack_obj = slcStack(path_slc)
+    slc_stack_obj.open()
+    temp_coh_obj = BaseStack(file=path_temp_coh, logger=logger)
+    ifg_stack_obj = BaseStack(file=path_ifgs, logger=logger)
+
+    mean_amp_img = np.zeros((slc_stack_obj.length, slc_stack_obj.width), dtype=np.float32)
+    num_ifgs = ifg_array.shape[0]
+
+    ### open siblings file ####
+    siblings_obj = BaseStack(file=path_siblings, logger=logger)
+    siblings = siblings_obj.open(dataset_name="siblings")
+    _, _, anchor_ra, anchor_az = siblings.shape
+    del siblings
+
+    for idx in range(num_boxes):
+        bbox = box_list[idx]
+        block2d = convertBboxToBlock(bbox=bbox)
+        block2d_anchored, bbox_anchored = convertBboxWithAnchorToBlock(bbox=bbox, length=slc_stack_obj.length, width=slc_stack_obj.width,
+                                               anchor_azimuth=anchor_az, anchor_range=anchor_ra)
+
+        # read slc
+        slc = slc_stack_obj.read(datasetName='slc', box=bbox, print_msg=False)
+        slc = slc[time_mask, :, :]
+
+        mean_amp = np.mean(np.abs(slc), axis=0)
+        mean_amp[mean_amp == 0] = np.nan
+        mean_amp_img[bbox[1]:bbox[3], bbox[0]:bbox[2]] = np.log10(mean_amp)
+
+        # compute ifgs block
+        ifgs = computeIfgs(slc=slc, ifg_array=ifg_array)
+        ifg_stack_obj.writeToFileBlock(data=ifgs, dataset_name="ifgs", block=block2d, print_msg=False)
+        del slc
+
+        # compute ifgs anchored block
+        slc_anchored = slc_stack_obj.read(datasetName='slc', box=bbox_anchored, print_msg=False)
+        slc_anchored = slc_anchored[time_mask, :, :]
+        ifgs_anchored = computeIfgs(slc=slc_anchored, ifg_array=ifg_array)
+
+        # filter ifgs
+        avg_neighbours = np.zeros_like(ifgs)
+
+        # open siblings
+        siblings = siblings_obj.read(dataset_name="siblings", box=bbox)
+
+        # FILTER IFGS WITH SIBLINGS
+        for row, col in np.ndindex(ifgs[:,:,0].shape):
+            sibling_kernel = siblings[row, col]
+            # Exclude anchor pixel
+            sibling_kernel[anchor_ra // 2, anchor_az // 2] = False
+            sibling_ifgs = ifgs_anchored[sibling_kernel, :]
+            avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
+            pdb.set_trace()
+
+        # compute temporal coherence
+        residual_phase = np.angle(ifgs * np.conjugate(avg_neighbours))
+        del ifgs, avg_neighbours
+        temp_coh = np.abs(np.mean(np.exp(1j * residual_phase), axis=2))
+        temp_coh_obj.writeToFileBlock(data=temp_coh, dataset_name="temp_coh", block=block2d, print_msg=False)
+        del residual_phase, temp_coh
         logger.info(msg="Patches processed:\t {}/{}".format(idx + 1, num_boxes))
 
     m, s = divmod(time.time() - start_time, 60)

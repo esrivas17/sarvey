@@ -49,7 +49,7 @@ from sarvey.objects import Network, Points, AmplitudeImage, CoordinatesUTM, Netw
 from sarvey.unwrapping import *
 from sarvey.preparation import createArcsBetweenPoints, selectPixels, createTimeMaskFromDates, createConstraintArcsBetweenPoints, selectPixelsWithADIandTCOH
 import sarvey.utils as ut
-from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_UnevenTemporalCoherence, computeIfgsStack
+from sarvey.coherence import computeIfgsAndTemporalCoherence, computeIfgs_And_UnevenTemporalCoherence, computeIfgsStack, computeIfgsAndAdaptiveTemporalCoherence
 from sarvey.triangulation import PointNetworkTriangulation, HeightTriangulation
 from sarvey.config import Config
 from sarvey.unwrapping_1d import temporalUnwrapping_demerr
@@ -187,6 +187,23 @@ class Processing:
             dshape = (slc_stack_obj.length, slc_stack_obj.width)
             temp_coh_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
                                         dshape=dshape, dtype=np.float32, mode="w", chunks=True)
+            
+            ######### test temporal cohrence with siblings #
+            if self.config.general.temporal_coherence_with_shp:
+                log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH SIBLINGS")
+                mean_amp_img = computeIfgsAndAdaptiveTemporalCoherence(
+                                    path_temp_coh=join(self.path, "temporal_coherence.h5"),
+                                    path_ifgs=join(self.path, "ifg_stack.h5"),
+                                    path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                                    ifg_array=np.array(ifg_net_obj.ifg_list),
+                                    time_mask=time_mask,
+                                    wsize_range=self.config.preparation.filter_winsize_range,
+                                    wsize_azi=self.config.preparation.filter_winsize_azimuth,
+                                    num_boxes=num_patches,
+                                    box_list=box_list,
+                                    num_cores=self.config.general.num_cores,
+                                    logger=log)
+            #### end of test #######
 
             if self.config.preparation.uneven_kernel_tempcoh:
                 log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
