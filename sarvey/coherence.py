@@ -370,7 +370,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
 
     ### open siblings file ####
     siblings_obj = BaseStack(file=path_siblings, logger=logger)
-    siblings = siblings_obj.open(dataset_name="siblings")
+    siblings = siblings_obj.read(dataset_name="siblings")
     _, _, anchor_ra, anchor_az = siblings.shape
     del siblings
 
