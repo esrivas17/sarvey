@@ -418,7 +418,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                 r1 = max(0, row-pad_rg)
                 r2 = min(row+pad_rg, patch_width)
                 c1 = max(0, col-pad_az)
-                c2 = max(col+pad_rg, patch_length)
+                c2 = min(col+pad_rg, patch_length)
                 ifgs_selected = ifgs_anchored[r1:r2,c1:c2, :]
                 sibling_ifgs = ifgs_selected[sibling_kernel,:]
                 avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
