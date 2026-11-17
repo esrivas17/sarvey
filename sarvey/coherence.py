@@ -397,20 +397,31 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         slc_anchored = slc_stack_obj.read(datasetName='slc', box=bbox_anchored, print_msg=False)
         slc_anchored = slc_anchored[time_mask, :, :]
         ifgs_anchored = computeIfgs(slc=slc_anchored, ifg_array=ifg_array)
+        patch_length, patch_width, _ = ifgs_anchored.shape
 
         # filter ifgs
         avg_neighbours = np.zeros_like(ifgs)
 
         # open siblings
         siblings = siblings_obj.read(dataset_name="siblings", box=bbox)
+        pad_rg = anchor_ra // 2
+        pad_az = anchor_az // 2
 
         # FILTER IFGS WITH SIBLINGS
         for row, col in np.ndindex(ifgs[:,:,0].shape):
             sibling_kernel = siblings[row, col]
             # Exclude anchor pixel
-            sibling_kernel[anchor_ra // 2, anchor_az // 2] = False
-            sibling_ifgs = ifgs_anchored[sibling_kernel, :]
-            avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
+            sibling_kernel[pad_rg, pad_az] = False
+            if sibling_kernel.sum() < 1:
+                avg_neighbours[row, col, :] = 0
+            else:
+                r1 = max(0, row-pad_rg)
+                r2 = min(row+pad_rg, patch_width)
+                c1 = max(0, col-pad_az)
+                c2 = max(col+pad_rg, patch_length)
+                ifgs_selected = ifgs_anchored[r1:r2,c1:c2, :]
+                sibling_ifgs = ifgs_selected[sibling_kernel,:]
+                avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
             pdb.set_trace()
 
         # compute temporal coherence
