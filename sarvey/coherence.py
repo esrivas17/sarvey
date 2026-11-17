@@ -431,23 +431,29 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad),(leftpad,rightpad), (0,0)), mode='reflect')
 
         # FILTER IFGS WITH SIBLINGS
-        r1 = pad_az
-        r2 = ifgs_anchored.shape[1]-pad_az
-        c1 = pad_rg
-        c2 = ifgs_anchored.shape[0]-pad_rg
+        rp1 = pad_az
+        rp2 = ifgs_anchored.shape[1]-pad_az
+        cp1 = pad_rg
+        cp2 = ifgs_anchored.shape[0]-pad_rg
+        
+        # without padding
+        r1 = 0
+        r2 = ifgs.shape[1]
+        c1 = 0
+        c2 = ifgs.shape[0]
 
-        for row in range(r1, r2):
-            for col in range(c1, c2):
+        for row, rowp in zip(range(r1, r2), range(rp1, rp2)):
+            for col, colp in zip(range(c1, c2), range(cp1, cp2)):
                 sibling_kernel = siblings[row, col]
                 # Exclude anchor pixel
                 sibling_kernel[pad_rg, pad_az] = False
                 if sibling_kernel.sum() < 1:
                     avg_neighbours[row, col, :] = 0
                 else:
-                    x1 = max(0, row-pad_rg)
-                    x2 = min(row+pad_rg, patch_width)
-                    y1 = max(0, col-pad_az)
-                    y2 = min(col+pad_rg, patch_length)
+                    x1 = max(0, rowp  -pad_rg)
+                    x2 = min(rowp + pad_rg, patch_width)
+                    y1 = max(0, colp - pad_az)
+                    y2 = min(colp + pad_rg, patch_length)
                     ifgs_selected = ifgs_anchored[x1:x2+1,y1:y2+1, :]
                     sibling_ifgs = ifgs_selected[sibling_kernel,:]
                     avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
