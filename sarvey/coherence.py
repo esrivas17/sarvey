@@ -444,7 +444,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
 
         for row, rowp in zip(range(ifgs.shape[0]), range(pad_rg, pad_rg + ifgs.shape[0])):
             for col, colp in zip(range(ifgs.shape[1]), range(pad_az, pad_az + ifgs.shape[1])):
-                sibling_kernel = siblings[col, row].copy()
+                sibling_kernel = siblings[row, col].copy()
                 # Exclude anchor pixel
                 sibling_kernel[pad_rg, pad_az] = False
                 if not np.any(sibling_kernel):
@@ -454,7 +454,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                 ifgs_selected = ifgs_anchored[rowp-pad_rg:rowp+pad_rg+1, colp-pad_az:colp+pad_az+1, :]
                 assert ifgs_selected.shape[0:2] == sibling_kernel.shape
                 sibling_ifgs = ifgs_selected[sibling_kernel,:]
-                avg_neighbours[col, row, :] =  np.mean(sibling_ifgs, axis=0)
+                avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
         pdb.set_trace()
 
         # compute temporal coherence
