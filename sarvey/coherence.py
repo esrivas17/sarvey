@@ -430,7 +430,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         c1 = 0
         c2 = ifgs.shape[0]
 
-        for row, rowp in zip(range(ifgs.shape[0]), range(pad_rg, pad_rg + ifgs.shape[0])+1):
+        for row, rowp in zip(range(ifgs.shape[0]), range(pad_rg, pad_rg + ifgs.shape[0]+1)):
             for col, colp in zip(range(ifgs.shape[1]), range(pad_az, pad_az + ifgs.shape[1]+1)):
                 sibling_kernel = siblings[row, col].copy()
                 # Exclude anchor pixel
