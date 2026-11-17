@@ -407,8 +407,36 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         pad_rg = anchor_ra // 2
         pad_az = anchor_az // 2
 
+        # padding
+        if block2d[0] == 0:
+            leftpad = pad_az
+        else:
+            leftpad = 0
+
+        if block2d[1] == slc_stack_obj.length:
+            rightpad = pad_az
+        else:
+            rightpad = 0
+
+        if block2d[2] == 0:
+            toppad = pad_rg
+        else:
+            toppad = 0
+
+        if block2d[3] == slc_stack_obj.width:
+            bottompad = pad_rg
+        else:
+            bottompad = 0
+
+        ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad),(leftpad,rightpad)), mode='reflect')
+
         # FILTER IFGS WITH SIBLINGS
-        for row, col in np.ndindex(ifgs[:,:,0].shape):
+        r1 = pad_az
+        r2 = ifgs_anchored.shape[1]-pad_az
+        c1 = pad_rg
+        c2 = ifgs_anchored.shape[0]-pad_rg
+
+        for row, col in np.ndindex(ifgs_anchored[r1:r2,c1:c2,0].shape):
             sibling_kernel = siblings[row, col]
             # Exclude anchor pixel
             sibling_kernel[pad_rg, pad_az] = False
