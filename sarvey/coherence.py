@@ -428,7 +428,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         else:
             bottompad = 0
 
-        ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad),(leftpad,rightpad), (0,0)), mode='reflect')
+        ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad+1),(leftpad,rightpad+1), (0,0)), mode='reflect')
 
         # FILTER IFGS WITH SIBLINGS
         rp1 = pad_az
