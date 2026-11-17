@@ -436,21 +436,22 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         c1 = pad_rg
         c2 = ifgs_anchored.shape[0]-pad_rg
 
-        for row, col in np.ndindex(ifgs_anchored[r1:r2,c1:c2,0].shape):
-            sibling_kernel = siblings[row, col]
-            # Exclude anchor pixel
-            sibling_kernel[pad_rg, pad_az] = False
-            if sibling_kernel.sum() < 1:
-                avg_neighbours[row, col, :] = 0
-            else:
-                r1 = max(0, row-pad_rg)
-                r2 = min(row+pad_rg, patch_width)
-                c1 = max(0, col-pad_az)
-                c2 = min(col+pad_rg, patch_length)
-                ifgs_selected = ifgs_anchored[r1:r2,c1:c2, :]
-                sibling_ifgs = ifgs_selected[sibling_kernel,:]
-                avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
-            pdb.set_trace()
+        for row in range(r1, r2):
+            for col in range(c1, c2):
+                sibling_kernel = siblings[row, col]
+                # Exclude anchor pixel
+                sibling_kernel[pad_rg, pad_az] = False
+                if sibling_kernel.sum() < 1:
+                    avg_neighbours[row, col, :] = 0
+                else:
+                    r1 = max(0, row-pad_rg)
+                    r2 = min(row+pad_rg, patch_width)
+                    c1 = max(0, col-pad_az)
+                    c2 = min(col+pad_rg, patch_length)
+                    ifgs_selected = ifgs_anchored[r1:r2,c1:c2, :]
+                    sibling_ifgs = ifgs_selected[sibling_kernel,:]
+                    avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
+                pdb.set_trace()
 
         # compute temporal coherence
         residual_phase = np.angle(ifgs * np.conjugate(avg_neighbours))
