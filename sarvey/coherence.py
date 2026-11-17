@@ -409,7 +409,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
 
         # Padding in the range (row) dimension
         toppad = pad_rg if block2d[0] == 0 else 0
-        bottompad = pad_rg if block2d[1] == slc_stack_obj.length else 0
+        bottompad = pad_rg+1 if block2d[1] == slc_stack_obj.length else 0
 
         # Padding in the azimuth (column) dimension
         leftpad = pad_az if block2d[2] == 0 else 0

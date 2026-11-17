@@ -57,9 +57,9 @@ def convertBboxWithAnchorToBlock(*, bbox: tuple, length: int, width:int, anchor_
     block = None
     if len(bbox) == 4:
         bbox1 = max(bbox[1]-(anchor_azimuth//2), 0)
-        bbox2 = min(bbox[3]+(anchor_azimuth//2), width)
+        bbox2 = min(bbox[3]+(anchor_azimuth//2)+1, width)
         bbox3 = max(bbox[0]-(anchor_range//2), 0)
-        bbox4 = min(bbox[2]+(anchor_range//2), length)
+        bbox4 = min(bbox[2]+(anchor_range//2)+1, length)
         block = (bbox1, bbox2, bbox3, bbox4)
         nbbox = (bbox3, bbox1, bbox4, bbox2)
     else:
