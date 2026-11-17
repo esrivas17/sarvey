@@ -190,6 +190,11 @@ class Processing:
             
             ######### test temporal cohrence with siblings #
             if self.config.general.temporal_coherence_with_shp:
+                # create placeholder in result file for datasets which are stored patch-wise
+                temp_coh_adap_obj = BaseStack(file=join(self.path, "temporal_coherence_adaptive.h5"), logger=log)
+                dshape = (slc_stack_obj.length, slc_stack_obj.width)
+                temp_coh_adap_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
+                                            dshape=dshape, dtype=np.float32, mode="w", chunks=True)
                 log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH SIBLINGS")
                 mean_amp_img = computeIfgsAndAdaptiveTemporalCoherence(
                                     path_temp_coh=join(self.path, "temporal_coherence_adaptive.h5"),
