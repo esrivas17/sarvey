@@ -416,6 +416,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         rightpad = pad_az if block2d[3] == slc_stack_obj.width else 0
 
         ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad),(leftpad,rightpad), (0,0)), mode='reflect')
+        print(f"top: {toppad} bottom: {bottompad} left: {leftpad} right: {rightpad} bbox: {bbox}")
 
         # FILTER IFGS WITH SIBLINGS
         rp1 = pad_az
@@ -440,7 +441,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                 # Extract exactly the kernel-sized spatial window
                 ifgs_selected = ifgs_anchored[rowp-pad_rg:rowp+pad_rg+1, colp-pad_az:colp+pad_az+1, :]
                 info= f"sibling_kernel: {sibling_kernel.shape}, ifgs_selected: {ifgs_selected.shape} row rowp col colp: {row, rowp, col, colp} ifgs_anchored: {ifgs_anchored.shape}"
-                print(info)
+                #print(info)
                 assert ifgs_selected.shape[0:2] == sibling_kernel.shape, f"sibling_kernel: {sibling_kernel.shape}, ifgs_selected: {ifgs_selected.shape} row rowp col colp: {row, rowp, col, colp}"
                 sibling_ifgs = ifgs_selected[sibling_kernel,:]
                 avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
