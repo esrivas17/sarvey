@@ -407,28 +407,15 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         pad_rg = anchor_ra // 2
         pad_az = anchor_az // 2
 
-        # padding
-        if block2d[0] == 0:
-            leftpad = pad_az
-        else:
-            leftpad = 0
+        # Padding in the range (row) dimension
+        toppad = pad_rg if block2d[0] == 0 else 0
+        bottompad = pad_rg if block2d[1] == slc_stack_obj.length else 0
 
-        if block2d[1] == slc_stack_obj.length:
-            rightpad = pad_az
-        else:
-            rightpad = 0
+        # Padding in the azimuth (column) dimension
+        leftpad = pad_az if block2d[2] == 0 else 0
+        rightpad = pad_az if block2d[3] == slc_stack_obj.width else 0
 
-        if block2d[2] == 0:
-            toppad = pad_rg
-        else:
-            toppad = 0
-
-        if block2d[3] == slc_stack_obj.width:
-            bottompad = pad_rg
-        else:
-            bottompad = 0
-
-        ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad+1),(leftpad,rightpad+1), (0,0)), mode='reflect')
+        ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad),(leftpad,rightpad), (0,0)), mode='reflect')
 
         # FILTER IFGS WITH SIBLINGS
         rp1 = pad_az
