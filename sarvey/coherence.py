@@ -455,7 +455,6 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                 assert ifgs_selected.shape[0:2] == sibling_kernel.shape
                 sibling_ifgs = ifgs_selected[sibling_kernel,:]
                 avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
-        pdb.set_trace()
 
         # compute temporal coherence
         residual_phase = np.angle(ifgs * np.conjugate(avg_neighbours))

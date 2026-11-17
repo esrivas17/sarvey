@@ -192,7 +192,7 @@ class Processing:
             if self.config.general.temporal_coherence_with_shp:
                 log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH SIBLINGS")
                 mean_amp_img = computeIfgsAndAdaptiveTemporalCoherence(
-                                    path_temp_coh=join(self.path, "temporal_coherence.h5"),
+                                    path_temp_coh=join(self.path, "temporal_coherence_adaptive.h5"),
                                     path_ifgs=join(self.path, "ifg_stack.h5"),
                                     path_slc=join(self.config.general.input_path, "slcStack.h5"),
                                     path_siblings=self.config.general.siblings_file,
@@ -202,6 +202,7 @@ class Processing:
                                     box_list=box_list,
                                     num_cores=self.config.general.num_cores,
                                     logger=log)
+                pdb.set_trace()
             #### end of test #######
 
             if self.config.preparation.uneven_kernel_tempcoh:
