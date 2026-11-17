@@ -439,7 +439,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                     continue
                 # Extract exactly the kernel-sized spatial window
                 ifgs_selected = ifgs_anchored[rowp-pad_rg:rowp+pad_rg+1, colp-pad_az:colp+pad_az+1, :]
-                info= f"sibling_kernel: {sibling_kernel.shape}, ifgs_selected: {ifgs_selected.shape} row rowp col colp: {row, rowp, col, colp}"
+                info= f"sibling_kernel: {sibling_kernel.shape}, ifgs_selected: {ifgs_selected.shape} row rowp col colp: {row, rowp, col, colp} ifgs_anchored: {ifgs_anchored.shape}"
                 print(info)
                 assert ifgs_selected.shape[0:2] == sibling_kernel.shape, f"sibling_kernel: {sibling_kernel.shape}, ifgs_selected: {ifgs_selected.shape} row rowp col colp: {row, rowp, col, colp}"
                 sibling_ifgs = ifgs_selected[sibling_kernel,:]
