@@ -444,11 +444,11 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                 if sibling_kernel.sum() < 1:
                     avg_neighbours[row, col, :] = 0
                 else:
-                    r1 = max(0, row-pad_rg)
-                    r2 = min(row+pad_rg, patch_width)
-                    c1 = max(0, col-pad_az)
-                    c2 = min(col+pad_rg, patch_length)
-                    ifgs_selected = ifgs_anchored[r1:r2,c1:c2, :]
+                    x1 = max(0, row-pad_rg)
+                    x2 = min(row+pad_rg, patch_width)
+                    y1 = max(0, col-pad_az)
+                    y2 = min(col+pad_rg, patch_length)
+                    ifgs_selected = ifgs_anchored[x1:x2+1,y1:y2+1, :]
                     sibling_ifgs = ifgs_selected[sibling_kernel,:]
                     avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
                 pdb.set_trace()
