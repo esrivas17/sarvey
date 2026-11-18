@@ -221,10 +221,9 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         unit = "Temporal\nCoherence [ ]"
         cmap = "lajolla"
         logger.info(f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
-        
-    elif selection_method == "temp_coh_siblings":
 
-        tcoh_file = join(path, "adaptive_temporal_coherence.h5")
+    elif selection_method == "temp_coh_siblings":
+        tcoh_file = join(path, "temporal_coherence_adaptive.h5")
         logger.debug(f"Reading adaptive temporal coherence file: {tcoh_file}")
         temp_coh_obj = BaseStack(file=tcoh_file, logger=logger)
         quality = temp_coh_obj.read(dataset_name="temp_coh")
