@@ -57,7 +57,7 @@ class IfgNetwork:
 
     def plot(self):
         """Plot the network of interferograms."""
-        fig = plt.figure(figsize=(15, 5))
+        fig = plt.figure(figsize=(17, 5))
         axs = fig.subplots(1, 4)
         dt = [datetime.date.fromisoformat(d) for d in self.dates]
         axs[0].plot(dt, self.pbase, 'ko')
@@ -75,11 +75,9 @@ class IfgNetwork:
         axs[1].set_xlabel('temporal baseline [days]')
 
         axs[2].hist(self.pbase_ifg, bins=100)
-        axs[2].set_ylabel('Absolute frequency')
         axs[2].set_xlabel('perpendicular baseline [m]')
 
         axs[3].hist(self.temperatures_ifg, bins=100)
-        axs[3].set_ylabel('Absolute frequency')
         axs[3].set_xlabel('Temperature baseline [°C]')
         
         return fig
