@@ -79,7 +79,7 @@ class IfgNetwork:
 
         axs[3].hist(self.temperatures_ifg, bins=100)
         axs[3].set_xlabel('Temperature baseline [°C]')
-        
+        fig.tight_layout(pad=0.5, w_pad=0.8)
         return fig
 
     def getDesignMatrix(self):
