@@ -113,6 +113,9 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
     if config.general.quality_selection_method == 'tcoh':
         required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",
                       "temporal_coherence.h5"]
+    elif config.general.quality_selection_method == 'tcoh_siblings':
+        required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",
+                              "temporal_coherence_adaptive.h5"]
     elif config.general.quality_selection_method == 'adi':
         required_files = ["background_map.h5", "coordinates_utm.h5", "ifg_network.h5", "ifg_stack.h5",]
     elif config.general.quality_selection_method == 'both':
@@ -170,7 +173,7 @@ def run(*, config: Config, args: argparse.Namespace, logger: Logger):
         m, s = divmod(time.time() - start_time_step, 60)
         logger.info(f"Finished step 3 FILTERING normally in {m:02.0f} mins {s:02.1f} secs.")
 
-    if config.general.quality_selection_method == 'tcoh':
+    if config.general.quality_selection_method == 'tcoh' or config.general.quality_selection_method=="tcoh_siblings":
         proxy_value = int(config.filtering.coherence_p2 * 100)
         proxy_id = f"coh{proxy_value}"
     elif config.general.quality_selection_method == 'adi':
