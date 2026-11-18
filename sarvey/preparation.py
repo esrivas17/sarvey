@@ -221,6 +221,21 @@ def selectPixels(*, path: str, selection_method: str, thrsh: float,
         unit = "Temporal\nCoherence [ ]"
         cmap = "lajolla"
         logger.info(f"Number of selected pixels using {thrsh:.2f} temporal coherence threshold: {np.sum(cand_mask)}")
+        
+    elif selection_method == "temp_coh_siblings":
+
+        tcoh_file = join(path, "adaptive_temporal_coherence.h5")
+        logger.debug(f"Reading adaptive temporal coherence file: {tcoh_file}")
+        temp_coh_obj = BaseStack(file=tcoh_file, logger=logger)
+        quality = temp_coh_obj.read(dataset_name="temp_coh")
+        logger.debug(f"[Min, Max] of all temporal coherence pixels: [{np.min(quality):.2f}, {np.max(quality):.2f}].)")
+        logger.debug(f"[Min, Max] of all temporal coherence pixels excluding invalid values: "
+                        f"[{np.nanmin(quality):.2f}, {np.nanmax(quality):.2f}].)")
+        cand_mask = quality >= thrsh
+        grid_min_val = False
+        unit = "Temporal\nCoherence [ ]"
+        cmap = "lajolla"
+        logger.info(f"Number of selected pixels using {thrsh:.2f} adaptive temporal coherence threshold: {np.sum(cand_mask)}")
 
     elif selection_method == "miaplpy":
         error_msg = "This part is not developed yet. MiaplPy data is read in another way."

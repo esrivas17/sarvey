@@ -188,28 +188,6 @@ class Processing:
             temp_coh_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
                                         dshape=dshape, dtype=np.float32, mode="w", chunks=True)
             
-            ######### test temporal cohrence with siblings #
-            if self.config.general.temporal_coherence_with_shp:
-                # create placeholder in result file for datasets which are stored patch-wise
-                temp_coh_adap_obj = BaseStack(file=join(self.path, "temporal_coherence_adaptive.h5"), logger=log)
-                dshape = (slc_stack_obj.length, slc_stack_obj.width)
-                temp_coh_adap_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
-                                            dshape=dshape, dtype=np.float32, mode="w", chunks=True)
-                log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH SIBLINGS")
-                mean_amp_img = computeIfgsAndAdaptiveTemporalCoherence(
-                                    path_temp_coh=join(self.path, "temporal_coherence_adaptive.h5"),
-                                    path_ifgs=join(self.path, "ifg_stack.h5"),
-                                    path_slc=join(self.config.general.input_path, "slcStack.h5"),
-                                    path_siblings=self.config.general.siblings_file,
-                                    ifg_array=np.array(ifg_net_obj.ifg_list),
-                                    time_mask=time_mask,
-                                    num_boxes=num_patches,
-                                    box_list=box_list,
-                                    num_cores=self.config.general.num_cores,
-                                    logger=log)
-                pdb.set_trace()
-            #### end of test #######
-
             if self.config.preparation.uneven_kernel_tempcoh:
                 log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH UNEVEN KERNEL: Rg {self.config.preparation.filter_winsize_range}, Az: {self.config.preparation.filter_winsize_azimuth}")
                 mean_amp_img = computeIfgs_And_UnevenTemporalCoherence(
@@ -303,6 +281,51 @@ class Processing:
             fig.savefig(join(self.path, "pic", "step_0_amplitude_dispersion.png"), dpi=300)
             plt.close(fig)
 
+        elif self.config.general.quality_selection_method == 'tcoh_siblings':
+            msg = "#" * 10
+            msg += f" GENERATE STACK OF {ifg_net_obj.num_ifgs} INTERFEROGRAMS AND ESTIMATE ADAPTIVE TEMPORAL COHERENCE"
+            msg += "#" * 10
+            log.info(msg=msg)
+            
+            # create placeholder in result file for datasets which are stored patch-wise
+            dshape = (slc_stack_obj.length, slc_stack_obj.width, ifg_net_obj.num_ifgs)
+            ifg_stack_obj = BaseStack(file=join(self.path, "ifg_stack.h5"), logger=log)
+            ifg_stack_obj.prepareDataset(dataset_name="ifgs", dshape=dshape, dtype=np.csingle,
+                                        metadata=slc_stack_obj.metadata, mode='w', chunks=(30, 30, ifg_net_obj.num_ifgs))
+
+            ######### TEMPORAL COHERENCE WITH SIBLINGS #######
+            if self.config.general.temporal_coherence_with_shp:
+                # create placeholder in result file for datasets which are stored patch-wise
+                temp_coh_adap_obj = BaseStack(file=join(self.path, "temporal_coherence_adaptive.h5"), logger=log)
+                dshape = (slc_stack_obj.length, slc_stack_obj.width)
+                temp_coh_adap_obj.prepareDataset(dataset_name="temp_coh", metadata=slc_stack_obj.metadata,
+                                            dshape=dshape, dtype=np.float32, mode="w", chunks=True)
+                log.info(msg=f"ESTIMATING TEMPORAL COHERENCE WITH SIBLINGS")
+                mean_amp_img = computeIfgsAndAdaptiveTemporalCoherence(
+                                    path_temp_coh=join(self.path, "temporal_coherence_adaptive.h5"),
+                                    path_ifgs=join(self.path, "ifg_stack.h5"),
+                                    path_slc=join(self.config.general.input_path, "slcStack.h5"),
+                                    path_siblings=self.config.general.siblings_file,
+                                    ifg_array=np.array(ifg_net_obj.ifg_list),
+                                    time_mask=time_mask,
+                                    num_boxes=num_patches,
+                                    box_list=box_list,
+                                    num_cores=self.config.general.num_cores,
+                                    logger=log)
+            ######## ADAPTIVE TEMPORAL COHERENCE ##########
+            temp_coh = temp_coh_adap_obj.read(dataset_name="temp_coh")
+            
+            fig = plt.figure(figsize=(self.config.general.plotwidth, self.config.general.plotheight), constrained_layout=True)
+            ax = fig.add_subplot()
+            im = ax.imshow(temp_coh, cmap=cmc.cm.cmaps["grayC"], vmin=0, vmax=1, aspect='auto')
+            auto_flip_direction(slc_stack_obj.metadata, ax=ax, print_msg=True)
+            ax.set_xlabel("Range")
+            ax.set_ylabel("Azimuth")
+            plt.colorbar(im, pad=0.03, shrink=0.5)
+            plt.title("Adaptive Temporal coherence")
+            #plt.tight_layout()
+            fig.savefig(join(self.path, "pic", "step_0_adaptive_temporal_phase_coherence.png"), dpi=300)
+            plt.close(fig)
 
         # store auxilliary datasets for faster access during processing
         coord_utm_obj = CoordinatesUTM(file_path=join(self.path, "coordinates_utm.h5"), logger=self.logger)
@@ -328,7 +351,6 @@ class Processing:
         ############ selection of first-order points ###########
 
         if self.config.general.quality_selection_method == 'tcoh':
-
             cand_mask1 = selectPixels(
                 path=self.path, selection_method="temp_coh", thrsh=self.config.consistency_check.coherence_p1,
                 grid_size=self.config.consistency_check.grid_size, bool_plot=True,
@@ -343,6 +365,12 @@ class Processing:
                 path=self.path, selection_method="adi", thrsh=self.config.consistency_check.adi_p1,
                 grid_size=self.config.consistency_check.grid_size, bool_plot=True,
                 plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
+
+        elif self.config.general.quality_selection_method == 'tcoh_siblings':
+            cand_mask1 = selectPixels(
+                    path=self.path, selection_method="temp_coh_siblings", thrsh=self.config.consistency_check.coherence_p1,
+                    grid_size=self.config.consistency_check.grid_size, bool_plot=True,
+                    plotwidth=self.config.general.plotwidth, plotheight=self.config.general.plotheight, logger=self.logger)
 
         elif self.config.general.quality_selection_method == 'both':
             if os.path.isfile(self.config.general.adi_path):

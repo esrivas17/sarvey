@@ -354,10 +354,10 @@ def computeIfgsStack(*, path_ifgs: str, path_slc: str, ifg_array: np.ndarray,
     logger.debug(msg='\ntime used: {:02.0f} mins {:02.1f} secs.\n'.format(m, s))
     return mean_amp_img
 
+
 def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: str, path_slc: str, path_siblings: str,
                                              ifg_array: np.ndarray, time_mask: np.ndarray, num_boxes: int, 
                                              box_list: list, num_cores: int, logger: Logger):
-    import pdb
     start_time = time.time()
 
     slc_stack_obj = slcStack(path_slc)
@@ -416,19 +416,6 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
         rightpad = pad_az+1 if block2d[3] == slc_stack_obj.width else 0
 
         ifgs_anchored = np.pad(ifgs_anchored, ((toppad, bottompad),(leftpad,rightpad), (0,0)), mode='reflect')
-        print(f"top: {toppad} bottom: {bottompad} left: {leftpad} right: {rightpad} bbox: {bbox}")
-
-        # FILTER IFGS WITH SIBLINGS
-        rp1 = pad_az
-        rp2 = ifgs_anchored.shape[1]-pad_az
-        cp1 = pad_rg
-        cp2 = ifgs_anchored.shape[0]-pad_rg
-        
-        # without padding
-        r1 = 0
-        r2 = ifgs.shape[1]
-        c1 = 0
-        c2 = ifgs.shape[0]
 
         for row, rowp in zip(range(ifgs.shape[0]), range(pad_rg, pad_rg + ifgs.shape[0]+1)):
             for col, colp in zip(range(ifgs.shape[1]), range(pad_az, pad_az + ifgs.shape[1]+1)):
@@ -441,7 +428,7 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                 # Extract exactly the kernel-sized spatial window
                 ifgs_selected = ifgs_anchored[rowp-pad_rg:rowp+pad_rg+1, colp-pad_az:colp+pad_az+1, :]
                 info= f"sibling_kernel: {sibling_kernel.shape}, ifgs_selected: {ifgs_selected.shape} row rowp col colp: {row, rowp, col, colp} ifgs_anchored: {ifgs_anchored.shape}"
-                print(info)
+                #print(info)
                 assert ifgs_selected.shape[0:2] == sibling_kernel.shape, f"ifgs_selected: {ifgs_selected.shape}, row rowp col colp: {row, rowp, col, colp}"
                 sibling_ifgs = ifgs_selected[sibling_kernel,:]
                 avg_neighbours[row, col, :] =  np.mean(sibling_ifgs, axis=0)
