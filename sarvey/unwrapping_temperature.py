@@ -494,25 +494,7 @@ def oneDimSearchTemporalCoherence_3variables_coarse(*, demerr_range: np.ndarray,
 
 def oneDimSearchTemporalCoherence_3variables(*, demerr_range: np.ndarray, vel_range: np.ndarray, tcoef_range: np.ndarray, obs_phase: np.ndarray,
                                   design_mat: np.ndarray):
-    """One dimensional search for maximum temporal coherence that fits the observed arc phase.
 
-    Parameters
-    ----------
-    demerr_range: np.ndarray
-        Search space for the DEM error in a 1D grid.
-    vel_range: np.ndarray
-        Search space for the velocity in a 1D grid.
-    design_mat: np.ndarray
-        Design matrix for estimating parameters from arc phase.
-    obs_phase: np.ndarray
-        Observed phase of the arc.
-
-    Returns
-    -------
-    demerr: float
-    vel: float
-    gamma: float
-    """
     demerr, gamma_demerr, pred_phase_demerr = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 0],val_range=demerr_range)
     vel, gamma_vel, pred_phase_vel = findOptimum(obs_phase=obs_phase,design_mat=design_mat[:, 1],val_range=vel_range)
     tcoef, gamma_tcoef, pred_phase_tcoef = findOptimum(obs_phase=obs_phase, design_mat=design_mat[:, 2], val_range=tcoef_range)

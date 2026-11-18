@@ -359,7 +359,6 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
                                              ifg_array: np.ndarray, time_mask: np.ndarray, num_boxes: int, 
                                              box_list: list, num_cores: int, logger: Logger):
     start_time = time.time()
-
     slc_stack_obj = slcStack(path_slc)
     slc_stack_obj.open()
     temp_coh_obj = BaseStack(file=path_temp_coh, logger=logger)
@@ -377,8 +376,9 @@ def computeIfgsAndAdaptiveTemporalCoherence(*, path_temp_coh: str, path_ifgs: st
     for idx in range(num_boxes):
         bbox = box_list[idx]
         block2d = convertBboxToBlock(bbox=bbox)
-        block2d_anchored, bbox_anchored = convertBboxWithAnchorToBlock(bbox=bbox, length=slc_stack_obj.length, width=slc_stack_obj.width,
-                                               anchor_azimuth=anchor_az, anchor_range=anchor_ra)
+        block2d_anchored, bbox_anchored = convertBboxWithAnchorToBlock(bbox=bbox, length=slc_stack_obj.length, 
+                                                                       width=slc_stack_obj.width, anchor_azimuth=anchor_az, 
+                                                                       anchor_range=anchor_ra)
 
         # read slc
         slc = slc_stack_obj.read(datasetName='slc', box=bbox, print_msg=False)

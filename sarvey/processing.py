@@ -410,7 +410,6 @@ class Processing:
         sc = ax.scatter(coord_xy[:, 1], coord_xy[:, 0], c=val[cand_mask1], s=1, cmap=cmc.cm.cmaps["lajolla_r"],
                         vmin=1, vmax=2)  # set min, max to ensure that points are yellow
         fig.set_constrained_layout(True)
-        #plt.tight_layout()
         plt.title("Mask for first order point set")
         fig.savefig(join(self.path, "pic", "step_1_mask_p1.png"), dpi=300)
         plt.close(fig)
