@@ -73,7 +73,6 @@ def main():
     tcoefbound = args.tcoefbound
     num_samples = args.numsamples
 
-
     logger = Logger("log")
     point_obj = Points(file_path=pointspath, logger=logger)
     point_obj.open(input_path=inputpath)
@@ -122,7 +121,7 @@ def main():
     pred_phase_vel = factor * tb_ifg * vel
     pred_phase_tcoef = factor * te_ifg * tcoef
 
-    print(f"Estimated parameter: DEM error {demerr}, velocity: {vel}, thermal coefficient: {tcoef}, gamma: {gamma}")
+    print(f"Estimated parameters: \nElevation (m) {demerr}, velocity (mm/yr): {vel*1000}, thermal coefficient (mm/°C): {tcoef*1000:.4f}, gamma: {gamma:.3f}")
     #print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
 
     
@@ -217,7 +216,6 @@ def main():
     axes[3, 1].grid(True, alpha=0.3)
     axes[3, 1].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{TCoef} + \phi_{Vel})$', transform=axes[3, 1].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
 
     # Column 3: Temperature baseline
     # Row 1: Raw phase
