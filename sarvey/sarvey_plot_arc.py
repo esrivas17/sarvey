@@ -121,7 +121,7 @@ def main():
     pred_phase_vel = factor * tb_ifg * vel
     pred_phase_tcoef = factor * te_ifg * tcoef
 
-    print(f"Estimated parameters: \nElevation (m) {demerr}, velocity (mm/yr): {vel*1000}, thermal coefficient (mm/°C): {tcoef*1000:.4f}, gamma: {gamma:.3f}")
+    print(f"Estimated parameters: \nElevation (m) {demerr:.3f}, velocity (mm/yr): {vel*1000:.2f}, thermal coefficient (mm/°C): {tcoef*1000:.3f}, Coherence: {gamma:.3f}")
     #print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
 
     
