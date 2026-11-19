@@ -35,7 +35,6 @@ from os.path import join, basename, dirname
 import datetime
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons
 import numpy as np
 import logging
 from logging import Logger
@@ -44,7 +43,7 @@ import cmcrameri as cmc
 
 from miaplpy.objects.slcStack import slcStack
 from scipy.spatial import KDTree
-
+import pdb
 
 from sarvey import version
 from sarvey.objects import Points, AmplitudeImage
@@ -53,7 +52,6 @@ from sarvey import viewer
 from sarvey.config import loadConfiguration
 import sarvey.utils as ut
 from scipy.sparse.linalg import lsqr
-from sarvey.viewer import LineSelector, ImageViewer
 from sarvey.ifg_network import IfgNetwork
 from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_3variables_hytest, oneDimSearchTemporalCoherence_3variables
 
@@ -125,8 +123,6 @@ def main():
     print(f"Estimated parameters: \nElevation (m) {demerr:.3f}, velocity (mm/yr): {vel*1000:.2f}, thermal coefficient (mm/°C): {tcoef*1000:.3f}, Coherence: {gamma:.3f}")
     #print(f"Estimated parameter: DEM error {demerr2}, velocity: {vel2}, thermal coefficient: {tcoef2}, gamma: {gamma2}")
 
-    
-
     ######### Create 4x3 subplot grid ###############
     fig, axes = plt.subplots(4, 3, figsize=(11, 13), sharey='col')
 
@@ -181,7 +177,6 @@ def main():
     axes[3, 0].grid(True, alpha=0.3)
     axes[3, 0].text(0.02, 0.95, r'$\phi - (\phi_{DEM} + \phi_{Vel} + \phi_{TCoef})$', transform=axes[3, 0].transAxes, 
                     fontsize=9, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-
 
     # Column 2: Perpendicular baseline
     # Row 1: Raw phase
@@ -268,9 +263,15 @@ def main():
     num_images = point_obj.ifg_net_obj.num_images
 
     design_mat = np.delete(arr=design_mat, obj=ref_idx, axis=1)  # remove reference date
-    phase_ts_res = lsqr(design_mat, wr_res_phase)[0]
-    phase_ts_pred = lsqr(design_mat, pred_phase)[0]
-    raw_phase = lsqr(design_mat, phase)[0]
+    phase_ts_res = np.zeros((num_points, num_images), dtype=np.float32)
+    phase_ts_pred = np.zeros((num_points, num_images), dtype=np.float32)
+    raw_phase = np.zeros((num_points, num_images), dtype=np.float32)
+    idx = np.ones((num_images,), dtype=np.bool_)
+    idx[ref_idx] = False
+
+    phase_ts_res[0, idx] = lsqr(design_mat, wr_res_phase)[0]
+    phase_ts_pred[0, idx] = lsqr(design_mat, pred_phase)[0]
+    raw_phase[0, idx] = lsqr(design_mat, phase)[0]
 
     fig, axes = plt.subplots(3, 1, figsize=(11, 13), sharex=True, sharey=True)
     dates = [datetime.date.fromisoformat(d) for d in point_obj.ifg_net_obj.dates]
