@@ -273,7 +273,7 @@ def main():
     phase_ts_pred[0, idx] = lsqr(design_mat, pred_phase)[0]
     raw_phase[0, idx] = lsqr(design_mat, phase)[0]
 
-    fig, axes = plt.subplots(3, 1, figsize=(11, 13), sharex=True, sharey=True)
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True, sharey=True)
     dates = [datetime.date.fromisoformat(d) for d in point_obj.ifg_net_obj.dates]
 
     axes[0].scatter(dates, phase_ts_pred, s=12)
