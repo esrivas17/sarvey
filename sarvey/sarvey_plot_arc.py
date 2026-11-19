@@ -52,6 +52,7 @@ from sarvey import console
 from sarvey import viewer
 from sarvey.config import loadConfiguration
 import sarvey.utils as ut
+from scipy.sparse.linalg import lsqr
 from sarvey.viewer import LineSelector, ImageViewer
 from sarvey.ifg_network import IfgNetwork
 from sarvey.unwrapping_temperature import oneDimSearchTemporalCoherence_3variables_hytest, oneDimSearchTemporalCoherence_3variables
@@ -255,6 +256,46 @@ def main():
     # Adjust layout to prevent overlapping
     plt.tight_layout()
     plt.show()
+
+    #### PLOT PREDICTED PHASE ####    
+    pred_phase = pred_phase_demerr + pred_phase_vel + pred_phase_tcoef
+    wr_res_phase = np.angle(np.exp(1j * phase) * np.conjugate(np.exp(1j * pred_phase)))
+
+    ######### INVERTING ##########
+    num_points = 1
+    ref_idx = 0
+    design_mat = point_obj.ifg_net_obj.getDesignMatrix()
+    num_images = point_obj.ifg_net_obj.num_images
+
+    design_mat = np.delete(arr=design_mat, obj=ref_idx, axis=1)  # remove reference date
+    phase_ts_res = lsqr(design_mat, wr_res_phase)[0]
+    phase_ts_pred = lsqr(design_mat, pred_phase)[0]
+    raw_phase = lsqr(design_mat, phase)[0]
+
+    fig, axes = plt.subplots(3, 1, figsize=(11, 13), sharex=True, sharey=True)
+    dates = [datetime.date.fromisoformat(d) for d in point_obj.ifg_net_obj.dates]
+
+    axes[0].scatter(dates, phase_ts_pred, s=12)
+    axes[0].set_title("Predicted phase")
+    axes[0].set_ylabel("Phase [rad]")
+
+    axes[1].scatter(dates, phase_ts_res, s=12)
+    axes[1].set_title("Residual phase")
+    axes[1].set_ylabel("Phase [rad]")
+
+    axes[2].scatter(dates, raw_phase, s=12)
+    axes[2].set_title("Raw phase")
+    axes[2].set_ylabel("Phase [rad]")
+    axes[2].set_xlabel("Date")
+
+    for ax in axes:
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(axis='x', rotation=30)
+
+    fig.tight_layout()
+    plt.show()
+
+    ##############################
 
 
 
